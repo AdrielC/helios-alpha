@@ -42,6 +42,9 @@ dev = [
 forecasting = [
     "prophet>=1.1",
 ]
+execution = [
+    "pyzmq>=26.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/helios_alpha"]

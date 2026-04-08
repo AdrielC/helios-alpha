@@ -694,6 +694,9 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+execution = [
+    { name = "pyzmq" },
+]
 forecasting = [
     { name = "prophet" },
 ]
@@ -718,12 +721,13 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "pyzmq", marker = "extra == 'execution'", specifier = ">=26.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "statsmodels", specifier = ">=0.14" },
     { name = "yfinance", specifier = ">=0.2.40" },
 ]
-provides-extras = ["dev", "forecasting"]
+provides-extras = ["dev", "forecasting", "execution"]
 
 [[package]]
 name = "holidays"

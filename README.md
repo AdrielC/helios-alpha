@@ -33,6 +33,8 @@ This is an attempt to turn the Sun into a risk factor.
 
 **Data catalog**: see [DATA_SOURCES.md](DATA_SOURCES.md).
 
+**Live path (signals → Rust)**: local ZMQ pub/sub + JSON schema — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/helios_signald/`. Install `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
+
 Parquet outputs are gitignored; regenerate locally.
 
 ## Quickstart
