@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import polars as pl
+import yaml
 
 from helios_alpha.backtest.metrics import bootstrap_mean_diff, welch_t_pvalue
 from helios_alpha.config import load_settings
@@ -32,8 +33,21 @@ def _finite_floats(values: list) -> list[float]:
 
 @dataclass
 class EventStudyConfig:
-    ssi_extreme_q: float = 0.9
-    min_control_days: int = 500
+    """Settings from the ``event_study`` block in ``config/thresholds.yaml``."""
+
+    extreme_ssi_quantile: float = 0.9
+    control_day_buffer_days: int = 3
+
+
+def load_event_study_config(thresholds_path: Path | None = None) -> EventStudyConfig:
+    s = load_settings()
+    path = thresholds_path or (s.repo_root / "config" / "thresholds.yaml")
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    es = raw.get("event_study") or {}
+    return EventStudyConfig(
+        extreme_ssi_quantile=float(es.get("extreme_ssi_quantile", 0.9)),
+        control_day_buffer_days=int(es.get("control_day_buffer_days", 3)),
+    )
 
 
 def _window_metrics(rets: list[float]) -> tuple[float, float]:
@@ -117,7 +131,8 @@ def run_event_study(
     *,
     ssi_col: str = "ssi",
     event_date_col: str = "event_date_utc",
-    extreme_quantile: float = 0.9,
+    study_cfg: EventStudyConfig | None = None,
+    thresholds_path: Path | None = None,
     as_of: date | None = None,
     trading_calendar: Any | None = None,
     filter_events_to_sessions: bool = False,
@@ -126,11 +141,17 @@ def run_event_study(
     """
     Build per-event forward outcomes, then compare high-SSI events vs non-event control days.
 
-    Control days: all trading dates for the ticker that are not within ±3 calendar days of any
-    high-SSI event date (same ticker universe).
+    Control days: all trading dates for the ticker that are not within
+    ``± study_cfg.control_day_buffer_days`` calendar days of any high-SSI event date
+    (same ticker universe). Settings default from ``config/thresholds.yaml`` via
+    ``thresholds_path`` or repo default path.
     """
     if events.is_empty() or prices.is_empty():
         return pl.DataFrame(), pl.DataFrame()
+
+    cfg = study_cfg or load_event_study_config(thresholds_path)
+    buf = cfg.control_day_buffer_days
+    extreme_q = cfg.extreme_ssi_quantile
 
     ev = events
     if as_of is not None:
@@ -147,7 +168,7 @@ def run_event_study(
         sess_idx = trading_calendar.sessions_in_range(lo, hi)
         session_labels = {pd.Timestamp(x).normalize().date() for x in sess_idx}
         ev = ev.filter(pl.col(event_date_col).is_in(list(session_labels)))
-    thr = float(ev[ssi_col].quantile(extreme_quantile))
+    thr = float(ev[ssi_col].quantile(extreme_q))
     high_dates = sorted(set(ev.filter(pl.col(ssi_col) >= thr)[event_date_col].to_list()))
 
     all_outcomes: list[pl.DataFrame] = []
@@ -183,7 +204,7 @@ def run_event_study(
             if d in high_for_ticker:
                 return False
             for hd in high_for_ticker:
-                if abs((d - hd).days) <= 3:
+                if abs((d - hd).days) <= buf:
                     return False
             return True
 
@@ -226,6 +247,8 @@ def run_event_study(
                     "ci95_high": hi,
                     "p_welch": p_welch,
                     "ssi_threshold": thr,
+                    "extreme_ssi_quantile": extreme_q,
+                    "control_day_buffer_days": buf,
                 }
             )
 
@@ -263,6 +286,8 @@ def run_event_study(
                     "ci95_high": hi2,
                     "p_welch": welch_t_pvalue(np.array(treat_rv), np.array(ctrl_rv)),
                     "ssi_threshold": thr,
+                    "extreme_ssi_quantile": extreme_q,
+                    "control_day_buffer_days": buf,
                 }
             )
 

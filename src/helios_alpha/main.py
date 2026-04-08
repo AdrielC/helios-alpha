@@ -155,6 +155,7 @@ def run_pipeline(cfg: DictConfig) -> None:
             ev_df,
             px_df,
             tickers,
+            thresholds_path=thresholds_path,
             as_of=as_of,
             trading_calendar=tcal,
             filter_events_to_sessions=bool(cfg.pipeline.trading.filter_events_to_sessions),
