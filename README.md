@@ -35,6 +35,8 @@ This is an attempt to turn the Sun into a risk factor.
 
 **Licensed market data:** [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) — default pick **Polygon.io**; `pipeline.market.provider=polygon` + `HELIOS_POLYGON_API_KEY`.
 
+**Symbols:** canonical ids + per-provider maps — [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md) (`config/instruments.yaml`, `config/assets.yaml`).
+
 **Live path (signals → Rust)**: local ZMQ pub/sub + JSON schema — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/helios_signald/`. Install `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
 
 Parquet outputs are gitignored; regenerate locally.

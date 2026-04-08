@@ -52,6 +52,7 @@ packages = ["src/helios_alpha"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "-p no:hydra_pytest"
 markers = [
     "integration: hits live APIs (run with pytest -m integration)",
 ]

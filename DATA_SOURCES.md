@@ -29,7 +29,7 @@ Authoritative links and how this repo uses them. Prefer **versioned files** or *
 | **Yahoo Finance** (via `yfinance`) | Adjusted daily OHLCV | Unofficial; no contract | Default in pipeline. **Not** for redistribution. `helios_alpha/ingest/prices.py`. |
 | **Polygon.io** | REST aggregates (daily, etc.) | Paid API key | Recommended licensed path. `HELIOS_POLYGON_API_KEY`, `pipeline.market.provider=polygon`. `helios_alpha/ingest/polygon.py`. |
 
-See [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) for vendor comparison.
+See [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) for vendor comparison. Canonical **ticker** ids and provider symbol maps: [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md).
 
 ## Facebook / Meta forecasting stacks (optional)
 

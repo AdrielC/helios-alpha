@@ -13,6 +13,7 @@
 
 ## This codebase
 
+- **Canonical ids:** `config/instruments.yaml` + `config/assets.yaml` — see [INSTRUMENTS.md](INSTRUMENTS.md).
 - **Polygon** (optional): `helios_alpha.ingest.polygon` + `pipeline.market.provider=polygon`
 - **Fallback:** `pipeline.market.provider=yfinance` (default)
 

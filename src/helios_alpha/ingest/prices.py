@@ -8,17 +8,19 @@ import polars as pl
 import yfinance as yf
 
 from helios_alpha.config import load_settings
+from helios_alpha.instruments.registry import Instrument, provider_symbol
 
 
 def download_daily_prices(
-    tickers: list[str],
+    registry: dict[str, Instrument],
+    instrument_ids: list[str],
     start: date,
     end: date,
     *,
     auto_adjust: bool = True,
 ) -> pl.DataFrame:
-    """Download split-adjusted daily OHLCV via yfinance; long schema per ticker."""
-    if not tickers:
+    """Download split-adjusted daily OHLCV via yfinance; ``ticker`` column = canonical id."""
+    if not instrument_ids:
         return pl.DataFrame(
             schema={
                 "date": pl.Date,
@@ -33,9 +35,10 @@ def download_daily_prices(
     start_s = start.isoformat()
     end_s = end.isoformat()
     frames: list[pl.DataFrame] = []
-    for t in tickers:
+    for iid in instrument_ids:
+        ysym = provider_symbol(registry, iid, "yfinance")
         df = yf.download(
-            t,
+            ysym,
             start=start_s,
             end=end_s,
             progress=False,
@@ -60,7 +63,7 @@ def download_daily_prices(
         pldf = pldf.rename({k: v for k, v in rename_map.items() if k in pldf.columns})
         pldf = pldf.with_columns(
             pl.col("date").cast(pl.Date),
-            pl.lit(t).alias("ticker"),
+            pl.lit(iid).alias("ticker"),
         )
         cols = ["date", "ticker", "open", "high", "low", "close", "volume"]
         frames.append(pldf.select([c for c in cols if c in pldf.columns]))

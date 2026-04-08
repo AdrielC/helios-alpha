@@ -17,6 +17,7 @@ from helios_alpha.ingest import geomagnetic as geo_mod
 from helios_alpha.ingest import polygon as polygon_mod
 from helios_alpha.ingest import prices as prices_mod
 from helios_alpha.ingest import protons as protons_mod
+from helios_alpha.instruments.registry import load_instrument_registry
 from helios_alpha.markets.trading_calendar import load_trading_calendar_config
 from helios_alpha.timekeeping import Clock, FrozenClock, SystemClock
 from helios_alpha.utils.time import parse_date_iso
@@ -37,12 +38,12 @@ def _repo_root() -> Path:
     return load_settings().repo_root
 
 
-def _load_tickers(path: Path) -> list[str]:
+def _load_universe_ids(path: Path) -> list[str]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     out: list[str] = []
-    for _, v in (raw.get("tickers") or {}).items():
+    for _, v in (raw.get("universe") or raw.get("tickers") or {}).items():
         if isinstance(v, list):
-            out.extend(str(x) for x in v)
+            out.extend(str(x).strip() for x in v if str(x).strip())
     return sorted(set(out))
 
 
@@ -56,9 +57,16 @@ def run_pipeline(cfg: DictConfig) -> None:
         parse_date_iso(str(raw_as_of)) if raw_as_of not in (None, "null", "") else end
     )
     assets_path = (repo / str(cfg.pipeline.paths.assets)).resolve()
+    inst_path = (repo / str(cfg.pipeline.paths.instruments)).resolve()
     thresholds_path = (repo / str(cfg.pipeline.paths.thresholds)).resolve()
     markets_path = (repo / str(cfg.pipeline.paths.markets)).resolve()
-    tickers = _load_tickers(assets_path)
+    instrument_ids = _load_universe_ids(assets_path)
+    registry = load_instrument_registry(inst_path)
+    unknown = sorted(set(instrument_ids) - set(registry.keys()))
+    if unknown:
+        msg = f"assets universe ids not in instruments.yaml: {unknown}"
+        raise ValueError(msg)
+    tickers = sorted(instrument_ids)
     tcal = load_trading_calendar_config(markets_path)
 
     if cfg.pipeline.steps.ingest_solar:
@@ -123,6 +131,7 @@ def run_pipeline(cfg: DictConfig) -> None:
         if prov == "polygon":
             s = load_settings()
             px = polygon_mod.download_daily_prices_polygon(
+                registry,
                 tickers,
                 start,
                 min(end, as_of),
@@ -130,7 +139,7 @@ def run_pipeline(cfg: DictConfig) -> None:
                 base_url=str(cfg.pipeline.market.polygon.base_url),
             )
         elif prov == "yfinance":
-            px = prices_mod.download_daily_prices(tickers, start, min(end, as_of))
+            px = prices_mod.download_daily_prices(registry, tickers, start, min(end, as_of))
         else:
             msg = f"Unknown pipeline.market.provider: {prov}"
             raise ValueError(msg)

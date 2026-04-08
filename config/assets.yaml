@@ -1,10 +1,10 @@
-# Liquid first: broad + sector + airline basket
-tickers:
+# Universe: canonical instrument ids (must exist in config/instruments.yaml)
+universe:
   broad:
     - SPY
     - QQQ
     - IWM
-    - ^VIX
+    - VIX
   sector:
     - XLU
     - XLK

@@ -9,16 +9,19 @@ Set ``HELIOS_POLYGON_API_KEY`` (see ``helios_alpha.config.Settings``).
 from __future__ import annotations
 
 from datetime import date
+from urllib.parse import quote
 
 import polars as pl
 
 from helios_alpha.config import load_settings
+from helios_alpha.instruments.registry import Instrument, provider_symbol
 from helios_alpha.utils.http import get_json
 from helios_alpha.utils.time import from_unix_epoch_ms
 
 
 def fetch_daily_aggregates(
-    ticker: str,
+    polygon_ticker: str,
+    instrument_id: str,
     start: date,
     end: date,
     *,
@@ -29,17 +32,18 @@ def fetch_daily_aggregates(
     """
     One row per session bar from Polygon v2 aggs range endpoint.
 
-    ``ticker`` should be Polygon format (e.g. ``SPY``, ``I:SPX`` for indices if licensed).
+    ``polygon_ticker`` is the provider symbol (e.g. ``I:VIX``). Rows use ``instrument_id``.
     """
     key = api_key if api_key is not None else load_settings().polygon_api_key
     if not key:
         msg = "Polygon API key missing: set HELIOS_POLYGON_API_KEY or pass api_key="
         raise ValueError(msg)
-    sym = ticker.lstrip("^").upper()
+    sym = polygon_ticker.strip()
+    sym_path = quote(sym, safe="")
     mult = 1
     span = "day"
     url = (
-        f"{base_url.rstrip('/')}/v2/aggs/ticker/{sym}/range/"
+        f"{base_url.rstrip('/')}/v2/aggs/ticker/{sym_path}/range/"
         f"{mult}/{span}/{start.isoformat()}/{end.isoformat()}"
     )
     data = get_json(url, params={"adjusted": str(adjusted).lower(), "sort": "asc", "apiKey": key})
@@ -65,7 +69,7 @@ def fetch_daily_aggregates(
         rows.append(
             {
                 "date": d,
-                "ticker": ticker,
+                "ticker": instrument_id,
                 "open": float(r["o"]),
                 "high": float(r["h"]),
                 "low": float(r["l"]),
@@ -78,7 +82,8 @@ def fetch_daily_aggregates(
 
 
 def download_daily_prices_polygon(
-    tickers: list[str],
+    registry: dict[str, Instrument],
+    instrument_ids: list[str],
     start: date,
     end: date,
     *,
@@ -86,12 +91,15 @@ def download_daily_prices_polygon(
     base_url: str = "https://api.polygon.io",
 ) -> pl.DataFrame:
     frames: list[pl.DataFrame] = []
-    for t in tickers:
-        sym = t.strip()
-        if not sym:
+    for iid in instrument_ids:
+        iid = iid.strip()
+        if not iid:
             continue
+        psym = provider_symbol(registry, iid, "polygon")
         frames.append(
-            fetch_daily_aggregates(sym, start, end, api_key=api_key, base_url=base_url)
+            fetch_daily_aggregates(
+                psym, iid, start, end, api_key=api_key, base_url=base_url
+            )
         )
     if not frames:
         return pl.DataFrame(

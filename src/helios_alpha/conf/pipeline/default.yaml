@@ -6,6 +6,7 @@ as_of_date: null
 
 paths:
   assets: config/assets.yaml
+  instruments: config/instruments.yaml
   thresholds: config/thresholds.yaml
   markets: config/markets/xnys.yaml
 
