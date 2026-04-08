@@ -1,0 +1,189 @@
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import polars as pl
+
+from helios_alpha.config import load_settings
+from helios_alpha.ingest import dst_kyoto as dst_kyoto_mod
+from helios_alpha.ingest import flares as flares_mod
+from helios_alpha.ingest import geomagnetic as geo_mod
+from helios_alpha.ingest import protons as protons_mod
+from helios_alpha.utils.time import in_utc, start_of_utc_day
+
+
+def _first_cme_id(linked: str | None) -> str | None:
+    if not linked:
+        return None
+    parts = [p.strip() for p in linked.split(",") if p.strip()]
+    return parts[0] if parts else None
+
+
+def _arrival_mid(
+    t0: datetime | None, t1: datetime | None, fallback: date | None
+) -> date | None:
+    if t0 is not None and t1 is not None:
+        if isinstance(t0, datetime) and isinstance(t1, datetime):
+            p0 = in_utc(t0)
+            p1 = in_utc(t1)
+            if p0 is not None and p1 is not None:
+                secs = (p1 - p0).total_seconds()
+                mid = p0.add(seconds=secs / 2.0)
+                return mid.date()
+    if t0 is not None and isinstance(t0, datetime):
+        p = in_utc(t0)
+        return p.date() if p else None
+    if t1 is not None and isinstance(t1, datetime):
+        p = in_utc(t1)
+        return p.date() if p else None
+    return fallback
+
+
+def _speed_to_days(speed_kms: float | None) -> float | None:
+    if speed_kms is None or speed_kms <= 0:
+        return None
+    au_km = 1.496e8
+    days = au_km / speed_kms / 86400.0
+    return float(days)
+
+
+def build_event_table(
+    flares: pl.DataFrame,
+    cmes: pl.DataFrame,
+    kp_daily: pl.DataFrame,
+    protons: pl.DataFrame | None = None,
+    dst_daily: pl.DataFrame | None = None,
+    trading_calendar: Any | None = None,
+) -> pl.DataFrame:
+    fl = flares_mod.flare_peak_trading_date(flares)
+    if trading_calendar is not None and "peak_time_utc" in fl.columns:
+        def _sess_label(ts) -> date | None:
+            if ts is None:
+                return None
+            t = pd.Timestamp(ts)
+            if t.tzinfo is None:
+                t = t.tz_localize("UTC")
+            else:
+                t = t.tz_convert("UTC")
+            return trading_calendar.align_to_trading_day(t).date()
+
+        fl = fl.with_columns(
+            pl.col("peak_time_utc")
+            .map_elements(_sess_label, return_dtype=pl.Date)
+            .alias("event_session_date")
+        )
+    fl = fl.with_columns(
+        pl.col("linked_cme_ids")
+        .map_elements(_first_cme_id, return_dtype=pl.Utf8)
+        .alias("primary_cme_id")
+    )
+    cm = cmes.rename(
+        {
+            "earth_arrival_start_utc": "cme_earth_arrival_start_utc",
+            "earth_arrival_end_utc": "cme_earth_arrival_end_utc",
+        }
+    )
+    joined = fl.join(cm, left_on="primary_cme_id", right_on="cme_id", how="left")
+    strict = (
+        pl.coalesce(pl.col("enlil_earth_gb"), pl.lit(False))
+        | pl.coalesce(pl.col("earth_impact_listed"), pl.lit(False))
+    )
+    broad = strict | pl.coalesce(pl.col("earth_directed_heuristic"), pl.lit(False))
+    joined = joined.with_columns(
+        pl.col("primary_cme_id").is_not_null().alias("cme_detected"),
+        strict.alias("earth_directed_strict"),
+        broad.alias("earth_directed_inclusive"),
+        strict.alias("earth_directed"),
+    )
+    kp_prior = kp_daily.rename(
+        {
+            "date_utc": "kp_prior_date",
+            "kp_estimated_max": "kp_estimated_max_prior_day",
+            "kp_index_max": "kp_index_max_prior_day",
+        }
+    )
+    joined = joined.with_columns(
+        pl.col("event_date_utc").dt.offset_by("-1d").alias("kp_prior_date")
+    ).join(kp_prior, on="kp_prior_date", how="left")
+
+    dst_daily = dst_daily if dst_daily is not None else pl.DataFrame()
+
+    def row_kp_dst_proxy(r: dict) -> dict:
+        peak: date = r["event_date_utc"]
+        anchor: date = r.get("event_session_date") or peak
+        t0 = r.get("cme_earth_arrival_start_utc")
+        t1 = r.get("cme_earth_arrival_end_utc")
+        speed = r.get("speed_kms")
+        est_days = _speed_to_days(speed) if speed is not None else None
+        fallback_arrival = None
+        if est_days is not None:
+            fallback_arrival = peak + timedelta(days=int(round(est_days)))
+        arrival_mid = _arrival_mid(t0, t1, fallback_arrival)
+        center = arrival_mid or anchor
+        stats = geo_mod.kp_stats_around_dates(kp_daily, [center], before_days=1, after_days=2)
+        kp_est = stats["kp_estimated_max_window"][0]
+        kp_ix = stats["kp_index_max_window"][0]
+        dst_min = None
+        if not dst_daily.is_empty():
+            ds = dst_kyoto_mod.dst_stats_around_dates(
+                dst_daily, [center], before_days=1, after_days=2
+            )
+            dst_min = ds["dst_min_window_nT"][0]
+        pmax = None
+        if protons is not None and not protons.is_empty():
+            since = start_of_utc_day(anchor)
+            until = None
+            if center:
+                end_d = center + timedelta(days=2)
+                until = start_of_utc_day(end_d)
+            pmax = protons_mod.max_proton_since(protons, since, until)
+        return {
+            "arrival_window_center_utc": center,
+            "kp_estimated_max_around_arrival": kp_est,
+            "kp_index_max_around_arrival": kp_ix,
+            "dst_min_nT_around_arrival": dst_min,
+            "proton_flux_ge10_max_post_flare": pmax,
+        }
+
+    # Polars map_elements per row is slow but fine for MVP sizes
+    py_rows = joined.to_dicts()
+    enriched = [dict(**r, **row_kp_dst_proxy(r)) for r in py_rows]
+    out = pl.DataFrame(enriched)
+    cols_preferred = [
+        "flare_id",
+        "peak_time_utc",
+        "event_session_date",
+        "event_date_utc",
+        "class_type",
+        "cme_detected",
+        "primary_cme_id",
+        "earth_directed",
+        "earth_directed_strict",
+        "earth_directed_inclusive",
+        "speed_kms",
+        "cme_earth_arrival_start_utc",
+        "cme_earth_arrival_end_utc",
+        "arrival_window_center_utc",
+        "kp_estimated_max_around_arrival",
+        "kp_index_max_around_arrival",
+        "dst_min_nT_around_arrival",
+        "kp_estimated_max_prior_day",
+        "kp_index_max_prior_day",
+        "proton_flux_ge10_max_post_flare",
+        "enlil_earth_gb",
+        "earth_impact_listed",
+        "earth_directed_heuristic",
+    ]
+    present = [c for c in cols_preferred if c in out.columns]
+    return out.select(present + [c for c in out.columns if c not in present])
+
+
+def save_event_table(df: pl.DataFrame, path: Path | None = None) -> Path:
+    s = load_settings()
+    path = path or (s.data_processed / "events" / "flare_cme_events.parquet")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.write_parquet(path)
+    return path

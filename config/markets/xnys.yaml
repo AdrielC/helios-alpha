@@ -1,0 +1,4 @@
+# US equities regular sessions (NYSE). Source of truth: exchange_calendars.
+exchange: XNYS
+# pandas CustomBusinessDay weekmask (sessions + holidays resolved via calendar, not this mask alone)
+weekmask: "Mon Tue Wed Thu Fri"

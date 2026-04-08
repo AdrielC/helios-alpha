@@ -1,0 +1,49 @@
+# Ingest + backtest window (inclusive UTC calendar dates)
+start_date: "2018-01-01"
+end_date: "2024-12-31"
+# Latest date "as of" which data are considered known (null = use end_date). Causal backtests.
+as_of_date: null
+
+paths:
+  assets: config/assets.yaml
+  instruments: config/instruments.yaml
+  thresholds: config/thresholds.yaml
+  markets: config/markets/xnys.yaml
+
+trading:
+  exchange: XNYS
+  # Drop events that fall on exchange holidays / weekends when aligning to RTH
+  filter_events_to_sessions: true
+
+# Market data: yfinance (no key, not for redistribution) | polygon (licensed; HELIOS_POLYGON_API_KEY)
+market:
+  provider: yfinance
+  polygon:
+    base_url: "https://api.polygon.io"
+    # multiplier/target for aggregates: 1 day bars → multiplier 1, timespan day
+    timespan: day
+    multiplier: 1
+
+clock:
+  # system = real wall clock (production pull only). frozen = reproducible backfill/backtest.
+  kind: system
+  frozen_iso: "2024-06-01T12:00:00+00:00"
+
+dst:
+  # kyoto_iswa: NASA ISWA mirror of WDC-Kyoto monthly Dst files (works most places).
+  # omni_cdf: NASA SPDF hourly OMNI CDF (requires network access to spdf.gsfc.nasa.gov + cdflib).
+  # none: skip Dst ingest (Dst features stay null unless parquet already on disk).
+  source: kyoto_iswa
+
+snapshots:
+  # Rolling NOAA feeds (Kp 1m, GOES protons 7d) — still merged into master parquets for continuity
+  refresh_kp: true
+  refresh_protons: true
+
+steps:
+  ingest_solar: true
+  ingest_dst: true
+  ingest_snapshots: true
+  merge_events: true
+  download_prices: true
+  event_study: true

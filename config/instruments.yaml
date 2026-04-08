@@ -1,0 +1,45 @@
+# Canonical instrument ids (internal domain). Map each id to provider-native symbols.
+# Missing provider key → use id as symbol (uppercased where needed).
+version: 1
+
+instruments:
+  - id: SPY
+    yfinance: SPY
+    polygon: SPY
+  - id: QQQ
+    yfinance: QQQ
+    polygon: QQQ
+  - id: IWM
+    yfinance: IWM
+    polygon: IWM
+  - id: VIX
+    yfinance: ^VIX
+    # Polygon indices use I: prefix; tier may vary — override if your license differs
+    polygon: I:VIX
+  - id: XLU
+    yfinance: XLU
+    polygon: XLU
+  - id: XLK
+    yfinance: XLK
+    polygon: XLK
+  - id: XLI
+    yfinance: XLI
+    polygon: XLI
+  - id: ITA
+    yfinance: ITA
+    polygon: ITA
+  - id: XLE
+    yfinance: XLE
+    polygon: XLE
+  - id: DAL
+    yfinance: DAL
+    polygon: DAL
+  - id: UAL
+    yfinance: UAL
+    polygon: UAL
+  - id: AAL
+    yfinance: AAL
+    polygon: AAL
+  - id: LUV
+    yfinance: LUV
+    polygon: LUV

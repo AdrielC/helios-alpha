@@ -1,0 +1,15 @@
+[package]
+name = "helios_signald"
+version = "0.1.0"
+edition = "2021"
+description = "Local ZMQ subscriber for helios-alpha JSON signals (hot path stub)"
+
+[dependencies]
+# Link system libzmq (pkg-config); avoid vendored C++ build that breaks on minimal toolchains.
+zmq = { version = "0.10", default-features = false, features = ["zmq_has"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[[bin]]
+name = "helios_signald"
+path = "src/main.rs"

@@ -1,0 +1,18 @@
+# Universe: canonical instrument ids (must exist in config/instruments.yaml)
+universe:
+  broad:
+    - SPY
+    - QQQ
+    - IWM
+    - VIX
+  sector:
+    - XLU
+    - XLK
+    - XLI
+    - ITA
+    - XLE
+  airlines:
+    - DAL
+    - UAL
+    - AAL
+    - LUV
