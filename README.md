@@ -7,13 +7,19 @@ This is an attempt to turn the Sun into a risk factor.
 
 ## What lives here
 
-- **Ingest**: NASA DONKI (flares, CMEs), NOAA SWPC (1-minute Kp, GOES integral protons), Yahoo Finance daily prices (`yfinance`).
+- **Ingest**: NASA DONKI (flares, CMEs), NOAA SWPC (1-minute Kp, GOES integral protons), **Kyoto Dst (ISWA mirror)** and optional **OMNI hourly CDF**, Yahoo Finance daily prices (`yfinance`).
 - **Features**: Solar Shock Index (SSI) from human priors in `config/thresholds.yaml` — tweak weights, do not worship them.
 - **Backtest**: Event-study style comparison of top-decile SSI flare days vs spaced-out control days, with a bootstrap on the mean difference.
+- **Time**: Explicit **`Clock`** (`FrozenClock` vs `SystemClock`) so backtests and backfills never depend on hidden wall time. Only `SystemClock` calls `datetime.now`.
+- **Config**: **Hydra** compose (`src/helios_alpha/conf/`) — all pipeline args are overrides.
+
+**Data catalog**: see [DATA_SOURCES.md](DATA_SOURCES.md).
 
 Parquet outputs are gitignored; regenerate locally.
 
 ## Quickstart
+
+### pip
 
 ```bash
 cd /path/to/helios-alpha
@@ -21,20 +27,49 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Optional: export HELIOS_NASA_API_KEY=... (defaults to DEMO_KEY)
-helios-pipeline --start 2018-01-01 --end 2024-12-31
+helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
+```
+
+### uv (reproducible)
+
+```bash
+uv sync
+uv run helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
+```
+
+### Frozen clock (no implicit “now” in library code)
+
+```bash
+helios-pipeline pipeline.clock.kind=frozen pipeline.clock.frozen_iso=2024-06-01T12:00:00+00:00 \
+  pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
+```
+
+### Optional forecasting (Prophet)
+
+```bash
+pip install -e ".[forecasting]"
+```
+
+Bridges: `helios_alpha/forecasting/prophet_bridge.py`, `kats_bridge.py` (Kats: separate venv — dependency conflict with modern `statsmodels`).
+
+### Tests
+
+```bash
+pytest
+pytest -m integration   # live API smoke tests
 ```
 
 Artifacts:
 
-- `data/raw/solar/flares.parquet`, `cmes.parquet`, `solar/protons_ge10.parquet`, `geomagnetic/kp_daily.parquet`, `market/daily_prices.parquet`
+- `data/raw/solar/flares.parquet`, `cmes.parquet`, `solar/protons_ge10.parquet`, `geomagnetic/kp_daily.parquet`, `geomagnetic/dst_daily.parquet`, `market/daily_prices.parquet`
 - `data/processed/events/flare_cme_events.parquet` (merged + SSI)
 - `data/processed/backtest/event_study_*.parquet`
 
-## Honest limitations (v0)
+## Honest limitations
 
-- **Dst** is not wired yet; add Kyoto or OMNI and join on storm windows when you need ring-current severity.
+- **OMNI CDF** may be unreachable from some networks; use `pipeline.dst.source=kyoto_iswa` (default).
 - **Kp “forecast” in SSI** is proxied by **prior UTC calendar day max Kp** (no lookahead relative to the flare timestamp).
-- **CME Earth arrival** often missing in ENLIL; we keep model-listed Earth hits, WSA flags, and a wide/halo **heuristic** column — read `earth_directed` as a composite flag.
+- **CME Earth arrival** often missing in ENLIL; `earth_directed_strict` = model-listed Earth or WSA flags; `earth_directed_inclusive` adds halo/heuristic; **SSI uses strict** for the Earth-directed term.
 
 ## Notebooks
 

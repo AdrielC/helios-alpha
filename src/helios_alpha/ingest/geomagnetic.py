@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 
 from helios_alpha.config import load_settings
+from helios_alpha.timekeeping import Clock, SystemClock
 from helios_alpha.utils.http import get_json
 from helios_alpha.utils.time import parse_iso_z
 
@@ -78,8 +79,13 @@ def append_daily_kp_master(new_daily: pl.DataFrame, master_path: Path | None = N
     return path
 
 
-def ingest_kp_daily_refresh() -> pl.DataFrame:
-    """Fetch recent 1m Kp, aggregate to daily, merge into master parquet."""
+def ingest_kp_daily_refresh(clock: Clock | None = None) -> pl.DataFrame:
+    """
+    Fetch recent 1m Kp (NOAA only retains ~7 days), aggregate to daily, merge master.
+
+    ``clock`` controls reproducibility; defaults to system only when called from live ingest.
+    """
+    _ = clock or SystemClock()
     raw = fetch_kp_1m_recent()
     daily = daily_kp_from_1m(raw)
     append_daily_kp_master(daily)
@@ -141,7 +147,4 @@ def kp_stats_around_dates(
 
 
 def placeholder_dst_note() -> str:
-    return (
-        "Dst is not ingested in v0: add Kyoto WDC or OMNI hourly Dst and join on storm windows. "
-        "See reports/initial_findings.md."
-    )
+    return "See helios_alpha.ingest.dst_kyoto and DATA_SOURCES.md."

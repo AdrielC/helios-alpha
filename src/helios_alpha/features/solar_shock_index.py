@@ -11,11 +11,12 @@ from pydantic import BaseModel
 
 
 class SSIWeights(BaseModel):
-    flare: float = 0.35
-    cme_speed: float = 0.2
-    earth_directed: float = 0.15
-    proton_flux: float = 0.15
-    kp_forecast: float = 0.15
+    flare: float = 0.3
+    cme_speed: float = 0.15
+    earth_directed: float = 0.1
+    proton_flux: float = 0.1
+    kp_forecast: float = 0.1
+    dst_severity: float = 0.25
 
 
 class SSIFloorsCaps(BaseModel):
@@ -61,6 +62,16 @@ def _norm_kp_prior(v: float | None) -> float:
     return min(1.0, float(v) / 9.0)
 
 
+def _norm_dst_min_window(dst_min_nT: float | None, cap: float = 150.0) -> float:
+    """dst_min is most negative Dst in window; map stronger storms toward 1.0."""
+    if dst_min_nT is None:
+        return 0.0
+    v = float(dst_min_nT)
+    if v >= 0:
+        return 0.0
+    return min(1.0, (-v) / cap)
+
+
 def load_ssi_config(path: Path | None = None) -> tuple[SSIWeights, SSIFloorsCaps]:
     from helios_alpha.config import load_settings
 
@@ -94,15 +105,19 @@ def compute_ssi(df: pl.DataFrame, config_path: Path | None = None) -> pl.DataFra
     def score_row(r: dict[str, Any]) -> dict[str, float | str]:
         flare_s = _flare_class_score(r.get("class_type"))
         speed_s = _norm_speed(r.get("speed_kms"), fc)
-        earth = 1.0 if r.get("earth_directed") else 0.0
+        strict = r.get("earth_directed_strict")
+        earth = bool(strict if strict is not None else r.get("earth_directed"))
+        earth_f = 1.0 if earth else 0.0
         prot = _norm_proton(r.get("proton_flux_ge10_max_post_flare"), fc)
         kp = _norm_kp_prior(r.get("kp_estimated_max_prior_day"))
+        dst_s = _norm_dst_min_window(r.get("dst_min_nT_around_arrival"))
         ssi = (
             w.flare * flare_s
             + w.cme_speed * speed_s
-            + w.earth_directed * earth
+            + w.earth_directed * earth_f
             + w.proton_flux * prot
             + w.kp_forecast * kp
+            + w.dst_severity * dst_s
         )
         band = "calm"
         if ssi >= thr.oh_no:

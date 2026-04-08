@@ -6,6 +6,7 @@ from pathlib import Path
 import polars as pl
 
 from helios_alpha.config import load_settings
+from helios_alpha.ingest import dst_kyoto as dst_kyoto_mod
 from helios_alpha.ingest import flares as flares_mod
 from helios_alpha.ingest import geomagnetic as geo_mod
 from helios_alpha.ingest import protons as protons_mod
@@ -45,6 +46,7 @@ def build_event_table(
     cmes: pl.DataFrame,
     kp_daily: pl.DataFrame,
     protons: pl.DataFrame | None = None,
+    dst_daily: pl.DataFrame | None = None,
 ) -> pl.DataFrame:
     fl = flares_mod.flare_peak_trading_date(flares)
     fl = fl.with_columns(
@@ -59,13 +61,16 @@ def build_event_table(
         }
     )
     joined = fl.join(cm, left_on="primary_cme_id", right_on="cme_id", how="left")
+    strict = (
+        pl.coalesce(pl.col("enlil_earth_gb"), pl.lit(False))
+        | pl.coalesce(pl.col("earth_impact_listed"), pl.lit(False))
+    )
+    broad = strict | pl.coalesce(pl.col("earth_directed_heuristic"), pl.lit(False))
     joined = joined.with_columns(
         pl.col("primary_cme_id").is_not_null().alias("cme_detected"),
-        (
-            pl.coalesce(pl.col("enlil_earth_gb"), pl.lit(False))
-            | pl.coalesce(pl.col("earth_impact_listed"), pl.lit(False))
-            | pl.coalesce(pl.col("earth_directed_heuristic"), pl.lit(False))
-        ).alias("earth_directed"),
+        strict.alias("earth_directed_strict"),
+        broad.alias("earth_directed_inclusive"),
+        strict.alias("earth_directed"),
     )
     kp_prior = kp_daily.rename(
         {
@@ -77,6 +82,8 @@ def build_event_table(
     joined = joined.with_columns(
         pl.col("event_date_utc").dt.offset_by("-1d").alias("kp_prior_date")
     ).join(kp_prior, on="kp_prior_date", how="left")
+
+    dst_daily = dst_daily if dst_daily is not None else pl.DataFrame()
 
     def row_kp_dst_proxy(r: dict) -> dict:
         peak: date = r["event_date_utc"]
@@ -92,6 +99,12 @@ def build_event_table(
         stats = geo_mod.kp_stats_around_dates(kp_daily, [center], before_days=1, after_days=2)
         kp_est = stats["kp_estimated_max_window"][0]
         kp_ix = stats["kp_index_max_window"][0]
+        dst_min = None
+        if not dst_daily.is_empty():
+            ds = dst_kyoto_mod.dst_stats_around_dates(
+                dst_daily, [center], before_days=1, after_days=2
+            )
+            dst_min = ds["dst_min_window_nT"][0]
         pmax = None
         if protons is not None and not protons.is_empty():
             since = datetime.combine(peak, datetime.min.time()).replace(tzinfo=UTC)
@@ -104,6 +117,7 @@ def build_event_table(
             "arrival_window_center_utc": center,
             "kp_estimated_max_around_arrival": kp_est,
             "kp_index_max_around_arrival": kp_ix,
+            "dst_min_nT_around_arrival": dst_min,
             "proton_flux_ge10_max_post_flare": pmax,
         }
 
@@ -119,12 +133,15 @@ def build_event_table(
         "cme_detected",
         "primary_cme_id",
         "earth_directed",
+        "earth_directed_strict",
+        "earth_directed_inclusive",
         "speed_kms",
         "cme_earth_arrival_start_utc",
         "cme_earth_arrival_end_utc",
         "arrival_window_center_utc",
         "kp_estimated_max_around_arrival",
         "kp_index_max_around_arrival",
+        "dst_min_nT_around_arrival",
         "kp_estimated_max_prior_day",
         "kp_index_max_prior_day",
         "proton_flux_ge10_max_post_flare",

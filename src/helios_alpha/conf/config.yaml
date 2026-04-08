@@ -1,0 +1,6 @@
+defaults:
+  - pipeline: default
+  - _self_
+
+# Repository root (override with hydra: `repo_root=/abs/path` when needed)
+repo_root: ${oc.env:HELIOS_REPO_ROOT,.}

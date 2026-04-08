@@ -1,10 +1,11 @@
 solar_shock_index:
   weights:
-    flare: 0.35
-    cme_speed: 0.2
-    earth_directed: 0.15
-    proton_flux: 0.15
-    kp_forecast: 0.15
+    flare: 0.3
+    cme_speed: 0.15
+    earth_directed: 0.1
+    proton_flux: 0.1
+    kp_forecast: 0.1
+    dst_severity: 0.25
   floors_caps:
     speed_floor_kms: 200
     speed_cap_kms: 2000

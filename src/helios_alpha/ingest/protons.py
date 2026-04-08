@@ -5,6 +5,7 @@ from pathlib import Path
 import polars as pl
 
 from helios_alpha.config import load_settings
+from helios_alpha.timekeeping import Clock, SystemClock
 from helios_alpha.utils.http import get_json
 from helios_alpha.utils.time import parse_iso_z
 
@@ -60,7 +61,8 @@ def append_proton_snapshots(new: pl.DataFrame, master_path: Path | None = None) 
     return path
 
 
-def ingest_protons_refresh() -> pl.DataFrame:
+def ingest_protons_refresh(clock: Clock | None = None) -> pl.DataFrame:
+    _ = clock or SystemClock()
     raw = fetch_goes_integral_protons_7d()
     append_proton_snapshots(raw)
     return pivot_ge10(raw)

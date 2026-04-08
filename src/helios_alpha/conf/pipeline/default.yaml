@@ -1,0 +1,31 @@
+# Ingest + backtest window (inclusive UTC dates)
+start_date: "2018-01-01"
+end_date: "2024-12-31"
+
+paths:
+  assets: config/assets.yaml
+  thresholds: config/thresholds.yaml
+
+clock:
+  # system = real wall clock (production pull only). frozen = reproducible backfill/backtest.
+  kind: system
+  frozen_iso: "2024-06-01T12:00:00+00:00"
+
+dst:
+  # kyoto_iswa: NASA ISWA mirror of WDC-Kyoto monthly Dst files (works most places).
+  # omni_cdf: NASA SPDF hourly OMNI CDF (requires network access to spdf.gsfc.nasa.gov + cdflib).
+  # none: skip Dst ingest (Dst features stay null unless parquet already on disk).
+  source: kyoto_iswa
+
+snapshots:
+  # Rolling NOAA feeds (Kp 1m, GOES protons 7d) — still merged into master parquets for continuity
+  refresh_kp: true
+  refresh_protons: true
+
+steps:
+  ingest_solar: true
+  ingest_dst: true
+  ingest_snapshots: true
+  merge_events: true
+  download_prices: true
+  event_study: true
