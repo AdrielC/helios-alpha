@@ -82,6 +82,8 @@ pytest
 pytest -m integration   # live API smoke tests
 ```
 
+CI (GitHub Actions): **ruff** + **pytest** (unit always; integration job is best-effort), **Rust** `cargo build` for `rust/helios_signald` with `libzmq3-dev` + `g++`.
+
 Artifacts:
 
 - `data/raw/solar/flares.parquet`, `cmes.parquet`, `solar/protons_ge10.parquet`, `geomagnetic/kp_daily.parquet`, `geomagnetic/dst_daily.parquet`, `market/daily_prices.parquet`
