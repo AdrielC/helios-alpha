@@ -1,3 +1,19 @@
+```
+    _________________________________________________________________
+   /                                                                 \
+  |   .     *     .         *              h e l i o s - a l p h a   |
+  |      *    \  |  /    *                                          |
+  |   .    . -- ( @ ) -- .    .        flare  ·  cme  ·  dst  ·  book |
+  |      *    /  |  \    *                                          |
+  |   .     *     .         *                                       |
+  |              \ | /                                              |
+  |               \|/   space weather in  -->  risk out  -->  PnL   |
+  |                |                                                |
+  |    ~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~   |
+  |      |   |   |   |   |   |   |   |   |   |   |   |   |   |      |
+   \_____|___|___|___|___|___|___|___|___|___|___|___|___|___|_____/
+```
+
 # helios-alpha
 
 A research repo for testing whether space weather events, especially solar flares, coronal mass ejections, and geomagnetic storms, create measurable effects in financial markets through infrastructure stress, operational disruption, volatility regime shifts, or delayed news transmission.
