@@ -1,0 +1,18 @@
+# Liquid first: broad + sector + airline basket
+tickers:
+  broad:
+    - SPY
+    - QQQ
+    - IWM
+    - ^VIX
+  sector:
+    - XLU
+    - XLK
+    - XLI
+    - ITA
+    - XLE
+  airlines:
+    - DAL
+    - UAL
+    - AAL
+    - LUV

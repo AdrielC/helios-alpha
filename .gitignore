@@ -194,6 +194,10 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# helios-alpha data artifacts (regenerate with helios-pipeline)
+data/raw/**/*.parquet
+data/processed/**/*.parquet
+
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data

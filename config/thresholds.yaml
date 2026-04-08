@@ -1,0 +1,20 @@
+solar_shock_index:
+  weights:
+    flare: 0.35
+    cme_speed: 0.2
+    earth_directed: 0.15
+    proton_flux: 0.15
+    kp_forecast: 0.15
+  floors_caps:
+    speed_floor_kms: 200
+    speed_cap_kms: 2000
+    proton_floor: 0.1
+    proton_cap: 10000
+  bands:
+    watch: 0.35
+    warning: 0.55
+    oh_no: 0.75
+
+event_study:
+  extreme_ssi_quantile: 0.9
+  control_day_buffer_days: 3
