@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
+import pandas as pd
 import polars as pl
 
 from helios_alpha.config import load_settings
@@ -47,8 +49,25 @@ def build_event_table(
     kp_daily: pl.DataFrame,
     protons: pl.DataFrame | None = None,
     dst_daily: pl.DataFrame | None = None,
+    trading_calendar: Any | None = None,
 ) -> pl.DataFrame:
     fl = flares_mod.flare_peak_trading_date(flares)
+    if trading_calendar is not None and "peak_time_utc" in fl.columns:
+        def _sess_label(ts) -> date | None:
+            if ts is None:
+                return None
+            t = pd.Timestamp(ts)
+            if t.tzinfo is None:
+                t = t.tz_localize("UTC")
+            else:
+                t = t.tz_convert("UTC")
+            return trading_calendar.align_to_trading_day(t).date()
+
+        fl = fl.with_columns(
+            pl.col("peak_time_utc")
+            .map_elements(_sess_label, return_dtype=pl.Date)
+            .alias("event_session_date")
+        )
     fl = fl.with_columns(
         pl.col("linked_cme_ids")
         .map_elements(_first_cme_id, return_dtype=pl.Utf8)
@@ -87,6 +106,7 @@ def build_event_table(
 
     def row_kp_dst_proxy(r: dict) -> dict:
         peak: date = r["event_date_utc"]
+        anchor: date = r.get("event_session_date") or peak
         t0 = r.get("cme_earth_arrival_start_utc")
         t1 = r.get("cme_earth_arrival_end_utc")
         speed = r.get("speed_kms")
@@ -95,7 +115,7 @@ def build_event_table(
         if est_days is not None:
             fallback_arrival = peak + timedelta(days=int(round(est_days)))
         arrival_mid = _arrival_mid(t0, t1, fallback_arrival)
-        center = arrival_mid or peak
+        center = arrival_mid or anchor
         stats = geo_mod.kp_stats_around_dates(kp_daily, [center], before_days=1, after_days=2)
         kp_est = stats["kp_estimated_max_window"][0]
         kp_ix = stats["kp_index_max_window"][0]
@@ -107,7 +127,7 @@ def build_event_table(
             dst_min = ds["dst_min_window_nT"][0]
         pmax = None
         if protons is not None and not protons.is_empty():
-            since = datetime.combine(peak, datetime.min.time()).replace(tzinfo=UTC)
+            since = datetime.combine(anchor, datetime.min.time()).replace(tzinfo=UTC)
             until = None
             if center:
                 end_d = center + timedelta(days=2)
@@ -128,6 +148,7 @@ def build_event_table(
     cols_preferred = [
         "flare_id",
         "peak_time_utc",
+        "event_session_date",
         "event_date_utc",
         "class_type",
         "cme_detected",

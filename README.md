@@ -10,7 +10,9 @@ This is an attempt to turn the Sun into a risk factor.
 - **Ingest**: NASA DONKI (flares, CMEs), NOAA SWPC (1-minute Kp, GOES integral protons), **Kyoto Dst (ISWA mirror)** and optional **OMNI hourly CDF**, Yahoo Finance daily prices (`yfinance`).
 - **Features**: Solar Shock Index (SSI) from human priors in `config/thresholds.yaml` — tweak weights, do not worship them.
 - **Backtest**: Event-study style comparison of top-decile SSI flare days vs spaced-out control days, with a bootstrap on the mean difference.
-- **Time**: Explicit **`Clock`** (`FrozenClock` vs `SystemClock`) so backtests and backfills never depend on hidden wall time. Only `SystemClock` calls `datetime.now`.
+- **Time**: **`pendulum`** + explicit **`Clock`** (`FrozenClock` vs `SystemClock`). Only `SystemClock` calls `pendulum.now("UTC")` — no hidden wall time in library modules.
+- **Sessions**: **`exchange_calendars`** (XNYS) + pandas **`CustomBusinessDay` / `CustomBusinessHour`** — see [docs/TRADING_CALENDAR.md](docs/TRADING_CALENDAR.md).
+- **Causal cut**: `pipeline.as_of_date` threads through ingest windows and the event study (default: `end_date`).
 - **Config**: **Hydra** compose (`src/helios_alpha/conf/`) — all pipeline args are overrides.
 
 **Data catalog**: see [DATA_SOURCES.md](DATA_SOURCES.md).
@@ -28,13 +30,16 @@ pip install -e ".[dev]"
 
 # Optional: export HELIOS_NASA_API_KEY=... (defaults to DEMO_KEY)
 helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
+
+# Causal cut: only data through as_of_date (defaults to end_date if omitted)
+helios-pipeline pipeline.start_date=2020-01-01 pipeline.end_date=2024-12-31 pipeline.as_of_date=2023-06-30
 ```
 
 ### uv (reproducible)
 
 ```bash
 uv sync
-uv run helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
+uv run helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31 pipeline.as_of_date=2024-01-31
 ```
 
 ### Frozen clock (no implicit “now” in library code)

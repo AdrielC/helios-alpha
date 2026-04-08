@@ -1,10 +1,18 @@
-# Ingest + backtest window (inclusive UTC dates)
+# Ingest + backtest window (inclusive UTC calendar dates)
 start_date: "2018-01-01"
 end_date: "2024-12-31"
+# Latest date "as of" which data are considered known (null = use end_date). Causal backtests.
+as_of_date: null
 
 paths:
   assets: config/assets.yaml
   thresholds: config/thresholds.yaml
+  markets: config/markets/xnys.yaml
+
+trading:
+  exchange: XNYS
+  # Drop events that fall on exchange holidays / weekends when aligning to RTH
+  filter_events_to_sessions: true
 
 clock:
   # system = real wall clock (production pull only). frozen = reproducible backfill/backtest.

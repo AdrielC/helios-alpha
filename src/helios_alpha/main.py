@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
+import pendulum
 import polars as pl
 import yaml
 from omegaconf import DictConfig, OmegaConf
@@ -16,6 +17,7 @@ from helios_alpha.ingest import flares as flares_mod
 from helios_alpha.ingest import geomagnetic as geo_mod
 from helios_alpha.ingest import prices as prices_mod
 from helios_alpha.ingest import protons as protons_mod
+from helios_alpha.markets.trading_calendar import load_trading_calendar_config
 from helios_alpha.timekeeping import Clock, FrozenClock, SystemClock
 
 
@@ -26,7 +28,7 @@ def _clock_from_cfg(cfg: DictConfig) -> Clock:
         if not iso:
             msg = "pipeline.clock.frozen_iso required when kind=frozen"
             raise ValueError(msg)
-        return FrozenClock(datetime.fromisoformat(str(iso).replace("Z", "+00:00")))
+        return FrozenClock(pendulum.parse(str(iso), tz="UTC"))
     return SystemClock()
 
 
@@ -48,14 +50,18 @@ def run_pipeline(cfg: DictConfig) -> None:
     repo = _repo_root()
     start = date.fromisoformat(str(cfg.pipeline.start_date))
     end = date.fromisoformat(str(cfg.pipeline.end_date))
+    raw_as_of = OmegaConf.select(cfg, "pipeline.as_of_date")
+    as_of = date.fromisoformat(str(raw_as_of)) if raw_as_of not in (None, "null", "") else end
     assets_path = (repo / str(cfg.pipeline.paths.assets)).resolve()
     thresholds_path = (repo / str(cfg.pipeline.paths.thresholds)).resolve()
+    markets_path = (repo / str(cfg.pipeline.paths.markets)).resolve()
     tickers = _load_tickers(assets_path)
+    tcal = load_trading_calendar_config(markets_path)
 
     if cfg.pipeline.steps.ingest_solar:
         print("Fetching DONKI flares / CMEs …")
-        fl = flares_mod.fetch_flares_range(start, end)
-        cm = cmes_mod.fetch_cmes_range(start, end)
+        fl = flares_mod.fetch_flares_range(start, min(end, as_of))
+        cm = cmes_mod.fetch_cmes_range(start, min(end, as_of))
         flares_mod.save_flares_parquet(fl)
         cmes_mod.save_cmes_parquet(cm)
     else:
@@ -66,10 +72,10 @@ def run_pipeline(cfg: DictConfig) -> None:
         src = str(cfg.pipeline.dst.source)
         if src == "kyoto_iswa":
             print("Ingesting Kyoto Dst (ISWA mirror) …")
-            dst_kyoto.ingest_kyoto_dst_range(start, end)
+            dst_kyoto.ingest_kyoto_dst_range(start, min(end, as_of))
         elif src == "omni_cdf":
             print("Ingesting OMNI hourly CDF Dst (SPDF) …")
-            h = omni_dst.fetch_omni_dst_range(start, end)
+            h = omni_dst.fetch_omni_dst_range(start, min(end, as_of))
             if not h.is_empty():
                 omni_dst.merge_omni_dst_daily_from_hourly(h)
             else:
@@ -103,13 +109,14 @@ def run_pipeline(cfg: DictConfig) -> None:
             kp,
             protons if not protons.is_empty() else None,
             dst_daily=dst if not dst.is_empty() else None,
+            trading_calendar=tcal,
         )
         ev = compute_ssi(ev, config_path=thresholds_path)
         merge_events.save_event_table(ev)
 
     if cfg.pipeline.steps.download_prices:
         print("Downloading daily prices …")
-        px = prices_mod.download_daily_prices(tickers, start, end)
+        px = prices_mod.download_daily_prices(tickers, start, min(end, as_of))
         prices_mod.save_prices_parquet(px)
 
     if cfg.pipeline.steps.event_study:
@@ -118,7 +125,15 @@ def run_pipeline(cfg: DictConfig) -> None:
         px_path = repo / "data/raw/market/daily_prices.parquet"
         ev_df = pl.read_parquet(ev_path) if ev_path.exists() else pl.DataFrame()
         px_df = pl.read_parquet(px_path) if px_path.exists() else pl.DataFrame()
-        outcomes, summary = es.run_event_study(ev_df, px_df, tickers)
+        outcomes, summary = es.run_event_study(
+            ev_df,
+            px_df,
+            tickers,
+            as_of=as_of,
+            trading_calendar=tcal,
+            filter_events_to_sessions=bool(cfg.pipeline.trading.filter_events_to_sessions),
+            use_session_horizons=True,
+        )
         es.save_event_study(outcomes, summary)
 
     _ = clock

@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from datetime import date
 from math import isfinite
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import pandas as pd
 import polars as pl
 
 from helios_alpha.backtest.metrics import bootstrap_mean_diff, welch_t_pvalue
@@ -60,9 +62,20 @@ def _window_metrics(rets: list[float]) -> tuple[float, float]:
 
 
 def forward_outcomes_for_ticker(
-    prices: pl.DataFrame, ticker: str, event_dates: list[date]
+    prices: pl.DataFrame,
+    ticker: str,
+    event_dates: list[date],
+    *,
+    trading_calendar: Any | None = None,
+    use_session_horizons: bool = False,
 ) -> pl.DataFrame:
-    """Rows per event date with forward cumulative return and RV for each horizon window."""
+    """
+    Rows per event date with forward cumulative return and RV for each horizon window.
+
+    If ``use_session_horizons`` and ``trading_calendar`` are set, horizon ``k`` means
+    **k sessions forward** on the exchange calendar (CustomBusinessDay semantics), not
+    ``k`` consecutive rows in the panel (which can differ if bars are missing).
+    """
     p = (
         prices.filter(pl.col("ticker") == ticker)
         .sort("date")
@@ -80,7 +93,16 @@ def forward_outcomes_for_ticker(
             continue
         row: dict = {"event_date_utc": ed, "ticker": ticker}
         for k in HORIZONS:
-            sl = rets[i0 : i0 + k + 1]
+            if use_session_horizons and trading_calendar is not None:
+                end_d = trading_calendar.session_offset_date(ed, k)
+                i1 = d2i.get(end_d)
+                if i1 is None or i1 < i0:
+                    row[f"ret_cum_{k}"] = float("nan")
+                    row[f"rv_ann_{k}"] = float("nan")
+                    continue
+                sl = rets[i0 : i1 + 1]
+            else:
+                sl = rets[i0 : i0 + k + 1]
             cum_r, rv = _window_metrics(sl)
             row[f"ret_cum_{k}"] = cum_r
             row[f"rv_ann_{k}"] = rv
@@ -96,6 +118,10 @@ def run_event_study(
     ssi_col: str = "ssi",
     event_date_col: str = "event_date_utc",
     extreme_quantile: float = 0.9,
+    as_of: date | None = None,
+    trading_calendar: Any | None = None,
+    filter_events_to_sessions: bool = False,
+    use_session_horizons: bool = False,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """
     Build per-event forward outcomes, then compare high-SSI events vs non-event control days.
@@ -106,13 +132,35 @@ def run_event_study(
     if events.is_empty() or prices.is_empty():
         return pl.DataFrame(), pl.DataFrame()
 
-    ev = events.drop_nulls(subset=[ssi_col, event_date_col])
+    ev = events
+    if as_of is not None:
+        ev = ev.filter(pl.col(event_date_col) <= pl.lit(as_of))
+    px = prices
+    if as_of is not None:
+        px = px.filter(pl.col("date") <= pl.lit(as_of))
+
+    ev = ev.drop_nulls(subset=[ssi_col, event_date_col])
+
+    if filter_events_to_sessions and trading_calendar is not None and not ev.is_empty():
+        lo = ev[event_date_col].min()
+        hi = ev[event_date_col].max()
+        sess_idx = trading_calendar.sessions_in_range(lo, hi)
+        session_labels = {pd.Timestamp(x).normalize().date() for x in sess_idx}
+        ev = ev.filter(pl.col(event_date_col).is_in(list(session_labels)))
     thr = float(ev[ssi_col].quantile(extreme_quantile))
     high_dates = sorted(set(ev.filter(pl.col(ssi_col) >= thr)[event_date_col].to_list()))
 
     all_outcomes: list[pl.DataFrame] = []
     for t in tickers:
-        all_outcomes.append(forward_outcomes_for_ticker(prices, t, high_dates))
+        all_outcomes.append(
+            forward_outcomes_for_ticker(
+                px,
+                t,
+                high_dates,
+                trading_calendar=trading_calendar,
+                use_session_horizons=use_session_horizons,
+            )
+        )
     outcomes = pl.concat(all_outcomes, how="vertical_relaxed") if all_outcomes else pl.DataFrame()
 
     ssi_by_date = (
@@ -124,7 +172,7 @@ def run_event_study(
 
     summary_rows: list[dict] = []
     for t in tickers:
-        p = prices.filter(pl.col("ticker") == t).sort("date")
+        p = px.filter(pl.col("ticker") == t).sort("date")
         if p.is_empty():
             continue
         dates = p["date"].to_list()
