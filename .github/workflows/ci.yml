@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and dev deps
+        run: pip install -e ".[dev,execution]"
+
+      - name: Ruff
+        run: python -m ruff check src/helios_alpha tests
+
+      - name: Pytest (unit)
+        run: python -m pytest tests/ -m "not integration" -v --tb=short
+
+  python-integration:
+    runs-on: ubuntu-latest
+    # Network + external APIs; run on main and PRs but don't block merges if NASA/SWPC blip
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[dev,execution]"
+
+      - name: Pytest (integration)
+        run: python -m pytest tests/ -m integration -v --tb=short
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libzmq3-dev pkg-config g++
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cargo build (helios_signald)
+        working-directory: rust/helios_signald
+        run: cargo build --release
