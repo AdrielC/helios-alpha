@@ -14,6 +14,7 @@ from helios_alpha.ingest import cmes as cmes_mod
 from helios_alpha.ingest import dst_kyoto, merge_events, omni_dst
 from helios_alpha.ingest import flares as flares_mod
 from helios_alpha.ingest import geomagnetic as geo_mod
+from helios_alpha.ingest import polygon as polygon_mod
 from helios_alpha.ingest import prices as prices_mod
 from helios_alpha.ingest import protons as protons_mod
 from helios_alpha.markets.trading_calendar import load_trading_calendar_config
@@ -117,8 +118,22 @@ def run_pipeline(cfg: DictConfig) -> None:
         merge_events.save_event_table(ev)
 
     if cfg.pipeline.steps.download_prices:
-        print("Downloading daily prices …")
-        px = prices_mod.download_daily_prices(tickers, start, min(end, as_of))
+        prov = str(OmegaConf.select(cfg, "pipeline.market.provider") or "yfinance")
+        print(f"Downloading daily prices ({prov}) …")
+        if prov == "polygon":
+            s = load_settings()
+            px = polygon_mod.download_daily_prices_polygon(
+                tickers,
+                start,
+                min(end, as_of),
+                api_key=s.polygon_api_key or None,
+                base_url=str(cfg.pipeline.market.polygon.base_url),
+            )
+        elif prov == "yfinance":
+            px = prices_mod.download_daily_prices(tickers, start, min(end, as_of))
+        else:
+            msg = f"Unknown pipeline.market.provider: {prov}"
+            raise ValueError(msg)
         prices_mod.save_prices_parquet(px)
 
     if cfg.pipeline.steps.event_study:

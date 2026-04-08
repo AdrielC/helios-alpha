@@ -22,11 +22,14 @@ Authoritative links and how this repo uses them. Prefer **versioned files** or *
 |--------|------|----------|--------|
 | **NOAA SWPC GOES** | Integral proton flux, multiple energies, ~7 day JSON | `https://services.swpc.noaa.gov/json/goes/primary/integral-protons-7-day.json` | We keep `>=10 MeV` as `protons_ge10.parquet`. |
 
-## Market prices (illustrative / research only)
+## Market prices
 
 | Source | What | Access | Notes |
 |--------|------|--------|--------|
-| **Yahoo Finance** (via `yfinance`) | Adjusted daily OHLCV | Unofficial; no contract | **Not** a vendor of record. For serious microstructure work, replace with a licensed feed. `helios_alpha/ingest/prices.py`. |
+| **Yahoo Finance** (via `yfinance`) | Adjusted daily OHLCV | Unofficial; no contract | Default in pipeline. **Not** for redistribution. `helios_alpha/ingest/prices.py`. |
+| **Polygon.io** | REST aggregates (daily, etc.) | Paid API key | Recommended licensed path. `HELIOS_POLYGON_API_KEY`, `pipeline.market.provider=polygon`. `helios_alpha/ingest/polygon.py`. |
+
+See [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) for vendor comparison.
 
 ## Facebook / Meta forecasting stacks (optional)
 

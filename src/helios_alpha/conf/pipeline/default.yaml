@@ -14,6 +14,15 @@ trading:
   # Drop events that fall on exchange holidays / weekends when aligning to RTH
   filter_events_to_sessions: true
 
+# Market data: yfinance (no key, not for redistribution) | polygon (licensed; HELIOS_POLYGON_API_KEY)
+market:
+  provider: yfinance
+  polygon:
+    base_url: "https://api.polygon.io"
+    # multiplier/target for aggregates: 1 day bars → multiplier 1, timespan day
+    timespan: day
+    multiplier: 1
+
 clock:
   # system = real wall clock (production pull only). frozen = reproducible backfill/backtest.
   kind: system

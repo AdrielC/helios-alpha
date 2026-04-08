@@ -5,6 +5,7 @@ from helios_alpha.ingest import (
     geomagnetic,
     merge_events,
     omni_dst,
+    polygon,
     prices,
     protons,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "geomagnetic",
     "merge_events",
     "omni_dst",
+    "polygon",
     "prices",
     "protons",
 ]
