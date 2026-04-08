@@ -4,8 +4,10 @@
 
 1. **Exchange truth** for holidays and session open/close (DST-aware): `exchange_calendars` (`XNYS` by default).
 2. **Pandas** for `CustomBusinessDay` / `CustomBusinessHour` when you need offsets in **trading time**.
-3. **Pendulum** for parsing and “wall clock” in ingest (`Clock` in `helios_alpha/timekeeping.py`).
+3. **Pendulum** for parsing, UTC instants, and `Clock` (`helios_alpha/timekeeping.py`). Use `helios_alpha.utils.time.to_pandas_timestamp` when bridging to `exchange_calendars`.
 4. **Causal backtests**: `pipeline.as_of_date` caps which flare rows and price bars are visible.
+
+See also [PENDULUM_AND_PANDAS.md](PENDULUM_AND_PANDAS.md).
 
 ## Code map
 

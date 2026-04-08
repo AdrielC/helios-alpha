@@ -18,7 +18,10 @@ from typing import Any
 
 import exchange_calendars as xc
 import pandas as pd
+import pendulum
 import yaml
+
+from helios_alpha.utils.time import to_pandas_timestamp
 
 
 @dataclass(frozen=True)
@@ -102,11 +105,14 @@ class TradingCalendar:
 
     def align_to_trading_day(self, ts: pd.Timestamp | date) -> pd.Timestamp:
         """Session **date** label for the session containing instant ``ts`` (UTC-aware)."""
-        t = pd.Timestamp(ts)
-        if t.tzinfo is None:
-            t = t.tz_localize("UTC")
+        if isinstance(ts, pd.Timestamp):
+            t = ts
+            if t.tzinfo is None:
+                t = t.tz_localize("UTC")
+            else:
+                t = t.tz_convert("UTC")
         else:
-            t = t.tz_convert("UTC")
+            t = to_pandas_timestamp(pendulum.datetime(ts.year, ts.month, ts.day, tz="UTC"))
         return self.cal.minute_to_session(t)
 
     def session_offset_date(self, session_label: date | pd.Timestamp, periods: int) -> date:

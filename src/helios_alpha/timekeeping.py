@@ -7,7 +7,7 @@ Library code must not call ``pendulum.now`` or ``datetime.now`` except inside
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from typing import Protocol, runtime_checkable
 
 import pendulum
@@ -52,4 +52,6 @@ class FrozenClock:
 
 
 def utc_today_offset(clock: Clock, days: int) -> date:
-    return clock.today_utc() + timedelta(days=days)
+    d = clock.today_utc()
+    nd = pendulum.date(d.year, d.month, d.day).add(days=days)
+    return date(nd.year, nd.month, nd.day)

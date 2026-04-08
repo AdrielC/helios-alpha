@@ -26,7 +26,7 @@ This is an attempt to turn the Sun into a risk factor.
 - **Ingest**: NASA DONKI (flares, CMEs), NOAA SWPC (1-minute Kp, GOES integral protons), **Kyoto Dst (ISWA mirror)** and optional **OMNI hourly CDF**, Yahoo Finance daily prices (`yfinance`).
 - **Features**: Solar Shock Index (SSI) from human priors in `config/thresholds.yaml` — tweak weights, do not worship them.
 - **Backtest**: Event-study style comparison of top-decile SSI flare days vs spaced-out control days, with a bootstrap on the mean difference.
-- **Time**: **`pendulum`** + explicit **`Clock`** (`FrozenClock` vs `SystemClock`). Only `SystemClock` calls `pendulum.now("UTC")` — no hidden wall time in library modules.
+- **Time**: **`pendulum`** everywhere we parse, construct, or shift instants; stdlib **`date`** only at Polars/pandas/yfinance edges. **`Clock`** (`FrozenClock` vs `SystemClock`); only `SystemClock` calls `pendulum.now("UTC")`. See [docs/PENDULUM_AND_PANDAS.md](docs/PENDULUM_AND_PANDAS.md).
 - **Sessions**: **`exchange_calendars`** (XNYS) + pandas **`CustomBusinessDay` / `CustomBusinessHour`** — see [docs/TRADING_CALENDAR.md](docs/TRADING_CALENDAR.md).
 - **Causal cut**: `pipeline.as_of_date` threads through ingest windows and the event study (default: `end_date`).
 - **Config**: **Hydra** compose (`src/helios_alpha/conf/`) — all pipeline args are overrides.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +12,7 @@ from helios_alpha.ingest import dst_kyoto as dst_kyoto_mod
 from helios_alpha.ingest import flares as flares_mod
 from helios_alpha.ingest import geomagnetic as geo_mod
 from helios_alpha.ingest import protons as protons_mod
+from helios_alpha.utils.time import in_utc, start_of_utc_day
 
 
 def _first_cme_id(linked: str | None) -> str | None:
@@ -26,12 +27,18 @@ def _arrival_mid(
 ) -> date | None:
     if t0 is not None and t1 is not None:
         if isinstance(t0, datetime) and isinstance(t1, datetime):
-            mid = t0 + (t1 - t0) / 2
-            return mid.astimezone(UTC).date()
+            p0 = in_utc(t0)
+            p1 = in_utc(t1)
+            if p0 is not None and p1 is not None:
+                secs = (p1 - p0).total_seconds()
+                mid = p0.add(seconds=secs / 2.0)
+                return mid.date()
     if t0 is not None and isinstance(t0, datetime):
-        return t0.astimezone(UTC).date()
+        p = in_utc(t0)
+        return p.date() if p else None
     if t1 is not None and isinstance(t1, datetime):
-        return t1.astimezone(UTC).date()
+        p = in_utc(t1)
+        return p.date() if p else None
     return fallback
 
 
@@ -127,11 +134,11 @@ def build_event_table(
             dst_min = ds["dst_min_window_nT"][0]
         pmax = None
         if protons is not None and not protons.is_empty():
-            since = datetime.combine(anchor, datetime.min.time()).replace(tzinfo=UTC)
+            since = start_of_utc_day(anchor)
             until = None
             if center:
                 end_d = center + timedelta(days=2)
-                until = datetime.combine(end_d, datetime.min.time()).replace(tzinfo=UTC)
+                until = start_of_utc_day(end_d)
             pmax = protons_mod.max_proton_since(protons, since, until)
         return {
             "arrival_window_center_utc": center,

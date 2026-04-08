@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import re
 from calendar import monthrange
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import polars as pl
 
 from helios_alpha.config import load_settings
 from helios_alpha.utils.http import get_text
+from helios_alpha.utils.time import start_of_next_utc_day, start_of_utc_day, utc_datetime
 
 _ISWA_BASE = (
     "https://iswa.gsfc.nasa.gov/iswa_data_tree/index/geomagnetic/Dst-realtime/WDC-Kyoto"
@@ -63,7 +64,7 @@ def _parse_dst_month_lines(text: str, year: int, month: int) -> list[dict]:
         if len(nums) < 24:
             continue
         for hour, dst in enumerate(nums[:24]):
-            ts = datetime(year, month, day, hour, 0, 0, tzinfo=UTC)
+            ts = utc_datetime(year, month, day, hour, 0, 0)
             rows.append({"time_utc": ts, "dst_nT": float(dst)})
     return rows
 
@@ -99,8 +100,8 @@ def fetch_kyoto_dst_range(start: date, end: date) -> pl.DataFrame:
             schema={"time_utc": pl.Datetime(time_zone="UTC"), "dst_nT": pl.Float64}
         )
     out = pl.concat(frames, how="vertical_relaxed")
-    start_dt = datetime.combine(start, datetime.min.time()).replace(tzinfo=UTC)
-    end_dt = datetime.combine(end + timedelta(days=1), datetime.min.time()).replace(tzinfo=UTC)
+    start_dt = start_of_utc_day(start)
+    end_dt = start_of_next_utc_day(end)
     return out.filter((pl.col("time_utc") >= start_dt) & (pl.col("time_utc") < end_dt))
 
 

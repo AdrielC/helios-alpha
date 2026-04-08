@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 
 import pendulum
@@ -19,6 +18,7 @@ from helios_alpha.ingest import prices as prices_mod
 from helios_alpha.ingest import protons as protons_mod
 from helios_alpha.markets.trading_calendar import load_trading_calendar_config
 from helios_alpha.timekeeping import Clock, FrozenClock, SystemClock
+from helios_alpha.utils.time import parse_date_iso
 
 
 def _clock_from_cfg(cfg: DictConfig) -> Clock:
@@ -48,10 +48,12 @@ def _load_tickers(path: Path) -> list[str]:
 def run_pipeline(cfg: DictConfig) -> None:
     clock = _clock_from_cfg(cfg)
     repo = _repo_root()
-    start = date.fromisoformat(str(cfg.pipeline.start_date))
-    end = date.fromisoformat(str(cfg.pipeline.end_date))
+    start = parse_date_iso(str(cfg.pipeline.start_date))
+    end = parse_date_iso(str(cfg.pipeline.end_date))
     raw_as_of = OmegaConf.select(cfg, "pipeline.as_of_date")
-    as_of = date.fromisoformat(str(raw_as_of)) if raw_as_of not in (None, "null", "") else end
+    as_of = (
+        parse_date_iso(str(raw_as_of)) if raw_as_of not in (None, "null", "") else end
+    )
     assets_path = (repo / str(cfg.pipeline.paths.assets)).resolve()
     thresholds_path = (repo / str(cfg.pipeline.paths.thresholds)).resolve()
     markets_path = (repo / str(cfg.pipeline.paths.markets)).resolve()

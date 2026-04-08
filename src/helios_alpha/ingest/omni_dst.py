@@ -10,12 +10,13 @@ Variable names differ by dataset; we try common Dst fields after opening CDF.
 from __future__ import annotations
 
 import tempfile
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import polars as pl
 
 from helios_alpha.utils.http import get_bytes
+from helios_alpha.utils.time import from_unix_epoch_ms, from_unix_epoch_seconds
 
 try:
     from cdflib import cdf as cdf_mod
@@ -67,9 +68,9 @@ def _read_dst_from_cdf_bytes(data: bytes) -> pl.DataFrame:
         e = float(flat_e[i])
         # Heuristic: if value looks like Unix ms
         if e > 1e12:
-            ts = datetime.fromtimestamp(e / 1000.0, tz=UTC)
+            ts = from_unix_epoch_ms(e)
         elif e > 1e9:
-            ts = datetime.fromtimestamp(e, tz=UTC)
+            ts = from_unix_epoch_seconds(e)
         else:
             # CDF epoch — skip row if we cannot convert reliably
             continue
