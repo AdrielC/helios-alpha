@@ -9,7 +9,7 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | **`helio_scan`** | Cold kernel: `Scan`, `FlushableScan`, `SnapshottingScan`, combinators, checkpoint seam. **No bars, sessions, or market types.** |
 | **`helio_time`** | **Semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; optional `typed_freq`; `AvailabilityGateScan`, `SessionAlignScan`. |
 | **`helio_window`** | **Operations:** `WindowBuffer`, `WindowAggregator` / `EvictingWindowAggregator`, `WindowState`, `FoldWindowState`; scans (`RollingWindowScan`, `RollingAggregatorScan`, `RollingFoldScan`, `SessionWindowScan`, `ForwardHorizonScan`, …). |
-| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **`event_shock`** (`EventShock`, `EventShockKernelScan`). Integration test **`replay_determinism`**. May split later (generic machinery vs analysis) if it grows. |
+| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **event-shock vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` binary). Integration tests: **`replay_determinism`**, **`event_shock_vertical_determinism`**, **`solar_demo_smoke`**. May split later (generic machinery vs analysis) if it grows. |
 | **`helios_signald`** | ZMQ subscriber binary (system `libzmq` required). |
 | **`helio_bench`** | Criterion benchmarks (not in `default-members`; run with `cargo bench -p helio_bench`). |
 
@@ -31,7 +31,44 @@ cargo bench -p helio_bench
 cargo bench -p helio_bench --no-run
 ```
 
-See `rust/crates/helio_bench/README.md`.
+See `rust/crates/helio_bench/README.md`. Event-shock vertical baselines and manual thresholds: [EVENT_SHOCK_BENCHMARKS.md](EVENT_SHOCK_BENCHMARKS.md).
+
+## Solar / normalized event-shock demo (CLI)
+
+End-to-end path: load events + daily bars → vertical pipeline → `trades.csv`, `summary.csv`, `report.md`.
+
+**Solar-normalized CSV** columns: `id,available_at,impact_start,impact_end,severity,confidence` (maps to `EventKind::Solar` via `load_solar_event_shocks_csv`).
+
+```bash
+cd rust
+cargo run -p helio_event --bin replay_event_shock -- \
+  --events fixtures/event_shock/solar_events.csv \
+  --bars fixtures/event_shock/bars.csv \
+  --events-format solar \
+  --out /tmp/event_shock_demo
+```
+
+Generic events (with `kind` / `scope`): use `--events-format csv` and `fixtures/event_shock/events.csv`.
+
+**Weather-family CSV** (same numeric columns as solar + optional `region_code`): `--events-format weather`, e.g. `fixtures/event_shock/weather_events.csv`.
+
+**Second strategy** (ITA–SPY, mid impact window exit): `--strategy defense-spy-mid`. Default remains XLU–SPY 5-session hold.
+
+**Lead-time band** (also applied as pipeline filter): `--min-lead-secs` / `--max-lead-secs`. Outputs `lead_time.csv` and a lead section in `report.md`.
+
+**Replay modes:** the CLI checks **batch == incremental == checkpoint-resume** on the merged stream unless `--skip-replay-verify`.
+
+```bash
+cargo run -p helio_event --bin replay_event_shock -- \
+  --events fixtures/event_shock/weather_events.csv \
+  --bars fixtures/event_shock/bars.csv \
+  --events-format weather \
+  --strategy defense-spy-mid \
+  --min-lead-secs 0 --max-lead-secs 10000000 \
+  --out /tmp/weather_demo
+```
+
+Architecture / generalization memo: [EVENT_SHOCK_ARCHITECTURE.md](EVENT_SHOCK_ARCHITECTURE.md).
 
 ## Golden-path replay tests
 
@@ -60,3 +97,4 @@ See `rust/crates/helio_bench/README.md`.
 
 - [HELIO_SCAN.md](HELIO_SCAN.md) — kernel design.
 - [TIME_AND_WINDOWS.md](TIME_AND_WINDOWS.md) — frequency, bounds, buffers, aggregators.
+- [PUBLIC_API_SURFACE.md](PUBLIC_API_SURFACE.md) — which crates are internal vs user-facing, umbrella crate, `helio_event` scope, naming.

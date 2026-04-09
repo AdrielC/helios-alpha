@@ -9,3 +9,9 @@ helio_scan = { path = "../helio_scan" }
 helio_time = { path = "../helio_time" }
 helio_window = { path = "../helio_window" }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+csv = "1"
+
+[[bin]]
+name = "replay_event_shock"
+path = "src/bin/replay_event_shock.rs"
