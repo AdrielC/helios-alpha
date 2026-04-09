@@ -15,15 +15,15 @@ fn usage() -> ! {
          Options:\n\
           --out <dir>              output directory (default: event_shock_out)\n\
          --as-of <epoch_sec>      availability gate (optional)\n\
-         --events-format <fmt>    csv | jsonl | solar | weather\n\
+         --events-format <fmt>    csv | jsonl | compact | compact-region\n\
          --strategy <name>        xlu-spy-5 | defense-spy-mid (default: xlu-spy-5)\n\
          --min-lead-secs <i64>    lead-time band lower (default: 0)\n\
          --max-lead-secs <i64>    lead-time band upper (default: 9223372036854775807)\n\
          --control-seed <u64>     matched-control RNG seed (default: 42)\n\
          --skip-replay-verify     do not assert batch==incremental==checkpoint"
     );
-    eprintln!("  solar   = id,available_at,impact_start,impact_end,severity,confidence");
-    eprintln!("  weather = same + optional region_code (maps to EventScope::Region)");
+    eprintln!("  compact        = id,available_at,impact_start,impact_end,severity,confidence (global scope)");
+    eprintln!("  compact-region = same + optional region_code → EventScope::Region");
     std::process::exit(2);
 }
 
@@ -89,8 +89,10 @@ fn main() {
     let events_raw = fs::read_to_string(&events_path).expect("read events");
     let shocks = match events_format.as_str() {
         "jsonl" => load_event_shocks_jsonl(&events_raw).expect("parse events"),
-        "solar" => load_solar_event_shocks_csv(&events_raw).expect("parse solar events"),
-        "weather" => load_weather_event_shocks_csv(&events_raw).expect("parse weather events"),
+        "compact" => load_compact_event_shocks_csv(&events_raw).expect("parse compact events"),
+        "compact-region" => {
+            load_compact_region_event_shocks_csv(&events_raw).expect("parse compact-region events")
+        }
         _ => load_event_shocks_csv(&events_raw).expect("parse events"),
     };
     let n_events = shocks.len();

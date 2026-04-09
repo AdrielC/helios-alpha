@@ -9,7 +9,7 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | **`helio_scan`** | Cold kernel: `Scan`, `FlushableScan`, `SnapshottingScan`, combinators, checkpoint seam. **No bars, sessions, or market types.** |
 | **`helio_time`** | **Semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; optional `typed_freq`; `AvailabilityGateScan`, `SessionAlignScan`. |
 | **`helio_window`** | **Operations:** `WindowBuffer`, `WindowAggregator` / `EvictingWindowAggregator`, `WindowState`, `FoldWindowState`; scans (`RollingWindowScan`, `RollingAggregatorScan`, `RollingFoldScan`, `SessionWindowScan`, `ForwardHorizonScan`, …). |
-| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **event-shock vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` binary). Integration tests: **`replay_determinism`**, **`event_shock_vertical_determinism`**, **`solar_demo_smoke`**. May split later (generic machinery vs analysis) if it grows. |
+| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **event-shock vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` binary). Integration tests: **`replay_determinism`**, **`event_shock_vertical_determinism`**, **`event_shock_compact_smoke`**. May split later (generic machinery vs analysis) if it grows. |
 | **`helios_signald`** | ZMQ subscriber binary (system `libzmq` required). |
 | **`helio_bench`** | Criterion benchmarks (not in `default-members`; run with `cargo bench -p helio_bench`). |
 
@@ -33,24 +33,24 @@ cargo bench -p helio_bench --no-run
 
 See `rust/crates/helio_bench/README.md`. Event-shock vertical baselines and manual thresholds: [EVENT_SHOCK_BENCHMARKS.md](EVENT_SHOCK_BENCHMARKS.md).
 
-## Solar / normalized event-shock demo (CLI)
+## Event-shock demo (CLI)
 
 End-to-end path: load events + daily bars → vertical pipeline → `trades.csv`, `summary.csv`, `report.md`.
 
-**Solar-normalized CSV** columns: `id,available_at,impact_start,impact_end,severity,confidence` (maps to `EventKind::Solar` via `load_solar_event_shocks_csv`).
+**Compact CSV** (global scope, no extra columns): `id,available_at,impact_start,impact_end,severity,confidence` via `load_compact_event_shocks_csv` / `--events-format compact`.
 
 ```bash
 cd rust
 cargo run -p helio_event --bin replay_event_shock -- \
-  --events fixtures/event_shock/solar_events.csv \
+  --events fixtures/event_shock/compact_events.csv \
   --bars fixtures/event_shock/bars.csv \
-  --events-format solar \
+  --events-format compact \
   --out /tmp/event_shock_demo
 ```
 
-Generic events (with `kind` / `scope`): use `--events-format csv` and `fixtures/event_shock/events.csv`.
+**Full CSV** (explicit `scope` and optional `tags`): `--events-format csv` and `fixtures/event_shock/events.csv`. Header: `id,available_at,impact_start,impact_end,severity,confidence,scope[,scope_id][,symbol][,tags]`.
 
-**Weather-family CSV** (same numeric columns as solar + optional `region_code`): `--events-format weather`, e.g. `fixtures/event_shock/weather_events.csv`.
+**Compact + region** (same numeric columns as compact + optional `region_code` → `EventScope::Region`): `--events-format compact-region`, e.g. `fixtures/event_shock/compact_region_events.csv`.
 
 **Second strategy** (ITA–SPY, mid impact window exit): `--strategy defense-spy-mid`. Default remains XLU–SPY 5-session hold.
 
@@ -60,12 +60,12 @@ Generic events (with `kind` / `scope`): use `--events-format csv` and `fixtures/
 
 ```bash
 cargo run -p helio_event --bin replay_event_shock -- \
-  --events fixtures/event_shock/weather_events.csv \
+  --events fixtures/event_shock/compact_region_events.csv \
   --bars fixtures/event_shock/bars.csv \
-  --events-format weather \
+  --events-format compact-region \
   --strategy defense-spy-mid \
   --min-lead-secs 0 --max-lead-secs 10000000 \
-  --out /tmp/weather_demo
+  --out /tmp/region_demo
 ```
 
 Architecture / generalization memo: [EVENT_SHOCK_ARCHITECTURE.md](EVENT_SHOCK_ARCHITECTURE.md).

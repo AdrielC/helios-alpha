@@ -1,6 +1,7 @@
 //! Generic **forecastable event shock** → session alignment → signal → simulated trade results.
 //!
-//! Domain-agnostic ingest; solar and other adapters map into [`EventShock`].
+//! Ingest stays **domain-agnostic**: attach opaque [`EventShock::tags`] (CSV / JSONL) for your
+//! own taxonomy; the scan stack does not interpret them.
 
 use helio_scan::{
     Emit, FlushReason, FlushableScan, Scan, SessionDate, SnapshottingScan, VersionedSnapshot,
@@ -20,16 +21,6 @@ pub struct Symbol(pub String);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EventId(pub u64);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum EventKind {
-    Solar,
-    Weather,
-    Earnings,
-    Macro,
-    SupplyShock,
-    Other,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EventScope {
     Global,
@@ -42,7 +33,9 @@ pub enum EventScope {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventShock {
     pub id: EventId,
-    pub kind: EventKind,
+    /// Caller-defined labels (comma-separated in CSV); not used by the shock vertical.
+    #[serde(default)]
+    pub tags: String,
     pub observed_at: Option<ObservedAt>,
     /// Earliest instant the event may be acted on (causal cut for the shock itself).
     pub available_at: AvailableAt,
@@ -614,7 +607,7 @@ mod tests {
     fn shock(av: i64, impact_s: i64, impact_e: i64, sev: f64) -> Timed<EventShock> {
         timed_shock(EventShock {
             id: EventId(1),
-            kind: EventKind::Solar,
+            tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(av),
             impact_start: impact_s,

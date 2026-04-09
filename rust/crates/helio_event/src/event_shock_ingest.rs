@@ -5,14 +5,12 @@ use helio_time::{utc_calendar_day, AvailableAt};
 use serde::Deserialize;
 
 use crate::{
-    timed_shock, DailyBar, EventId, EventKind, EventScope, EventShock, EventShockVerticalRecord,
-    Symbol,
+    timed_shock, DailyBar, EventId, EventScope, EventShock, EventShockVerticalRecord, Symbol,
 };
 
 #[derive(Debug, Deserialize)]
 struct EventShockCsvRow {
     id: u64,
-    kind: String,
     available_at: i64,
     impact_start: i64,
     impact_end: i64,
@@ -23,17 +21,8 @@ struct EventShockCsvRow {
     scope_id: Option<u32>,
     #[serde(default)]
     symbol: Option<String>,
-}
-
-fn parse_kind(s: &str) -> EventKind {
-    match s.to_ascii_lowercase().as_str() {
-        "solar" => EventKind::Solar,
-        "weather" => EventKind::Weather,
-        "earnings" => EventKind::Earnings,
-        "macro" => EventKind::Macro,
-        "supply" | "supply_shock" | "supplyshock" => EventKind::SupplyShock,
-        _ => EventKind::Other,
-    }
+    #[serde(default)]
+    tags: Option<String>,
 }
 
 fn parse_scope(row: &EventShockCsvRow) -> Result<EventScope, String> {
@@ -64,7 +53,7 @@ fn row_to_shock(row: EventShockCsvRow) -> Result<EventShock, String> {
     let scope = parse_scope(&row)?;
     Ok(EventShock {
         id: EventId(row.id),
-        kind: parse_kind(&row.kind),
+        tags: row.tags.unwrap_or_default(),
         observed_at: None,
         available_at: AvailableAt(row.available_at),
         impact_start: row.impact_start,
@@ -75,7 +64,9 @@ fn row_to_shock(row: EventShockCsvRow) -> Result<EventShock, String> {
     })
 }
 
-/// Header: `id,kind,available_at,impact_start,impact_end,severity,confidence,scope[,scope_id][,symbol]`
+/// Header: `id,available_at,impact_start,impact_end,severity,confidence,scope[,scope_id][,symbol][,tags]`
+///
+/// `tags` is optional; use comma-separated tokens for your own taxonomy (ignored by the vertical).
 pub fn load_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
     let mut rdr = csv::ReaderBuilder::new()
         .trim(csv::Trim::All)
@@ -88,12 +79,11 @@ pub fn load_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
     Ok(out)
 }
 
-/// Normalized **solar** CSV (no `kind` / `scope` columns):  
-/// `id,available_at,impact_start,impact_end,severity,confidence`  
-/// Rows map through [`crate::solar_row_to_event_shock`].
-pub fn load_solar_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
+/// Compact CSV without `scope` / `scope_id` / `symbol` (global scope, empty tags):  
+/// `id,available_at,impact_start,impact_end,severity,confidence`
+pub fn load_compact_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
     #[derive(Debug, Deserialize)]
-    struct SolarCsvRow {
+    struct CompactCsvRow {
         id: u64,
         available_at: i64,
         impact_start: i64,
@@ -105,26 +95,27 @@ pub fn load_solar_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String
         .trim(csv::Trim::All)
         .from_reader(data.as_bytes());
     let mut out = Vec::new();
-    for rec in rdr.deserialize::<SolarCsvRow>() {
+    for rec in rdr.deserialize::<CompactCsvRow>() {
         let row = rec.map_err(|e| e.to_string())?;
-        out.push(crate::solar_row_to_event_shock(crate::SolarShockRow {
-            id: row.id,
-            available_at: row.available_at,
+        out.push(EventShock {
+            id: EventId(row.id),
+            tags: String::new(),
+            observed_at: None,
+            available_at: AvailableAt(row.available_at),
             impact_start: row.impact_start,
             impact_end: row.impact_end,
             severity: row.severity,
             confidence: row.confidence,
-        }));
+            scope: EventScope::Global,
+        });
     }
     Ok(out)
 }
 
-/// **Weather**-family CSV (same columns as solar):  
-/// `id,available_at,impact_start,impact_end,severity,confidence[,region_code]`  
-/// Maps via [`crate::weather_row_to_event_shock`]; `region_code` optional → `EventScope::Global`.
-pub fn load_weather_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
+/// Same columns as [`load_compact_event_shocks_csv`] plus optional `region_code` → [`EventScope::Region`].
+pub fn load_compact_region_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
     #[derive(Debug, Deserialize)]
-    struct WeatherCsvRow {
+    struct RegionCsvRow {
         id: u64,
         available_at: i64,
         impact_start: i64,
@@ -138,22 +129,28 @@ pub fn load_weather_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, Stri
         .trim(csv::Trim::All)
         .from_reader(data.as_bytes());
     let mut out = Vec::new();
-    for rec in rdr.deserialize::<WeatherCsvRow>() {
+    for rec in rdr.deserialize::<RegionCsvRow>() {
         let row = rec.map_err(|e| e.to_string())?;
-        out.push(crate::weather_row_to_event_shock(crate::WeatherShockRow {
-            id: row.id,
-            available_at: row.available_at,
+        let scope = match row.region_code {
+            Some(r) => EventScope::Region(r),
+            None => EventScope::Global,
+        };
+        out.push(EventShock {
+            id: EventId(row.id),
+            tags: String::new(),
+            observed_at: None,
+            available_at: AvailableAt(row.available_at),
             impact_start: row.impact_start,
             impact_end: row.impact_end,
             severity: row.severity,
             confidence: row.confidence,
-            region_code: row.region_code,
-        }));
+            scope,
+        });
     }
     Ok(out)
 }
 
-/// One JSON object per line, same fields as CSV (snake_case).
+/// One JSON object per line, same fields as full CSV (snake_case).
 pub fn load_event_shocks_jsonl(data: &str) -> Result<Vec<EventShock>, String> {
     let mut out = Vec::new();
     for line in data.lines() {

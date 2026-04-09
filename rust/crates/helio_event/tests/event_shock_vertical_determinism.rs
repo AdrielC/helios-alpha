@@ -15,7 +15,7 @@ fn sample_shocks() -> Vec<EventShock> {
     vec![
         EventShock {
             id: EventId(1),
-            kind: EventKind::Solar,
+            tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(day(15) + 100),
             impact_start: day(22),
@@ -26,7 +26,7 @@ fn sample_shocks() -> Vec<EventShock> {
         },
         EventShock {
             id: EventId(2),
-            kind: EventKind::Solar,
+            tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(day(40) + 100),
             impact_start: day(45),
@@ -193,7 +193,7 @@ fn future_available_events_emit_no_trades_under_gate() {
     );
     let shocks = vec![EventShock {
         id: EventId(100),
-        kind: EventKind::Macro,
+        tags: "macro".into(),
         observed_at: None,
         available_at: AvailableAt(day(20)),
         impact_start: day(25),
@@ -234,7 +234,7 @@ fn shock_stream_order_is_preserved_in_outputs() {
     };
     let s1 = EventShock {
         id: EventId(10),
-        kind: EventKind::Other,
+        tags: String::new(),
         observed_at: None,
         available_at: AvailableAt(day(18) + 10),
         impact_start: day(24),
@@ -245,7 +245,7 @@ fn shock_stream_order_is_preserved_in_outputs() {
     };
     let s2 = EventShock {
         id: EventId(11),
-        kind: EventKind::Other,
+        tags: String::new(),
         observed_at: None,
         available_at: AvailableAt(day(18) + 20),
         impact_start: day(27),

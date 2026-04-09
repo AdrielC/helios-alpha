@@ -1,29 +1,12 @@
-```
-    _________________________________________________________________
-   /                                                                 \
-  |   .     *     .         *              h e l i o s - a l p h a   |
-  |      *    \  |  /    *                                          |
-  |   .    . -- ( @ ) -- .    .        flare  ·  cme  ·  dst  ·  book |
-  |      *    /  |  \    *                                          |
-  |   .     *     .         *                                       |
-  |              \ | /                                              |
-  |               \|/   space weather in  -->  risk out  -->  PnL   |
-  |                |                                                |
-  |    ~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~^~~~   |
-  |      |   |   |   |   |   |   |   |   |   |   |   |   |   |      |
-   \_____|___|___|___|___|___|___|___|___|___|___|___|___|___|_____/
-```
-
 # helios-alpha
 
-**helios-alpha** is a research codebase with two tightly related goals:
+**helios-alpha** is a research codebase for **event-shock trading strategies**: a shock is observed or forecast, you respect when it becomes **actionable** (causal availability), align to **sessions**, and evaluate **treatment vs control** style outcomes with clear limits on what the data supports.
 
-1. **Empirical work (Python)** — Test whether space-weather and related shocks (flares, CMEs, geomagnetic activity) show up in markets through infrastructure stress, volatility regimes, or sluggish repricing — using ingest, features, calendars, and event-study style backtests.
+Two layers work together:
 
-2. **Execution substrate (Rust)** — A **layered, deterministic scan engine** for any stream where you must respect **causality** (what you know and *when* you may act), optional **checkpoints**, **replay**, and **windowed** state. Space weather is the motivating dataset; the Rust side is deliberately **not** “a solar crate” — it is generic machinery you can drive with other forecastable events later.
+1. **Empirical work (Python)** — End-to-end research: ingest data, build features, align to **exchange sessions**, enforce a **causal cut** (`as_of_date`), and run event-study style backtests. The tree includes **space-weather** sources as one example dataset; the same patterns apply to other forecastable shocks.
 
-This is not astrology.  
-This is an attempt to treat the Sun (and similar shocks) as **testable risk factors**, with honest limits on what the data can support.
+2. **Execution substrate (Rust)** — A **layered, deterministic scan engine** for streams where you must respect **causality**, optional **checkpoints**, **replay**, and **windowed** state. The **`helio_event`** crate provides a domain-agnostic **event-shock vertical** (lead times, signals, simulated execution); shock taxonomy lives in your ingest or in optional string **`tags`**, not in the scan types.
 
 ---
 
@@ -42,7 +25,7 @@ Under `rust/` lives a **Cargo workspace** of small crates with strict boundaries
 | **`helio_scan`** | **Domain-free algebra**: `Scan` / `FlushableScan` / `SnapshottingScan`, combinators, checkpoints, **opaque batching by default** (`ScanBatchExt`), **opt-in** `BatchOptimizedScan`, **runners** (`run_iter`, `run_batch`, `run_receiver`, optional async `run_stream`) — transports stay *outside* the core traits. |
 | **`helio_time`** | **Semantics only**: `Frequency`, `Bounds`, `BucketSpec`, `WindowSpec`, `Timed<T>`, `AvailableAt`, availability gates — *what* a window means in domain language, **not** automatic eviction of every variant. |
 | **`helio_window`** | **Operational machinery**: ring buffers, aggregators, rolling/session/horizon scans — **today many rolling paths are sample-count-driven**; rich `WindowSpec` can describe more than the ring buffer enforces until time-keyed expiry is implemented (see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md)). |
-| **`helio_event`** | **Domain proving ground**: classic causal **event-study** pipelines *and* a generic **event-shock** path (`EventShock`, lead-time filters, signal generation). Intended to **stress-test** the stack; may split later if it grows. |
+| **`helio_event`** | **Event-shock strategies** on the scan stack: causal **event-study** harnesses *and* a domain-agnostic **event-shock vertical** (`EventShock`, lead-time filters, signal generation, replay). Intended to **stress-test** the stack; may split later if it grows. |
 | **`helio_bench`** | **Criterion** benchmarks (not a default workspace member); pinned Criterion for toolchain compatibility — see crate README for the **intentional pin** and future **regression budgets**. |
 | **`helios_signald`** | Optional **ZMQ** bridge toward live signals (needs system **libzmq** and a C++ toolchain to build). |
 
@@ -160,6 +143,6 @@ See `notebooks/` after you have run the pipeline once.
 ## Thesis chain
 
 Forecastable shock (observation + lead time) → impact window → market repricing (vol, sectors, delay).  
-Solar is the first stress test; the Rust stack is built to generalize **event → availability → signal** under strict causality.
+The Rust stack encodes **event → availability → signal** under strict causality so you can swap shock sources without changing the scan kernel.
 
-If nothing shows up in simple event studies, the empirical layer still limits what you can claim — the substrate remains useful for other stream-driven research.
+If simple event studies are inconclusive, the empirical layer still limits what you can claim — the substrate remains useful for other stream-driven research.
