@@ -1,11 +1,11 @@
 //! **Business time** in a venue IANA zone: multi-interval sessions, DST-safe local→UTC mapping,
-//! and second-accurate arithmetic along open hours. Pairs with [`crate::session_telescope`] for
+//! and second-accurate arithmetic along open hours. Pairs with [`crate::layered_schedule`] for
 //! historical regime templates.
 
 use chrono::{DateTime, Datelike, LocalResult, NaiveDate, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 
-use crate::session_telescope::{SessionTemplate, TelescopeNode};
+use crate::layered_schedule::{LayeredScheduleNode, SessionTemplate};
 
 /// Supplies **which** local calendar days are session days (holidays, weekends, ad-hoc closures).
 pub trait SessionDayOracle: Clone {
@@ -88,10 +88,12 @@ pub struct SessionUtcDay {
 
 fn template_to_utc_day(zone: Tz, local_date: NaiveDate, template: &SessionTemplate) -> SessionUtcDay {
     let mut intervals_utc = Vec::with_capacity(template.intervals_local.len());
-    for (t0, t1) in &template.intervals_local {
+    for w in &template.intervals_local {
+        let t0 = w.start;
+        let t1 = w.end;
         if let (Some(a), Some(b)) = (
-            utc_from_local_wall(zone, local_date, *t0),
-            utc_from_local_wall(zone, local_date, *t1),
+            utc_from_local_wall(zone, local_date, t0),
+            utc_from_local_wall(zone, local_date, t1),
         ) {
             let a_sec = a.timestamp();
             let b_sec = b.timestamp();
@@ -107,22 +109,22 @@ fn template_to_utc_day(zone: Tz, local_date: NaiveDate, template: &SessionTempla
     }
 }
 
-/// Telescope + zone + session-day oracle.
+/// Layered schedule + zone + session-day oracle.
 #[derive(Debug, Clone)]
 pub struct BusinessTimeClock<O: SessionDayOracle> {
     pub zone: Tz,
-    pub telescope: TelescopeNode,
+    pub schedule: LayeredScheduleNode,
     pub oracle: O,
 }
 
 impl<O: SessionDayOracle> BusinessTimeClock<O> {
     pub fn session_template_for_utc(&self, ts_utc_sec: i64) -> Option<SessionTemplate> {
         let d = self.oracle.local_date(ts_utc_sec);
-        self.telescope.resolve_template(d)
+        self.schedule.resolve_template(d)
     }
 
     pub fn utc_intervals_for_session_day(&self, local_date: NaiveDate) -> Option<SessionUtcDay> {
-        let template = self.telescope.resolve_template(local_date)?;
+        let template = self.schedule.resolve_template(local_date)?;
         Some(template_to_utc_day(self.zone, local_date, &template))
     }
 
@@ -361,11 +363,12 @@ fn last_open_second_strictly_before<O: SessionDayOracle>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::session_telescope::*;
+    use crate::bucket::TimeWindow;
+    use crate::layered_schedule::LayeredScheduleNode;
 
-    fn xnys_telescope() -> TelescopeNode {
-        let leaf = TelescopeNode::Leaf(SessionTemplate {
-            intervals_local: vec![(
+    fn xnys_schedule_leaf() -> LayeredScheduleNode {
+        let leaf = LayeredScheduleNode::Leaf(SessionTemplate {
+            intervals_local: vec![TimeWindow::new(
                 NaiveTime::from_hms_opt(9, 30, 0).unwrap(),
                 NaiveTime::from_hms_opt(16, 0, 0).unwrap(),
             )],
@@ -386,10 +389,10 @@ mod tests {
     #[test]
     fn business_seconds_counts_rth_march_friday_2024() {
         let zone = Tz::America__New_York;
-        let tel = xnys_telescope();
+        let sch = xnys_schedule_leaf();
         let clock = BusinessTimeClock {
             zone,
-            telescope: tel,
+            schedule: sch,
             oracle: LocalWeekdayOracle { zone },
         };
         let open = utc_from_local_wall(
@@ -408,10 +411,10 @@ mod tests {
     #[test]
     fn add_business_seconds_forward_over_weekend() {
         let zone = Tz::America__New_York;
-        let tel = xnys_telescope();
+        let sch = xnys_schedule_leaf();
         let clock = BusinessTimeClock {
             zone,
-            telescope: tel,
+            schedule: sch,
             oracle: LocalWeekdayOracle { zone },
         };
         let fri = NaiveDate::from_ymd_opt(2024, 3, 8).unwrap();
