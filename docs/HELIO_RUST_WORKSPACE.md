@@ -97,3 +97,4 @@ Architecture / generalization memo: [EVENT_SHOCK_ARCHITECTURE.md](EVENT_SHOCK_AR
 
 - [HELIO_SCAN.md](HELIO_SCAN.md) — kernel design.
 - [TIME_AND_WINDOWS.md](TIME_AND_WINDOWS.md) — frequency, bounds, buffers, aggregators.
+- [PUBLIC_API_SURFACE.md](PUBLIC_API_SURFACE.md) — which crates are internal vs user-facing, umbrella crate, `helio_event` scope, naming.
