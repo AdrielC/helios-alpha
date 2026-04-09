@@ -9,6 +9,12 @@
 //! The kernel stays in **`helio_scan`**; this crate may use bars, sessions, and causal tagging.
 
 mod event_shock;
+mod event_shock_adapter;
+mod event_shock_control;
+mod event_shock_execution;
+mod event_shock_ingest;
+mod event_shock_metrics;
+mod event_shock_vertical;
 mod fold;
 mod pipeline;
 mod sampler;
@@ -16,6 +22,12 @@ mod selector;
 mod types;
 
 pub use event_shock::*;
+pub use event_shock_adapter::*;
+pub use event_shock_control::*;
+pub use event_shock_execution::*;
+pub use event_shock_ingest::*;
+pub use event_shock_metrics::*;
+pub use event_shock_vertical::*;
 pub use fold::*;
 pub use pipeline::*;
 pub use sampler::*;
