@@ -60,6 +60,8 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Cargo build (helios_signald)
-        working-directory: rust/helios_signald
-        run: cargo build --release
+      - name: Cargo test + build (workspace)
+        working-directory: rust
+        run: |
+          cargo test
+          cargo build --release -p helios_signald

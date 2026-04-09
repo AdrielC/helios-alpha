@@ -1,0 +1,24 @@
+# helio_scan
+
+Composable **scan machines** over ordered streams: step with multi-emission, optional **flush**, **snapshot/restore**, and **checkpoint + offset** hooks.
+
+## Full documentation
+
+See the repository guide: [docs/HELIO_SCAN.md](../../../docs/HELIO_SCAN.md) and [docs/HELIO_RUST_WORKSPACE.md](../../../docs/HELIO_RUST_WORKSPACE.md).
+
+## Quick start
+
+From the **workspace root** `rust/`:
+
+```bash
+cargo test -p helio_scan
+cargo doc -p helio_scan --no-deps --open
+```
+
+## Workspace
+
+This crate lives under `rust/crates/helio_scan` in the workspace defined in `../../Cargo.toml`. Default members include this crate but not `helios_signald`, so `cargo test` in `rust/` does not require ZMQ.
+
+## Design slogan
+
+Scans are restartable, flushable, causality-aware state machines over ordered streams. Composition preserves structure. State is inspectable, snapshotable, and resumable by offset.

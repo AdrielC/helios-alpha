@@ -1,0 +1,10 @@
+[package]
+name = "helio_window"
+version = "0.1.0"
+edition = "2021"
+description = "Reusable windowing and horizon scans built on helio_scan"
+
+[dependencies]
+helio_scan = { path = "../helio_scan" }
+helio_time = { path = "../helio_time" }
+serde = { version = "1", features = ["derive"] }

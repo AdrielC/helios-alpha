@@ -9,8 +9,9 @@ ZMQ **SUB** daemon: receives `helios.signal.*` JSON from Python `SignalPublisher
 This crate sets `CXX=g++` in `.cargo/config.toml` so `zmq-sys` does not use `cc` (clang) without libstdc++ dev symlinks.
 
 ```bash
-cargo build --release
-# ./target/release/helios_signald tcp://127.0.0.1:7779
+cd rust
+cargo build --release -p helios_signald
+# rust/target/release/helios_signald tcp://127.0.0.1:7779
 ```
 
 Start the **Python PUB first** (it `bind`s); then run this binary (it `connect`s).
