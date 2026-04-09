@@ -30,7 +30,10 @@
 //!   [`ZipInputA`], [`ZipInputB`]).
 //! - **Persistence** — [`Checkpoint`], [`SnapshotStore`], [`Persisted`] wrapper that snapshots on
 //!   [`FlushReason::Checkpoint`].
-//! - **[`Runner`]** — owns `(machine, state)` and forwards `step` / `flush`.
+//! - **[`Runner`]** — owns `(machine, state)` and forwards `step` / `flush` / `step_batch`.
+//! - **[`ScanBatchExt`]** — default `step_batch` = ordered `step`; **[`BatchOptimizedScan`]**
+//!   for lawful fused batches (opt-in).
+//! - **Runners** ([`runners`]) — `run_iter`, `run_slice`, `run_receiver` (transport adapters).
 //!
 //! ## Where domain logic lives
 //!
@@ -42,20 +45,30 @@
 //! Async-first runtime, distributed execution, Arrow kernels, proc-macro optics, and full Kafka
 //! exactly-once beyond checkpoint+offset skeletons.
 
+mod batch;
+mod batch_opt;
 mod combinator;
 mod control;
 mod emit;
+#[cfg(test)]
+mod execution_tests;
+mod flush_batch;
 mod focus;
 #[cfg(test)]
 mod kernel_tests;
 mod persist;
 mod runner;
+mod runners;
 mod scan;
 
+pub use batch::*;
+pub use batch_opt::*;
 pub use combinator::*;
 pub use control::*;
 pub use emit::*;
+pub use flush_batch::*;
 pub use focus::*;
 pub use persist::*;
 pub use runner::*;
+pub use runners::*;
 pub use scan::*;

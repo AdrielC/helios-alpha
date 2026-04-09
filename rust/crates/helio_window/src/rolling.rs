@@ -1,7 +1,9 @@
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-use helio_scan::{Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot};
+use helio_scan::{
+    BatchOptimizedScan, Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot,
+};
 use helio_time::WindowSpec;
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +32,18 @@ impl<T: Clone> RollingWindowScan<T> {
         Self {
             max_len,
             _p: PhantomData,
+        }
+    }
+}
+
+impl<T: Clone> BatchOptimizedScan for RollingWindowScan<T> {
+    /// Same as sequential [`Scan::step`] (opaque batching). Window fills can emit mid-batch in order.
+    fn step_batch_optimized<E>(&self, state: &mut Self::State, batch: &[Self::In], emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        for item in batch {
+            self.step(state, item.clone(), emit);
         }
     }
 }

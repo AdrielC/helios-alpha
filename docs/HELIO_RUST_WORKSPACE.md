@@ -11,6 +11,7 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | **`helio_window`** | **Operations:** `WindowBuffer`, `WindowAggregator` / `EvictingWindowAggregator`, `WindowState`, `FoldWindowState`; scans (`RollingWindowScan`, `RollingAggregatorScan`, `RollingFoldScan`, `SessionWindowScan`, `ForwardHorizonScan`, …). |
 | **`helio_event`** | Event-study domain: `TreatmentEvent`, `ControlEvent`, `CausalEventStudyPipeline`, `MatchedControlSampler`, `EventStudyFoldScan`; integration test **`replay_determinism`**. |
 | **`helios_signald`** | ZMQ subscriber binary (system `libzmq` required). |
+| **`helio_bench`** | Criterion benchmarks (not in `default-members`; run with `cargo bench -p helio_bench`). |
 
 ## Default members
 
@@ -20,6 +21,17 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 cd rust
 cargo build --release -p helios_signald
 ```
+
+## Benchmarks
+
+```bash
+cd rust
+cargo bench -p helio_bench
+# CI-style compile check:
+cargo bench -p helio_bench --no-run
+```
+
+See `rust/crates/helio_bench/README.md`.
 
 ## Golden-path replay tests
 

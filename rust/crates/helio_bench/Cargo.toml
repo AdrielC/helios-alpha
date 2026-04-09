@@ -1,0 +1,36 @@
+[package]
+name = "helio_bench"
+version = "0.1.0"
+edition = "2021"
+description = "Criterion benchmarks for the helio scan / window stack"
+publish = false
+
+[dependencies]
+
+[dev-dependencies]
+# Pin below 0.5.1: newer criterion pulls clap 4.6+ which needs a newer Cargo/Rust than some CI images.
+criterion = "=0.4.0"
+helio_event = { path = "../helio_event" }
+helio_scan = { path = "../helio_scan" }
+helio_time = { path = "../helio_time" }
+helio_window = { path = "../helio_window" }
+
+[[bench]]
+name = "rolling_windows"
+harness = false
+
+[[bench]]
+name = "scan_kernel"
+harness = false
+
+[[bench]]
+name = "event_study"
+harness = false
+
+[[bench]]
+name = "execution_modes"
+harness = false
+
+[[bench]]
+name = "scan_pressure"
+harness = false

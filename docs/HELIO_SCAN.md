@@ -43,6 +43,22 @@ Composition (e.g. `Then`) wires **outputs** of an upstream scan into **inputs** 
 
 Run `cargo doc -p helio_scan --no-deps --open` from `rust/` for the full API.
 
+## Execution modes (online-first)
+
+The primitive is **one input at a time** (`step`). Everything else is an adapter:
+
+| Mode | API |
+|------|-----|
+| Single-item | `Scan::step`, `Runner::step` |
+| Batched (opaque) | `ScanBatchExt::step_batch` — same as stepping each item in order; no fusion unless opt-in |
+| Stream / iterator | `run_iter`, `run_slice`, `run_receiver` (`std::sync::mpsc`) in `helio_scan::runners` |
+
+**Flush batching:** `FlushableScanBatchExt::flush_batch` applies multiple `FlushReason` values in order.
+
+**Opt-in fused batches:** `BatchOptimizedScan::step_batch_optimized` — implement only when equivalent to sequential `step`. Example: `helio_window::RollingWindowScan` currently delegates to `step` in a loop (placeholder until a real fusion proof).
+
+Do not assume all scans are monoidal; keep algebraic batching in aggregators / specific kernels.
+
 ## Control and checkpoints
 
 - **`FlushReason<O>`** — why flush happened: `SessionClose`, `Checkpoint(O)`, `Watermark(O)`, `Shutdown`, `Rebalance`, `EndOfInput`, `Manual`. Different scans may ignore or honor different variants.
