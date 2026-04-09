@@ -33,7 +33,8 @@
 //! - **[`Runner`]** — owns `(machine, state)` and forwards `step` / `flush` / `step_batch`.
 //! - **[`ScanBatchExt`]** — default `step_batch` = ordered `step`; **[`BatchOptimizedScan`]**
 //!   for lawful fused batches (opt-in).
-//! - **Runners** ([`runners`]) — `run_iter`, `run_slice`, `run_receiver` (transport adapters).
+//! - **Runners** ([`runners`]) — `run_iter` / `run_batch`, `run_slice`, `run_receiver`, optional
+//!   `run_stream` (Tokio MPSC, feature `stream`).
 //!
 //! ## Where domain logic lives
 //!

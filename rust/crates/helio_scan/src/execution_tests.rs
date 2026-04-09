@@ -7,7 +7,7 @@ mod tests {
     use crate::emit::VecEmitter;
     use crate::persist::{CheckpointKeyFn, HashMapStore, Persisted, SnapshotStore};
     use crate::runner::Runner;
-    use crate::runners::{run_iter, run_receiver, run_slice};
+    use crate::runners::{run_batch, run_iter, run_receiver, run_slice};
     use crate::scan::{FlushableScan, Scan, SnapshottingScan};
     use crate::{ScanBatchExt, ScanExt};
 
@@ -52,6 +52,18 @@ mod tests {
         let mut eb = VecEmitter::new();
         run_iter(&s, &mut st_a, [1, 2, 3], &mut ea);
         run_slice(&s, &mut st_b, &[1, 2, 3], &mut eb);
+        assert_eq!(ea.0, eb.0);
+    }
+
+    #[test]
+    fn run_iter_matches_run_batch() {
+        let s = Mul2.map(|x| x + 1);
+        let mut st_a = s.init();
+        let mut st_b = s.init();
+        let mut ea = VecEmitter::new();
+        let mut eb = VecEmitter::new();
+        run_iter(&s, &mut st_a, [1, 2, 3], &mut ea);
+        run_batch(&s, &mut st_b, [1, 2, 3], &mut eb);
         assert_eq!(ea.0, eb.0);
     }
 

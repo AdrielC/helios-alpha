@@ -32,9 +32,9 @@ impl Default for MatchingConfig {
     }
 }
 
-/// Scope of inference / labeling.
+/// Scope of inference / labeling (event-study harness).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EventScope {
+pub enum StudyScope {
     FullSample,
     Session(SessionDate),
 }
