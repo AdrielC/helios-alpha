@@ -4,12 +4,14 @@
 //! The scan kernel remains in **`helio_scan`**; this crate is allowed to know about bars, sessions,
 //! and causal tagging.
 
+mod event_shock;
 mod fold;
 mod pipeline;
 mod sampler;
 mod selector;
 mod types;
 
+pub use event_shock::*;
 pub use fold::*;
 pub use pipeline::*;
 pub use sampler::*;

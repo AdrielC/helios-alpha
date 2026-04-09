@@ -9,9 +9,19 @@ use crate::{AvailableAt, Timed};
 
 /// Emits `Timed<T>` only when `available_at <= decision_available` (inclusive).
 #[derive(Debug, Clone)]
-pub struct AvailabilityGateScan {
+pub struct AvailabilityGateScan<T = ()> {
     /// Treat `None` as no gate (pass-through).
     pub decision_available: Option<AvailableAt>,
+    _p: PhantomData<T>,
+}
+
+impl<T> AvailabilityGateScan<T> {
+    pub fn new(decision_available: Option<AvailableAt>) -> Self {
+        Self {
+            decision_available,
+            _p: PhantomData,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,9 +30,9 @@ pub struct AvailabilityGateState;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AvailabilityGateSnapshot;
 
-impl Scan for AvailabilityGateScan {
-    type In = Timed<()>;
-    type Out = Timed<()>;
+impl<T: Clone> Scan for AvailabilityGateScan<T> {
+    type In = Timed<T>;
+    type Out = Timed<T>;
     type State = AvailabilityGateState;
 
     fn init(&self) -> Self::State {
@@ -43,7 +53,7 @@ impl Scan for AvailabilityGateScan {
     }
 }
 
-impl FlushableScan for AvailabilityGateScan {
+impl<T: Clone> FlushableScan for AvailabilityGateScan<T> {
     type Offset = u64;
 
     fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
@@ -53,7 +63,7 @@ impl FlushableScan for AvailabilityGateScan {
     }
 }
 
-impl SnapshottingScan for AvailabilityGateScan {
+impl<T: Clone> SnapshottingScan for AvailabilityGateScan<T> {
     type Snapshot = AvailabilityGateSnapshot;
 
     fn snapshot(&self, _state: &Self::State) -> Self::Snapshot {
@@ -142,9 +152,7 @@ mod tests {
 
     #[test]
     fn gate_blocks_future_available() {
-        let s = AvailabilityGateScan {
-            decision_available: Some(AvailableAt(5)),
-        };
+        let s = AvailabilityGateScan::<()>::new(Some(AvailableAt(5)));
         let mut st = s.init();
         let mut e = VecEmitter::new();
         s.step(&mut st, Timed::new((), AvailableAt(10)), &mut e);
