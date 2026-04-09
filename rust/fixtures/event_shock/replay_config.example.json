@@ -1,0 +1,12 @@
+{
+  "events_path": "fixtures/event_shock/compact_events.csv",
+  "bars_path": "fixtures/event_shock/bars.csv",
+  "events_format": "compact",
+  "strategy": "xlu-spy-3",
+  "out_dir": "event_shock_out",
+  "execution_entry": "next_session_open",
+  "min_lead_secs": 0,
+  "max_lead_secs": 9223372036854775807,
+  "control_seed": 42,
+  "skip_replay_verify": false
+}

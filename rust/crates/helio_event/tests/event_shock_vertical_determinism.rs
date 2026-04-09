@@ -15,6 +15,7 @@ fn sample_shocks() -> Vec<EventShock> {
     vec![
         EventShock {
             id: EventId(1),
+            kind: EventKind::Other,
             tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(day(15) + 100),
@@ -26,6 +27,7 @@ fn sample_shocks() -> Vec<EventShock> {
         },
         EventShock {
             id: EventId(2),
+            kind: EventKind::Other,
             tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(day(40) + 100),
@@ -80,6 +82,7 @@ fn make_vertical() -> EventShockVerticalScan<SimpleWeekdayCalendar> {
             vol_epsilon: None,
         },
         cand,
+        ExecutionEntryTiming::EntrySessionOpen,
     )
 }
 
@@ -190,9 +193,11 @@ fn future_available_events_emit_no_trades_under_gate() {
             vol_epsilon: None,
         },
         cand,
+        ExecutionEntryTiming::EntrySessionOpen,
     );
     let shocks = vec![EventShock {
         id: EventId(100),
+        kind: EventKind::Other,
         tags: "macro".into(),
         observed_at: None,
         available_at: AvailableAt(day(20)),
@@ -230,10 +235,12 @@ fn shock_stream_order_is_preserved_in_outputs() {
                 vol_epsilon: None,
             },
             cand.clone(),
+            ExecutionEntryTiming::EntrySessionOpen,
         )
     };
     let s1 = EventShock {
         id: EventId(10),
+        kind: EventKind::Other,
         tags: String::new(),
         observed_at: None,
         available_at: AvailableAt(day(18) + 10),
@@ -245,6 +252,7 @@ fn shock_stream_order_is_preserved_in_outputs() {
     };
     let s2 = EventShock {
         id: EventId(11),
+        kind: EventKind::Other,
         tags: String::new(),
         observed_at: None,
         available_at: AvailableAt(day(18) + 20),
@@ -302,6 +310,7 @@ fn matched_control_sampling_deterministic_under_seed() {
                 vol_epsilon: None,
             },
             cand.clone(),
+            ExecutionEntryTiming::EntrySessionOpen,
         )
     };
 
@@ -317,4 +326,36 @@ fn matched_control_sampling_deterministic_under_seed() {
         ctrl_c.first().map(|t| t.entry_session),
         "different seeds should pick different control entries (fixture expectation)"
     );
+}
+
+#[test]
+fn next_session_open_execution_changes_returns_vs_entry_open() {
+    let cal = SimpleWeekdayCalendar;
+    let bars = sample_bars();
+    let cand = candidate_entries_from_bars(&bars);
+    let mk = |timing: ExecutionEntryTiming| {
+        EventShockVerticalScan::new(
+            None,
+            EventShockFilterConfig::default(),
+            cal,
+            ExitPolicy::FixedHorizonSessions { n: 2 },
+            Exposure::Long(Symbol("SPY".into())),
+            EventShockControlConfig {
+                seed: 1,
+                controls_per_treatment: 0,
+                horizon_sessions: 2,
+                exposure: Exposure::Long(Symbol("SPY".into())),
+                vol_epsilon: None,
+            },
+            cand.clone(),
+            timing,
+        )
+    };
+    let shocks = vec![sample_shocks()[0].clone()];
+    let replay = build_vertical_replay(shocks, bars);
+    let a = collect_trades(&mk(ExecutionEntryTiming::EntrySessionOpen), &replay);
+    let b = collect_trades(&mk(ExecutionEntryTiming::NextSessionOpen), &replay);
+    assert_eq!(a.len(), 1);
+    assert_eq!(b.len(), 1);
+    assert_ne!(a[0].gross_return, b[0].gross_return);
 }

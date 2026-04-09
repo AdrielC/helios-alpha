@@ -38,6 +38,7 @@ fn compact_csv_loads_and_produces_treatment_trades() {
             vol_epsilon: None,
         },
         cand,
+        ExecutionEntryTiming::EntrySessionOpen,
     );
 
     let mut st = vertical.init();

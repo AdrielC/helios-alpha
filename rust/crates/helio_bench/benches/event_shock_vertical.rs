@@ -3,7 +3,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use helio_event::*;
 use helio_scan::{
-    FlushReason, FlushableScan, HashMapStore, Persisted, Runner, Scan, SessionDate, VecEmitter,
+    run_slice, FlushReason, FlushableScan, HashMapStore, Persisted, Runner, Scan, ScanBatchExt,
+    SessionDate, VecEmitter,
 };
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};
 
@@ -13,6 +14,7 @@ fn bench_events() -> Vec<EventShock> {
             let d = 20 + (i as i32 % 40);
             EventShock {
                 id: EventId(i),
+                kind: EventKind::Other,
                 tags: String::new(),
                 observed_at: None,
                 available_at: AvailableAt((d as i64) * 86_400 + 100),
@@ -71,6 +73,7 @@ fn vertical_machine() -> EventShockVerticalScan<SimpleWeekdayCalendar> {
             vol_epsilon: None,
         },
         cand,
+        helio_event::ExecutionEntryTiming::EntrySessionOpen,
     )
 }
 
@@ -139,6 +142,26 @@ fn bench_execution_e2e(c: &mut Criterion) {
             black_box(e.into_inner().len())
         });
     });
+
+    c.bench_function("event_shock_e2e_step_batch_slice", |b| {
+        b.iter(|| {
+            let mut st = black_box(vertical.init());
+            let mut e = VecEmitter::new();
+            vertical.step_batch(&mut st, black_box(stream.iter().cloned()), &mut e);
+            vertical.flush(&mut st, FlushReason::EndOfInput, &mut e);
+            black_box(e.into_inner().len())
+        });
+    });
+
+    c.bench_function("event_shock_e2e_run_slice", |b| {
+        b.iter(|| {
+            let mut st = black_box(vertical.init());
+            let mut e = VecEmitter::new();
+            run_slice(&vertical, &mut st, black_box(stream.as_slice()), &mut e);
+            vertical.flush(&mut st, FlushReason::EndOfInput, &mut e);
+            black_box(e.into_inner().len())
+        });
+    });
 }
 
 #[derive(Clone)]
@@ -175,6 +198,6 @@ criterion_group!(
     benches,
     bench_align_to_signal,
     bench_execution_e2e,
-    bench_checkpoint_restart
+    bench_checkpoint_restart,
 );
 criterion_main!(benches);

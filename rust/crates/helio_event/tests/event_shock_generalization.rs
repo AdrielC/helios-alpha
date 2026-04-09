@@ -27,6 +27,7 @@ fn vertical_for_strategy(
             vol_epsilon: None,
         },
         cand,
+        ExecutionEntryTiming::EntrySessionOpen,
     )
 }
 
