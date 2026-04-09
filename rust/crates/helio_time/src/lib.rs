@@ -2,6 +2,8 @@
 //!
 //! ## Layers (keep separate)
 //!
+//! - **Session telescope + business clock** — [`crate::session_telescope`], [`crate::business_time_clock`]
+//!   (venue IANA zone, historical hour regimes, multi-interval RTH, DST-aware UTC mapping).
 //! - **Frequency / bounds / specs** — this crate (`helio_time`).
 //! - **Rolling buffers + aggregators + scans** — `helio_window`.
 //! - **Generic scan algebra** — `helio_scan` (no market/time domain).
@@ -21,9 +23,11 @@ mod anchor;
 mod availability;
 mod bounds;
 mod bucket;
+mod business_time_clock;
 mod calendar;
 mod frequency;
 mod gate;
+mod session_telescope;
 mod typed_freq;
 mod window_spec;
 
@@ -31,9 +35,11 @@ pub use anchor::*;
 pub use availability::*;
 pub use bounds::*;
 pub use bucket::*;
+pub use business_time_clock::*;
 pub use calendar::*;
 pub use frequency::*;
 pub use gate::*;
+pub use session_telescope::*;
 pub use typed_freq::*;
 pub use window_spec::*;
 
