@@ -1,18 +1,29 @@
-//! `cargo run -p helio_event --bin replay_event_shock -- --events FILE --bars FILE [--as-of SEC] [--out DIR]`
+//! `cargo run -p helio_event --bin replay_event_shock -- --events FILE --bars FILE ...`
 //!
 //! Loads normalized events and daily bars, runs the event-shock vertical, writes CSV + markdown.
+//! Verifies incremental / batch / checkpoint-resume paths produce identical trade lists.
 
 use helio_event::*;
-use helio_scan::{FlushReason, FlushableScan, Scan, VecEmitter};
+use helio_scan::{Scan, VecEmitter};
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};
 use std::fs;
 use std::path::PathBuf;
 
 fn usage() -> ! {
     eprintln!(
-        "Usage: replay_event_shock --events <file> --bars <file> [--as-of <epoch_sec>] [--out <dir>] [--events-format csv|jsonl|solar]"
+        "Usage: replay_event_shock --events <file> --bars <file> [options]\n\
+         Options:\n\
+          --out <dir>              output directory (default: event_shock_out)\n\
+         --as-of <epoch_sec>      availability gate (optional)\n\
+         --events-format <fmt>    csv | jsonl | solar | weather\n\
+         --strategy <name>        xlu-spy-5 | defense-spy-mid (default: xlu-spy-5)\n\
+         --min-lead-secs <i64>    lead-time band lower (default: 0)\n\
+         --max-lead-secs <i64>    lead-time band upper (default: 9223372036854775807)\n\
+         --control-seed <u64>     matched-control RNG seed (default: 42)\n\
+         --skip-replay-verify     do not assert batch==incremental==checkpoint"
     );
-    eprintln!("  solar  = CSV columns id,available_at,impact_start,impact_end,severity,confidence (demo / ingest)");
+    eprintln!("  solar   = id,available_at,impact_start,impact_end,severity,confidence");
+    eprintln!("  weather = same + optional region_code (maps to EventScope::Region)");
     std::process::exit(2);
 }
 
@@ -31,6 +42,13 @@ fn mean(xs: &[f64]) -> f64 {
     }
 }
 
+fn parse_strategy(s: &str) -> EventShockStrategyPreset {
+    match s.to_ascii_lowercase().as_str() {
+        "defense-spy-mid" | "ita-spy-mid" => EventShockStrategyPreset::DefenseSpyPairMidWindow,
+        _ => EventShockStrategyPreset::XluSpyPairFiveSession,
+    }
+}
+
 fn main() {
     let mut args = std::env::args().skip(1).collect::<Vec<_>>();
     let mut events_path: Option<PathBuf> = None;
@@ -38,6 +56,11 @@ fn main() {
     let mut out_dir = PathBuf::from("event_shock_out");
     let mut as_of: Option<i64> = None;
     let mut events_format = "csv".to_string();
+    let mut strategy_name = "xlu-spy-5".to_string();
+    let mut min_lead_secs: i64 = 0;
+    let mut max_lead_secs: i64 = i64::MAX;
+    let mut control_seed: u64 = 42;
+    let mut skip_verify = false;
 
     while let Some(a) = args.first().cloned() {
         args.remove(0);
@@ -47,6 +70,11 @@ fn main() {
             "--out" => out_dir = PathBuf::from(args.remove(0)),
             "--as-of" => as_of = Some(args.remove(0).parse().expect("as-of int")),
             "--events-format" => events_format = args.remove(0),
+            "--strategy" => strategy_name = args.remove(0),
+            "--min-lead-secs" => min_lead_secs = args.remove(0).parse().expect("min-lead-secs"),
+            "--max-lead-secs" => max_lead_secs = args.remove(0).parse().expect("max-lead-secs"),
+            "--control-seed" => control_seed = args.remove(0).parse().expect("control-seed"),
+            "--skip-replay-verify" => skip_verify = true,
             "--help" | "-h" => usage(),
             other => {
                 eprintln!("unknown arg: {other}");
@@ -62,47 +90,53 @@ fn main() {
     let shocks = match events_format.as_str() {
         "jsonl" => load_event_shocks_jsonl(&events_raw).expect("parse events"),
         "solar" => load_solar_event_shocks_csv(&events_raw).expect("parse solar events"),
+        "weather" => load_weather_event_shocks_csv(&events_raw).expect("parse weather events"),
         _ => load_event_shocks_csv(&events_raw).expect("parse events"),
     };
     let n_events = shocks.len();
+    let lead_report = summarize_lead_times(&shocks, min_lead_secs, max_lead_secs);
 
     let bars_raw = fs::read_to_string(&bars_path).expect("read bars");
     let bars = load_daily_bars_csv(&bars_raw).expect("parse bars");
     let candidates = candidate_entries_from_bars(&bars);
     let replay = build_vertical_replay(shocks, bars);
 
+    let preset = parse_strategy(&strategy_name);
+    let filter = EventShockFilterConfig {
+        min_severity: 0.0,
+        min_confidence: 0.0,
+        min_lead_secs,
+        max_lead_secs,
+        scope: ScopeFilter::Any,
+    };
+
     let cal = SimpleWeekdayCalendar;
-    let xlu = Symbol("XLU".into());
-    let spy = Symbol("SPY".into());
     let vertical = EventShockVerticalScan::new(
         as_of.map(AvailableAt),
-        EventShockFilterConfig::default(),
+        filter,
         cal,
-        ExitPolicy::FixedHorizonSessions { n: 5 },
-        Exposure::Pair {
-            long: xlu.clone(),
-            short: spy.clone(),
-        },
+        preset.exit_policy(),
+        preset.treatment_exposure(),
         EventShockControlConfig {
-            seed: 42,
+            seed: control_seed,
             controls_per_treatment: 1,
-            horizon_sessions: 5,
-            exposure: Exposure::Pair {
-                long: xlu,
-                short: spy,
-            },
+            horizon_sessions: preset.control_horizon_sessions(),
+            exposure: preset.control_exposure_clone(),
             vol_epsilon: None,
         },
         candidates,
     );
 
-    let mut st = vertical.init();
-    let mut trades = VecEmitter::new();
-    for r in &replay {
-        vertical.step(&mut st, r.clone(), &mut trades);
+    let batch = collect_vertical_trades_batch(&vertical, &replay);
+    let incremental = collect_vertical_trades_incremental(&vertical, &replay);
+    let checkpointed =
+        collect_vertical_trades_with_checkpoint_resume(&vertical, &replay, replay.len() / 2);
+
+    if !skip_verify && (batch != incremental || batch != checkpointed) {
+        eprintln!("replay verification failed: batch/incremental/checkpoint trades differ");
+        std::process::exit(1);
     }
-    vertical.flush(&mut st, FlushReason::EndOfInput, &mut trades);
-    let trade_vec = trades.into_inner();
+    let trade_vec = batch;
 
     let fold = EventShockMetricsFoldScan::default();
     let mut st_f = fold.init();
@@ -150,12 +184,38 @@ fn main() {
     }
     w.flush().ok();
 
+    let lead_csv = out_dir.join("lead_time.csv");
+    let mut wl = csv::Writer::from_path(&lead_csv).expect("lead csv");
+    wl.write_record([
+        "n_events",
+        "min_lead_secs",
+        "max_lead_secs_observed",
+        "band_min_secs",
+        "band_max_secs",
+        "n_tradable_under_band",
+    ])
+    .ok();
+    wl.write_record([
+        lead_report.n_events.to_string(),
+        lead_report.min_lead_secs.to_string(),
+        lead_report.max_lead_secs.to_string(),
+        lead_report.band_min_secs.to_string(),
+        lead_report.band_max_secs.to_string(),
+        lead_report.n_tradable_under_band.to_string(),
+    ])
+    .ok();
+    wl.flush().ok();
+
     let summary_csv = out_dir.join("summary.csv");
     let mut ws = csv::Writer::from_path(&summary_csv).expect("summary csv");
     ws.write_record([
         "n_events_ingested",
         "n_trade_rows",
         "n_treatment_trades",
+        "lead_band_min_secs",
+        "lead_band_max_secs",
+        "n_events_tradable_lead_band",
+        "strategy",
         "count",
         "mean_return",
         "median_return",
@@ -198,6 +258,10 @@ fn main() {
             n_events.to_string(),
             trade_vec.len().to_string(),
             n_treatment.to_string(),
+            min_lead_secs.to_string(),
+            max_lead_secs.to_string(),
+            lead_report.n_tradable_under_band.to_string(),
+            strategy_name.clone(),
             s.count.to_string(),
             format!("{:.6}", s.mean_return),
             format!("{:.6}", s.median_return),
@@ -224,6 +288,10 @@ fn main() {
             n_events.to_string(),
             trade_vec.len().to_string(),
             n_treatment.to_string(),
+            min_lead_secs.to_string(),
+            max_lead_secs.to_string(),
+            lead_report.n_tradable_under_band.to_string(),
+            strategy_name.clone(),
             "0".into(),
             String::new(),
             String::new(),
@@ -257,8 +325,33 @@ fn main() {
 
     let md = out_dir.join("report.md");
     let mut report = String::from("# Event shock replay report\n\n");
+    report.push_str(&format!(
+        "Strategy: `{}` · events format: `{}` · replay verify: {}\n\n",
+        strategy_name,
+        events_format,
+        if skip_verify {
+            "skipped"
+        } else {
+            "batch == incremental == checkpoint OK"
+        }
+    ));
+
+    report.push_str("## Lead time (impact_start − available_at)\n\n");
+    report.push_str(&format!(
+        "| | |\n|--|--|\n| Events | {} |\n| Min lead (sec) | {} |\n| Max lead (sec) | {} |\n| Configured band \\[min, max\\] | [{}, {}] |\n| Events in band (tradable lead) | {} |\n",
+        lead_report.n_events,
+        lead_report.min_lead_secs,
+        lead_report.max_lead_secs,
+        lead_report.band_min_secs,
+        lead_report.band_max_secs,
+        lead_report.n_tradable_under_band
+    ));
+    report.push_str(
+        "\n*(Pipeline filter uses the same band for `min_lead_secs` / `max_lead_secs`.)*\n\n",
+    );
+
     report.push_str("## Headline metrics\n\n");
-    report.push_str(&format!("| Metric | Value |\n|--------|-------|\n"));
+    report.push_str("| Metric | Value |\n|--------|-------|\n");
     report.push_str(&format!("| Events ingested | {} |\n", n_events));
     report.push_str(&format!(
         "| Trade rows (treatment + controls) | {} |\n",
@@ -338,5 +431,8 @@ fn main() {
 
     fs::write(&md, report).expect("write report");
 
-    println!("Wrote {:?}, {:?}, {:?}", trades_csv, summary_csv, md);
+    println!(
+        "Wrote {:?}, {:?}, {:?}, {:?}",
+        trades_csv, lead_csv, summary_csv, md
+    );
 }

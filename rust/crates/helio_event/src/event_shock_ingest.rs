@@ -119,6 +119,40 @@ pub fn load_solar_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String
     Ok(out)
 }
 
+/// **Weather**-family CSV (same columns as solar):  
+/// `id,available_at,impact_start,impact_end,severity,confidence[,region_code]`  
+/// Maps via [`crate::weather_row_to_event_shock`]; `region_code` optional → `EventScope::Global`.
+pub fn load_weather_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
+    #[derive(Debug, Deserialize)]
+    struct WeatherCsvRow {
+        id: u64,
+        available_at: i64,
+        impact_start: i64,
+        impact_end: i64,
+        severity: f64,
+        confidence: f64,
+        #[serde(default)]
+        region_code: Option<u32>,
+    }
+    let mut rdr = csv::ReaderBuilder::new()
+        .trim(csv::Trim::All)
+        .from_reader(data.as_bytes());
+    let mut out = Vec::new();
+    for rec in rdr.deserialize::<WeatherCsvRow>() {
+        let row = rec.map_err(|e| e.to_string())?;
+        out.push(crate::weather_row_to_event_shock(crate::WeatherShockRow {
+            id: row.id,
+            available_at: row.available_at,
+            impact_start: row.impact_start,
+            impact_end: row.impact_end,
+            severity: row.severity,
+            confidence: row.confidence,
+            region_code: row.region_code,
+        }));
+    }
+    Ok(out)
+}
+
 /// One JSON object per line, same fields as CSV (snake_case).
 pub fn load_event_shocks_jsonl(data: &str) -> Result<Vec<EventShock>, String> {
     let mut out = Vec::new();

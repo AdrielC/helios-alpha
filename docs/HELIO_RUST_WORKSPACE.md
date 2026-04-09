@@ -50,6 +50,26 @@ cargo run -p helio_event --bin replay_event_shock -- \
 
 Generic events (with `kind` / `scope`): use `--events-format csv` and `fixtures/event_shock/events.csv`.
 
+**Weather-family CSV** (same numeric columns as solar + optional `region_code`): `--events-format weather`, e.g. `fixtures/event_shock/weather_events.csv`.
+
+**Second strategy** (ITA–SPY, mid impact window exit): `--strategy defense-spy-mid`. Default remains XLU–SPY 5-session hold.
+
+**Lead-time band** (also applied as pipeline filter): `--min-lead-secs` / `--max-lead-secs`. Outputs `lead_time.csv` and a lead section in `report.md`.
+
+**Replay modes:** the CLI checks **batch == incremental == checkpoint-resume** on the merged stream unless `--skip-replay-verify`.
+
+```bash
+cargo run -p helio_event --bin replay_event_shock -- \
+  --events fixtures/event_shock/weather_events.csv \
+  --bars fixtures/event_shock/bars.csv \
+  --events-format weather \
+  --strategy defense-spy-mid \
+  --min-lead-secs 0 --max-lead-secs 10000000 \
+  --out /tmp/weather_demo
+```
+
+Architecture / generalization memo: [EVENT_SHOCK_ARCHITECTURE.md](EVENT_SHOCK_ARCHITECTURE.md).
+
 ## Golden-path replay tests
 
 `helio_event/tests/replay_determinism.rs` exercises:
