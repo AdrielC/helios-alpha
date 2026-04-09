@@ -57,6 +57,7 @@ Alternatives you can swap without changing the JSON body: **Redis pub/sub**, **N
 | Component | Role |
 |-----------|------|
 | `helios_signald` | Sub microsecond parse + route; optional aggregation |
+| `helio_scan` | Composable **scan algebra** for ordered streams (step, flush, snapshot, checkpoint). See [HELIO_SCAN.md](HELIO_SCAN.md). |
 | Bar joiner | Align ticks to **CustomBusinessHour** session flags (bitsets) |
 | Feature microbatch | Rolling VWAP, imbalance, spread — feed Python or second ZMQ topic |
 | Risk / OMS shim | Last line before broker; keep **deterministic** and tested |

@@ -39,6 +39,8 @@ This is an attempt to turn the Sun into a risk factor.
 
 **Live path (signals → Rust)**: local ZMQ pub/sub + JSON schema — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/helios_signald/`. Install `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
 
+**Rust scan substrate**: composable state machines over ordered streams — [docs/HELIO_SCAN.md](docs/HELIO_SCAN.md) and `rust/helio_scan/` (Cargo workspace root: `rust/Cargo.toml`).
+
 Parquet outputs are gitignored; regenerate locally.
 
 ## Quickstart
@@ -86,7 +88,7 @@ pytest
 pytest -m integration   # live API smoke tests
 ```
 
-CI (GitHub Actions): **ruff** + **pytest** (unit always; integration job is best-effort), **Rust** `cargo build` for `rust/helios_signald` with `libzmq3-dev` + `g++`.
+CI (GitHub Actions): **ruff** + **pytest** (unit always; integration job is best-effort), **Rust** `cargo test -p helio_scan` and `cargo build --release -p helios_signald` from `rust/` with `libzmq3-dev` + `g++`.
 
 Artifacts:
 
