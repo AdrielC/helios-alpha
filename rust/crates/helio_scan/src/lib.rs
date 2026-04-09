@@ -32,10 +32,10 @@
 //!   [`FlushReason::Checkpoint`].
 //! - **[`Runner`]** — owns `(machine, state)` and forwards `step` / `flush`.
 //!
-//! ## Example scans
+//! ## Where domain logic lives
 //!
-//! Reference implementations (and unit tests): [`EventClusterScan`], [`ForwardOutcomeScan`]. They
-//! are pedagogical, not production SSI logic.
+//! Rolling windows, horizons, clustering, and event-study pipelines live in **`helio_window`** and
+//! **`helio_event`**. **`helio_scan`** stays a cold, generic algebra.
 //!
 //! ## Non-goals (current version)
 //!
@@ -45,8 +45,9 @@
 mod combinator;
 mod control;
 mod emit;
-mod examples;
 mod focus;
+#[cfg(test)]
+mod kernel_tests;
 mod persist;
 mod runner;
 mod scan;
@@ -54,7 +55,6 @@ mod scan;
 pub use combinator::*;
 pub use control::*;
 pub use emit::*;
-pub use examples::*;
 pub use focus::*;
 pub use persist::*;
 pub use runner::*;

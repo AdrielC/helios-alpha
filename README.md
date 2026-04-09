@@ -37,9 +37,9 @@ This is an attempt to turn the Sun into a risk factor.
 
 **Symbols:** canonical ids + per-provider maps — [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md) (`config/instruments.yaml`, `config/assets.yaml`).
 
-**Live path (signals → Rust)**: local ZMQ pub/sub + JSON schema — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/helios_signald/`. Install `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
+**Live path (signals → Rust)**: local ZMQ pub/sub + JSON schema — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/crates/helios_signald/`. Install `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
 
-**Rust scan substrate**: composable state machines over ordered streams — [docs/HELIO_SCAN.md](docs/HELIO_SCAN.md) and `rust/helio_scan/` (Cargo workspace root: `rust/Cargo.toml`).
+**Rust scan stack**: kernel + windows + event-study pipeline — [docs/HELIO_RUST_WORKSPACE.md](docs/HELIO_RUST_WORKSPACE.md), [docs/HELIO_SCAN.md](docs/HELIO_SCAN.md); workspace root `rust/Cargo.toml`.
 
 Parquet outputs are gitignored; regenerate locally.
 
@@ -88,7 +88,7 @@ pytest
 pytest -m integration   # live API smoke tests
 ```
 
-CI (GitHub Actions): **ruff** + **pytest** (unit always; integration job is best-effort), **Rust** `cargo test -p helio_scan` and `cargo build --release -p helios_signald` from `rust/` with `libzmq3-dev` + `g++`.
+CI (GitHub Actions): **ruff** + **pytest** (unit always; integration job is best-effort), **Rust** `cargo test` and `cargo build --release -p helios_signald` from `rust/` with `libzmq3-dev` + `g++`.
 
 Artifacts:
 

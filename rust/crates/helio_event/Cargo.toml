@@ -1,0 +1,11 @@
+[package]
+name = "helio_event"
+version = "0.1.0"
+edition = "2021"
+description = "Event-study domain types and replayable pipelines on helio_scan"
+
+[dependencies]
+helio_scan = { path = "../helio_scan" }
+helio_time = { path = "../helio_time" }
+helio_window = { path = "../helio_window" }
+serde = { version = "1", features = ["derive"] }

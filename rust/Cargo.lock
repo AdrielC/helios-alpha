@@ -146,11 +146,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "helio_event"
+version = "0.1.0"
+dependencies = [
+ "helio_scan",
+ "helio_time",
+ "helio_window",
+ "serde",
+]
+
+[[package]]
 name = "helio_scan"
 version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "helio_time"
+version = "0.1.0"
+dependencies = [
+ "helio_scan",
+ "serde",
+]
+
+[[package]]
+name = "helio_window"
+version = "0.1.0"
+dependencies = [
+ "helio_scan",
+ "serde",
 ]
 
 [[package]]

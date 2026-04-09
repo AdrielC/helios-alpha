@@ -42,7 +42,7 @@ Alternatives you can swap without changing the JSON body: **Redis pub/sub**, **N
 
 - **Payload**: UTF-8 JSON, one object per message (ZMQ multipart: `[topic, json_bytes]`).
 - **Versioning**: `schema_version` field; bump when fields are removed or semantics change.
-- Code: `helios_alpha.signals.publisher.SignalPublisher` and `rust/helios_signald`.
+- Code: `helios_alpha.signals.publisher.SignalPublisher` and `rust/crates/helios_signald`.
 
 ## Operational checklist (before real money)
 
@@ -57,7 +57,7 @@ Alternatives you can swap without changing the JSON body: **Redis pub/sub**, **N
 | Component | Role |
 |-----------|------|
 | `helios_signald` | Sub microsecond parse + route; optional aggregation |
-| `helio_scan` | Composable **scan algebra** for ordered streams (step, flush, snapshot, checkpoint). See [HELIO_SCAN.md](HELIO_SCAN.md). |
+| `helio_scan` / `helio_window` / `helio_event` | Rust scan stack (kernel, windows, event-study pipeline). See [HELIO_RUST_WORKSPACE.md](HELIO_RUST_WORKSPACE.md), [HELIO_SCAN.md](HELIO_SCAN.md). |
 | Bar joiner | Align ticks to **CustomBusinessHour** session flags (bitsets) |
 | Feature microbatch | Rolling VWAP, imbalance, spread — feed Python or second ZMQ topic |
 | Risk / OMS shim | Last line before broker; keep **deterministic** and tested |
@@ -84,10 +84,10 @@ p.close()
 "
 ```
 
-Terminal 2 (Rust subscriber; see `rust/helios_signald/README.md` for build deps):
+Terminal 2 (Rust subscriber; see `rust/crates/helios_signald/README.md` for build deps):
 
 ```bash
-cd rust/helios_signald && cargo run --release -- tcp://127.0.0.1:7779
+cd rust && cargo run --release -p helios_signald -- tcp://127.0.0.1:7779
 ```
 
 (Or run Terminal 2 **before** Terminal 1 and leave the subscriber running, then publish.)

@@ -4,7 +4,7 @@ Composable **scan machines** over ordered streams: step with multi-emission, opt
 
 ## Full documentation
 
-See the repository guide: [docs/HELIO_SCAN.md](../../docs/HELIO_SCAN.md).
+See the repository guide: [docs/HELIO_SCAN.md](../../../docs/HELIO_SCAN.md) and [docs/HELIO_RUST_WORKSPACE.md](../../../docs/HELIO_RUST_WORKSPACE.md).
 
 ## Quick start
 
@@ -17,7 +17,7 @@ cargo doc -p helio_scan --no-deps --open
 
 ## Workspace
 
-This crate is a member of the Cargo workspace defined in `../Cargo.toml` (`helio_scan` + `helios_signald`). The workspace uses `default-members = ["helio_scan"]` so `cargo test` in `rust/` does not require building the ZMQ binary.
+This crate lives under `rust/crates/helio_scan` in the workspace defined in `../../Cargo.toml`. Default members include this crate but not `helios_signald`, so `cargo test` in `rust/` does not require ZMQ.
 
 ## Design slogan
 

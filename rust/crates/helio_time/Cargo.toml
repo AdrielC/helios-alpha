@@ -1,0 +1,9 @@
+[package]
+name = "helio_time"
+version = "0.1.0"
+edition = "2021"
+description = "Temporal semantics and causality helpers for helio scan pipelines"
+
+[dependencies]
+helio_scan = { path = "../helio_scan" }
+serde = { version = "1", features = ["derive"] }

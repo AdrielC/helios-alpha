@@ -63,5 +63,5 @@ jobs:
       - name: Cargo test + build (workspace)
         working-directory: rust
         run: |
-          cargo test -p helio_scan
+          cargo test
           cargo build --release -p helios_signald

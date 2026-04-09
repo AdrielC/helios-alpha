@@ -2,7 +2,7 @@
 
 This document describes the **`helio_scan`** Rust library: a small **composable state-machine substrate** for research and execution pipelines over **ordered observations** (bars, events, mixed streams). It is intentionally **not** a bag of indicators or a monolithic backtester. The goal is a **typed scan algebra**: step, optional multi-emission, **flush** at control boundaries, **snapshot/restore**, and **checkpoint + offset** for resume.
 
-Code lives under `rust/helio_scan/`. The Rust workspace root is `rust/Cargo.toml` (members: `helio_scan`, `helios_signald`).
+Code lives under **`rust/crates/helio_scan/`**. Workspace layout: [HELIO_RUST_WORKSPACE.md](HELIO_RUST_WORKSPACE.md).
 
 ## Design slogan
 
@@ -41,7 +41,7 @@ Composition (e.g. `Then`) wires **outputs** of an upstream scan into **inputs** 
 | `SnapshottingScan` | `Snapshot: Serialize + DeserializeOwned`; `snapshot`, `restore`. |
 | `VersionedSnapshot` | `const VERSION: u32` on snapshot types for future migration. |
 
-Run `cargo doc -p helio_scan --open` from `rust/` for the full API.
+Run `cargo doc -p helio_scan --no-deps --open` from `rust/` for the full API.
 
 ## Control and checkpoints
 
@@ -72,14 +72,11 @@ Extension trait **`ScanExt`** provides `.map`, `.filter_map`, `.then` on any `Sc
 
 A generic **`Compose<F, G>`** combinator for arbitrary nested focuses is **not** included: Rust’s lifetime rules on nested associated types make a fully general compose awkward without a heavier design. Prefer **explicit field access** or **stacked** `Focus` calls in tests and tooling.
 
-## Example scans (reference implementations)
+## Where example / window scans live
 
-The crate ships two small machines in `examples.rs` (also exercised by unit tests):
+**`helio_scan`** stays domain-agnostic. Reference window machines (`ForwardHorizonScan`, `EventClusterScan`, rolling windows, …) live in **`helio_window`**. Event-study wiring and replay tests live in **`helio_event`**.
 
-1. **`EventClusterScan`** — cluster raw point events by **maximum gap in days**; finalize clusters on large gaps or on flush (`EndOfInput`, `Shutdown`, `SessionClose`, `Manual`).
-2. **`ForwardOutcomeScan`** — interleaved **`MarketOrTreatment`** stream: treatments attach to the **next** bar; **horizon** counts bars until a **`ForwardOutcome`** is emitted.
-
-These are **pedagogical**, not production SSI or event-study logic. They show how flush and snapshot behave under composition and checkpointing.
+Kernel-only unit tests are in **`helio_scan/src/kernel_tests.rs`**.
 
 ## Building and testing
 
@@ -87,11 +84,11 @@ From repository root:
 
 ```bash
 cd rust
-cargo test -p helio_scan
+cargo test
 cargo doc -p helio_scan --no-deps --open
 ```
 
-The workspace sets **`default-members = ["helio_scan"]`**, so a bare `cargo test` inside `rust/` exercises the library **without** building the ZMQ subscriber.
+The workspace **`default-members`** lists **`helio_scan`**, **`helio_time`**, **`helio_window`**, **`helio_event`** (not **`helios_signald`**), so a bare `cargo test` inside `rust/` does not require ZMQ.
 
 To build the signal daemon (needs system **libzmq** and a C++ toolchain, as in CI):
 
@@ -104,33 +101,31 @@ cargo build --release -p helios_signald
 
 - **Python** remains the natural home for Hydra config, notebooks, and heavy dataframe workflows.
 - **`helios_signald`** is a thin ZMQ subscriber stub for the live JSON signal path (see [EXECUTION_AND_SIGNALS.md](EXECUTION_AND_SIGNALS.md)).
-- **`helio_scan`** is the **engine substrate** for future Rust-side pipelines: deterministic scans, shared logic between backtest and live, and optional **checkpointed** runners over Kafka/Redis-style sources.
+- **`helio_scan`** and friends are the **engine substrate** for Rust-side pipelines: deterministic scans, shared logic between backtest and live, and optional **checkpointed** runners over Kafka/Redis-style sources.
 
 Nothing in `helio_scan` depends on ZMQ or Python.
 
-## Roadmap (not yet in crate)
+## Roadmap (kernel)
 
-Reasonable next layers, aligned with the same traits:
+Reasonable next layers **in `helio_scan` only**:
 
-- **`WindowScan`** (or `expire` on a time key) for rolling windows, forward horizons, and watermark-driven finalization.
-- **Typed time keys** on inputs (`event_time`, `available_at`, session id) as **separate types** or traits, so scans declare what time semantics they require.
-- More combinators: **merge**, **branch**, **fold** over emitted outputs, **stateful_map**.
-- **Profunctor-style** `dimap` / `contramap` for adapters (only if the ergonomics win is clear).
+- More combinators: **merge**, **branch**, **fold** sink adapters, **stateful_map**.
+- Transport-agnostic snapshot encoding seam (serde today; bincode/postcard later at the store).
 
-Explicit **non-goals** for the current design pass: async-first APIs, distributed execution in-crate, Arrow-native kernels, proc-macro optics, and full Kafka exactly-once semantics beyond **checkpoint + offset** skeletons.
+Explicit **non-goals** for the kernel: async-first APIs, market/session types, Arrow-native kernels, proc-macro optics, full Kafka exactly-once beyond **checkpoint + offset** skeletons.
 
 ## Files
 
 | Path | Role |
 |------|------|
 | `rust/Cargo.toml` | Workspace manifest |
-| `rust/helio_scan/` | Library crate |
-| `rust/helio_scan/src/lib.rs` | Crate root + re-exports |
-| `rust/helio_scan/src/emit.rs` | `Emit`, `VecEmitter`, bridge adapters |
-| `rust/helio_scan/src/scan.rs` | Core traits |
-| `rust/helio_scan/src/control.rs` | `FlushReason`, `Checkpoint`, … |
-| `rust/helio_scan/src/combinator.rs` | `Map`, `FilterMap`, `Then`, `ZipInput` |
-| `rust/helio_scan/src/focus.rs` | `Focus`, `ThenLeft`, … |
-| `rust/helio_scan/src/persist.rs` | `SnapshotStore`, `Persisted`, … |
-| `rust/helio_scan/src/runner.rs` | `Runner` |
-| `rust/helio_scan/src/examples.rs` | Example scans + tests |
+| `rust/crates/helio_scan/` | Library crate |
+| `rust/crates/helio_scan/src/lib.rs` | Crate root + re-exports |
+| `rust/crates/helio_scan/src/emit.rs` | `Emit`, `VecEmitter`, bridge adapters |
+| `rust/crates/helio_scan/src/scan.rs` | Core traits |
+| `rust/crates/helio_scan/src/control.rs` | `FlushReason`, `Checkpoint`, … |
+| `rust/crates/helio_scan/src/combinator.rs` | `Map`, `FilterMap`, `Then`, `ZipInput` |
+| `rust/crates/helio_scan/src/focus.rs` | `Focus`, `ThenLeft`, … |
+| `rust/crates/helio_scan/src/persist.rs` | `SnapshotStore`, `Persisted`, … |
+| `rust/crates/helio_scan/src/runner.rs` | `Runner` |
+| `rust/crates/helio_scan/src/kernel_tests.rs` | Kernel-only tests |

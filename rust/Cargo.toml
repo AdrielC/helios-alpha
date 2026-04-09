@@ -1,4 +1,15 @@
 [workspace]
 resolver = "2"
-members = ["helio_scan", "helios_signald"]
-default-members = ["helio_scan"]
+members = [
+    "crates/helio_scan",
+    "crates/helio_time",
+    "crates/helio_window",
+    "crates/helio_event",
+    "crates/helios_signald",
+]
+default-members = [
+    "crates/helio_scan",
+    "crates/helio_time",
+    "crates/helio_window",
+    "crates/helio_event",
+]
