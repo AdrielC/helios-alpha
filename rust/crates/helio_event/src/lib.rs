@@ -1,8 +1,12 @@
-//! Event-study **domain** layer: treatment/control types, configuration, and composable scans on top
-//! of [`helio_scan`], [`helio_time`], and [`helio_window`].
+//! Domain **proving ground** on [`helio_scan`], [`helio_time`], and [`helio_window`]: classic
+//! event-study pipelines **and** generic forecastable **event-shock** machinery (`event_shock`).
 //!
-//! The scan kernel remains in **`helio_scan`**; this crate is allowed to know about bars, sessions,
-//! and causal tagging.
+//! **Scope:** Internal substrate — names like [`TreatmentSelectorScan`](crate::TreatmentSelectorScan)
+//! and [`CausalEventStudyPipeline`](crate::CausalEventStudyPipeline) are **research-shaped**. If the
+//! crate grows further, consider splitting later into **generic event machinery** vs **event-study
+//! analysis**; nothing here is forced to stay a single public package forever.
+//!
+//! The kernel stays in **`helio_scan`**; this crate may use bars, sessions, and causal tagging.
 
 mod event_shock;
 mod fold;

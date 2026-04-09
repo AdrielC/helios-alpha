@@ -22,3 +22,7 @@ This crate lives under `rust/crates/helio_scan` in the workspace defined in `../
 ## Design slogan
 
 Scans are restartable, flushable, causality-aware state machines over ordered streams. Composition preserves structure. State is inspectable, snapshotable, and resumable by offset.
+
+## Stability
+
+Prefer **proving** the existing traits on real workloads over adding new kernel traits. Runners (`run_iter`, `run_batch`, `run_receiver`, optional `run_stream`) stay **adapters**; transports do not belong on `Scan`.

@@ -29,6 +29,15 @@ Three calendar days, three fixed 24h steps, and three sessions are **not** inter
 `WindowSpec` = trailing / leading / centered + `size: Frequency` + `bounds`.  
 `WindowSpec::sample_capacity()` returns `Some(n)` only for sample-count windows — used by ring-buffer scans today.
 
+### Do not confuse spec with eviction
+
+| You write in `WindowSpec` | Ring buffer / `WindowState` today |
+|---------------------------|-----------------------------------|
+| `Frequency::Samples(n)` | **Yes** — capacity `n`, FIFO by sample |
+| `Frequency::Fixed` / `Calendar` / `Session` (extent semantics) | **Not** automatic time-keyed eviction in `WindowState` / default rolling scans — semantics are **documented intent** until `helio_window` grows matching machinery |
+
+Session-**bar** behavior uses dedicated scans (e.g. `SessionWindowScan`) and flush signals, not `WindowSpec` alone.
+
 ## Typed frequency (optional, `helio_time::typed_freq`)
 
 Additive helpers: `Samples<N>`, `Fixed<N, Days>`, `Sessions<N>`, etc. They convert to `Frequency` for APIs that expect runtime specs.
