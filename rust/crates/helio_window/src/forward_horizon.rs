@@ -1,5 +1,8 @@
 use helio_scan::{Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot};
+use helio_time::WindowSpec;
 use serde::{Deserialize, Serialize};
+
+// Horizon length is `Frequency::Samples` / session steps in config; full time-keyed eviction is future work.
 
 /// Mixed stream of bars (one row per trading session day) and treatment definitions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -47,8 +50,22 @@ pub struct ActiveHorizon {
 /// **Session policy:** each `Bar` is one trading day; `horizon_trading_days` counts bars after
 /// attachment. [`FlushReason::SessionClose`] emits [`ForwardHorizonIncomplete`] for open windows
 /// (using last seen bar).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ForwardHorizonScan;
+///
+/// For semantic alignment with the time kernel, interpret a horizon of *n* bars as
+/// [`helio_time::Frequency::Samples`] inside [`WindowSpec::Trailing`]. Time-keyed eviction TBD.
+#[derive(Debug, Clone)]
+pub struct ForwardHorizonScan {
+    /// Documentary / future use: trailing horizon semantics in unified spec form.
+    pub window_spec: WindowSpec,
+}
+
+impl Default for ForwardHorizonScan {
+    fn default() -> Self {
+        Self {
+            window_spec: WindowSpec::trailing_samples(1),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ForwardHorizonState {
@@ -207,7 +224,7 @@ mod tests {
 
     #[test]
     fn session_close_flushes_incomplete() {
-        let s = ForwardHorizonScan;
+        let s = ForwardHorizonScan::default();
         let mut st = s.init();
         let mut e = VecEmitter::new();
         s.step(

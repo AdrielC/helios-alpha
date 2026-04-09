@@ -247,7 +247,7 @@ impl CausalEventStudyPipeline {
                     max_gap_days: cfg.overlap.max_gap_days,
                 },
             },
-            forward: ForwardHorizonScan,
+            forward: ForwardHorizonScan::default(),
         }
     }
 }

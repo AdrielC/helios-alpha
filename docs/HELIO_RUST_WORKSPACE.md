@@ -7,8 +7,8 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | Crate | Role |
 |-------|------|
 | **`helio_scan`** | Cold kernel: `Scan`, `FlushableScan`, `SnapshottingScan`, combinators, checkpoint seam. **No bars, sessions, or market types.** |
-| **`helio_time`** | Causal time contracts: `Timed<T>`, `AvailableAt`, `ObservedAt`, `EffectiveAt`; scans `AvailabilityGateScan`, `SessionAlignScan`. |
-| **`helio_window`** | Reusable windowing: `RollingWindowScan`, `SessionWindowScan`, `ForwardHorizonScan`, `EventClusterScan`, `WatermarkFinalizeScan`, `LagScan`, `DedupScan`, `JoinLatestScan`. |
+| **`helio_time`** | **Semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; optional `typed_freq`; `AvailabilityGateScan`, `SessionAlignScan`. |
+| **`helio_window`** | **Operations:** `WindowBuffer`, `WindowAggregator` / `EvictingWindowAggregator`, `WindowState`, `FoldWindowState`; scans (`RollingWindowScan`, `RollingAggregatorScan`, `RollingFoldScan`, `SessionWindowScan`, `ForwardHorizonScan`, …). |
 | **`helio_event`** | Event-study domain: `TreatmentEvent`, `ControlEvent`, `CausalEventStudyPipeline`, `MatchedControlSampler`, `EventStudyFoldScan`; integration test **`replay_determinism`**. |
 | **`helios_signald`** | ZMQ subscriber binary (system `libzmq` required). |
 
@@ -41,3 +41,4 @@ cargo build --release -p helios_signald
 ## Further reading
 
 - [HELIO_SCAN.md](HELIO_SCAN.md) — kernel design.
+- [TIME_AND_WINDOWS.md](TIME_AND_WINDOWS.md) — frequency, bounds, buffers, aggregators.

@@ -176,6 +176,7 @@ name = "helio_window"
 version = "0.1.0"
 dependencies = [
  "helio_scan",
+ "helio_time",
  "serde",
 ]
 

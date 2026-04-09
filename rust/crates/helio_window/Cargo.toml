@@ -6,4 +6,5 @@ description = "Reusable windowing and horizon scans built on helio_scan"
 
 [dependencies]
 helio_scan = { path = "../helio_scan" }
+helio_time = { path = "../helio_time" }
 serde = { version = "1", features = ["derive"] }

@@ -1,13 +1,39 @@
-//! Explicit **observation** vs **availability** vs **effectivity** for causal pipelines.
+//! Temporal **semantics**: frequency, interval bounds, bucket/window specs, and causality helpers.
 //!
-//! This crate sits above [`helio_scan`] and supplies data contracts so scans can enforce
-//! *knowability* without encoding market specifics into the scan kernel.
+//! ## Layers (keep separate)
 //!
-//! [`helio_scan`]: https://docs.rs/helio_scan (or the path dependency in this workspace)
+//! - **Frequency / bounds / specs** — this crate (`helio_time`).
+//! - **Rolling buffers + aggregators + scans** — `helio_window`.
+//! - **Generic scan algebra** — `helio_scan` (no market/time domain).
+//!
+//! ## Defaults
+//!
+//! - Interval membership defaults to **left-closed, right-open** [`Bounds::LEFT_CLOSED_RIGHT_OPEN`]
+//!   (`[start, end)`).
+//! - **Bucket interval ≠ availability**: see [`availability`] and [`Timed`].
+//!
+//! ## Modes
+//!
+//! - **Runtime**: [`Frequency`], [`BucketSpec`], [`WindowSpec`] (serde-friendly).
+//! - **Typed / static** (optional): [`typed_freq`] (`Samples<N>`, `Fixed<N, Days>`, …).
 
+mod anchor;
+mod availability;
+mod bounds;
+mod bucket;
+mod frequency;
 mod gate;
+mod typed_freq;
+mod window_spec;
 
+pub use anchor::*;
+pub use availability::*;
+pub use bounds::*;
+pub use bucket::*;
+pub use frequency::*;
 pub use gate::*;
+pub use typed_freq::*;
+pub use window_spec::*;
 
 use helio_scan::SessionDate;
 use serde::{Deserialize, Serialize};
