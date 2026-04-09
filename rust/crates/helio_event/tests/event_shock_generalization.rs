@@ -1,10 +1,10 @@
-//! Second dataset (weather), incremental vs batch replay, lead-time summary.
+//! Region-scoped compact CSV, incremental vs batch replay, lead-time summary.
 
 use helio_event::*;
 use helio_scan::SessionDate;
 use helio_time::SimpleWeekdayCalendar;
 
-const WEATHER_CSV: &str = include_str!("../../../fixtures/event_shock/weather_events.csv");
+const REGION_CSV: &str = include_str!("../../../fixtures/event_shock/compact_region_events.csv");
 const BARS_CSV: &str = include_str!("../../../fixtures/event_shock/bars.csv");
 
 fn vertical_for_strategy(
@@ -31,17 +31,16 @@ fn vertical_for_strategy(
 }
 
 #[test]
-fn weather_adapter_maps_to_event_shock() {
-    let shocks = load_weather_event_shocks_csv(WEATHER_CSV).expect("parse");
+fn compact_region_csv_maps_scope() {
+    let shocks = load_compact_region_event_shocks_csv(REGION_CSV).expect("parse");
     assert_eq!(shocks.len(), 2);
-    assert!(matches!(shocks[0].kind, EventKind::Weather));
     assert!(matches!(shocks[0].scope, EventScope::Region(12)));
     assert!(matches!(shocks[1].scope, EventScope::Global));
 }
 
 #[test]
-fn defense_spy_strategy_runs_on_weather_events() {
-    let shocks = load_weather_event_shocks_csv(WEATHER_CSV).expect("weather");
+fn defense_spy_strategy_runs_on_region_events() {
+    let shocks = load_compact_region_event_shocks_csv(REGION_CSV).expect("region");
     let bars = load_daily_bars_csv(BARS_CSV).expect("bars");
     let replay = build_vertical_replay(shocks, bars);
     let vertical = vertical_for_strategy(
@@ -58,10 +57,10 @@ fn defense_spy_strategy_runs_on_weather_events() {
 
 #[test]
 fn incremental_batch_and_checkpoint_match() {
-    let shocks = load_solar_event_shocks_csv(include_str!(
-        "../../../fixtures/event_shock/solar_events.csv"
+    let shocks = load_compact_event_shocks_csv(include_str!(
+        "../../../fixtures/event_shock/compact_events.csv"
     ))
-    .expect("solar");
+    .expect("compact");
     let bars = load_daily_bars_csv(BARS_CSV).expect("bars");
     let replay = build_vertical_replay(shocks, bars);
     let vertical = vertical_for_strategy(
@@ -77,7 +76,7 @@ fn incremental_batch_and_checkpoint_match() {
 
 #[test]
 fn lead_time_summary_counts_tradable_band() {
-    let shocks = load_weather_event_shocks_csv(WEATHER_CSV).expect("w");
+    let shocks = load_compact_region_event_shocks_csv(REGION_CSV).expect("w");
     let r = summarize_lead_times(&shocks, 100_000, 10_000_000);
     assert_eq!(r.n_events, 2);
     assert!(r.n_tradable_under_band >= 1);
@@ -85,10 +84,10 @@ fn lead_time_summary_counts_tradable_band() {
 
 #[test]
 fn second_strategy_changes_exit_sessions_vs_default() {
-    let shocks = load_solar_event_shocks_csv(include_str!(
-        "../../../fixtures/event_shock/solar_events.csv"
+    let shocks = load_compact_event_shocks_csv(include_str!(
+        "../../../fixtures/event_shock/compact_events.csv"
     ))
-    .expect("solar");
+    .expect("compact");
     let bars = load_daily_bars_csv(BARS_CSV).expect("bars");
     let replay = build_vertical_replay(shocks, bars);
     let v1 = vertical_for_strategy(

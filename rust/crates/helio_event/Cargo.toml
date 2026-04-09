@@ -2,7 +2,7 @@
 name = "helio_event"
 version = "0.1.0"
 edition = "2021"
-description = "Event-study domain types and replayable pipelines on helio_scan"
+description = "Event-study and event-shock strategy pipelines on helio_scan (domain-agnostic shock model)"
 
 [dependencies]
 helio_scan = { path = "../helio_scan" }

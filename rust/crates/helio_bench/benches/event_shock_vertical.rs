@@ -13,7 +13,7 @@ fn bench_events() -> Vec<EventShock> {
             let d = 20 + (i as i32 % 40);
             EventShock {
                 id: EventId(i),
-                kind: EventKind::Solar,
+                tags: String::new(),
                 observed_at: None,
                 available_at: AvailableAt((d as i64) * 86_400 + 100),
                 impact_start: (d as i64 + 5) * 86_400,
