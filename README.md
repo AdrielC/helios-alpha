@@ -16,12 +16,47 @@
 
 # helios-alpha
 
-A research repo for testing whether space weather events, especially solar flares, coronal mass ejections, and geomagnetic storms, create measurable effects in financial markets through infrastructure stress, operational disruption, volatility regime shifts, or delayed news transmission.
+**helios-alpha** is a research codebase with two tightly related goals:
+
+1. **Empirical work (Python)** — Test whether space-weather and related shocks (flares, CMEs, geomagnetic activity) show up in markets through infrastructure stress, volatility regimes, or sluggish repricing — using ingest, features, calendars, and event-study style backtests.
+
+2. **Execution substrate (Rust)** — A **layered, deterministic scan engine** for any stream where you must respect **causality** (what you know and *when* you may act), optional **checkpoints**, **replay**, and **windowed** state. Space weather is the motivating dataset; the Rust side is deliberately **not** “a solar crate” — it is generic machinery you can drive with other forecastable events later.
 
 This is not astrology.  
-This is an attempt to turn the Sun into a risk factor.
+This is an attempt to treat the Sun (and similar shocks) as **testable risk factors**, with honest limits on what the data can support.
 
-## What lives here
+---
+
+## Architecture at a glance
+
+### Python: research and data plane
+
+The **`helios_alpha`** package runs the end-to-end **research pipeline**: pull public space-weather and market data, build composite indices (e.g. Solar Shock Index), align to **exchange sessions**, enforce a **causal cut** (`as_of_date`), and compare event windows to controls. Configuration is **Hydra**; time handling is **pendulum** with an explicit **Clock** (frozen vs system). See **What lives here** below for ingest sources and artifacts.
+
+### Rust: scan kernel and time semantics
+
+Under `rust/` lives a **Cargo workspace** of small crates with strict boundaries (see [docs/HELIO_RUST_WORKSPACE.md](docs/HELIO_RUST_WORKSPACE.md) and [docs/HELIO_SCAN.md](docs/HELIO_SCAN.md)):
+
+| Crate | Responsibility |
+|-------|------------------|
+| **`helio_scan`** | **Domain-free algebra**: `Scan` / `FlushableScan` / `SnapshottingScan`, combinators, checkpoints, **opaque batching by default** (`ScanBatchExt`), **opt-in** `BatchOptimizedScan`, **runners** (`run_iter`, `run_batch`, `run_receiver`, optional async `run_stream`) — transports stay *outside* the core traits. |
+| **`helio_time`** | **Semantics only**: `Frequency`, `Bounds`, `BucketSpec`, `WindowSpec`, `Timed<T>`, `AvailableAt`, availability gates — *what* a window means in domain language, **not** automatic eviction of every variant. |
+| **`helio_window`** | **Operational machinery**: ring buffers, aggregators, rolling/session/horizon scans — **today many rolling paths are sample-count-driven**; rich `WindowSpec` can describe more than the ring buffer enforces until time-keyed expiry is implemented (see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md)). |
+| **`helio_event`** | **Domain proving ground**: classic causal **event-study** pipelines *and* a generic **event-shock** path (`EventShock`, lead-time filters, signal generation). Intended to **stress-test** the stack; may split later if it grows. |
+| **`helio_bench`** | **Criterion** benchmarks (not a default workspace member); pinned Criterion for toolchain compatibility — see crate README for the **intentional pin** and future **regression budgets**. |
+| **`helios_signald`** | Optional **ZMQ** bridge toward live signals (needs system **libzmq** and a C++ toolchain to build). |
+
+**Design invariants** worth preserving: **one step at a time** in the kernel; **batching as adapters** unless a lawful optimized batch exists; **semantic time** in `helio_time` vs **rolling operations** in `helio_window`; **replay and snapshot tests** in `helio_event` to lock determinism.
+
+### How the two sides connect
+
+- **Research** produces Parquet features and event-study outputs in Python.
+- **Rust** is where you build **causality-correct**, **replayable** streaming logic (backtest iterator vs live channel) without polluting the scan traits with domain or transport.
+- **Live path**: JSON over ZMQ — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/crates/helios_signald/`.
+
+---
+
+## What lives here (Python pipeline)
 
 - **Ingest**: NASA DONKI (flares, CMEs), NOAA SWPC (1-minute Kp, GOES integral protons), **Kyoto Dst (ISWA mirror)** and optional **OMNI hourly CDF**, Yahoo Finance daily prices (`yfinance`).
 - **Features**: Solar Shock Index (SSI) from human priors in `config/thresholds.yaml` — tweak weights, do not worship them.
@@ -31,17 +66,17 @@ This is an attempt to turn the Sun into a risk factor.
 - **Causal cut**: `pipeline.as_of_date` threads through ingest windows and the event study (default: `end_date`).
 - **Config**: **Hydra** compose (`src/helios_alpha/conf/`) — all pipeline args are overrides.
 
-**Data catalog**: see [DATA_SOURCES.md](DATA_SOURCES.md).
+**Data catalog**: [DATA_SOURCES.md](DATA_SOURCES.md).
 
 **Licensed market data:** [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) — default pick **Polygon.io**; `pipeline.market.provider=polygon` + `HELIOS_POLYGON_API_KEY`.
 
-**Symbols:** canonical ids + per-provider maps — [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md) (`config/instruments.yaml`, `config/assets.yaml`).
+**Symbols:** [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md) (`config/instruments.yaml`, `config/assets.yaml`).
 
-**Live path (signals → Rust)**: local ZMQ pub/sub + JSON schema — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/crates/helios_signald/`. Install `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
-
-**Rust scan stack**: kernel + windows + event-study pipeline — [docs/HELIO_RUST_WORKSPACE.md](docs/HELIO_RUST_WORKSPACE.md), [docs/HELIO_SCAN.md](docs/HELIO_SCAN.md); workspace root `rust/Cargo.toml`.
+**Live path (signals → Rust)**: `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
 
 Parquet outputs are gitignored; regenerate locally.
+
+---
 
 ## Quickstart
 
@@ -57,6 +92,15 @@ helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
 
 # Causal cut: only data through as_of_date (defaults to end_date if omitted)
 helios-pipeline pipeline.start_date=2020-01-01 pipeline.end_date=2024-12-31 pipeline.as_of_date=2023-06-30
+```
+
+### Rust workspace
+
+```bash
+cd rust
+cargo test
+# Benchmarks (optional):
+cargo bench -p helio_bench --no-run
 ```
 
 ### uv (reproducible)
@@ -96,17 +140,26 @@ Artifacts:
 - `data/processed/events/flare_cme_events.parquet` (merged + SSI)
 - `data/processed/backtest/event_study_*.parquet`
 
+---
+
 ## Honest limitations
 
 - **OMNI CDF** may be unreachable from some networks; use `pipeline.dst.source=kyoto_iswa` (default).
 - **Kp “forecast” in SSI** is proxied by **prior UTC calendar day max Kp** (no lookahead relative to the flare timestamp).
 - **CME Earth arrival** often missing in ENLIL; `earth_directed_strict` = model-listed Earth or WSA flags; `earth_directed_inclusive` adds halo/heuristic; **SSI uses strict** for the Earth-directed term.
+- **Rust `WindowSpec`** can describe frequencies that **ring-buffer scans do not yet enforce** as wall-clock eviction; see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md).
+
+---
 
 ## Notebooks
 
 See `notebooks/` after you have run the pipeline once.
 
+---
+
 ## Thesis chain
 
-Solar event → Earth impact forecast → infrastructure stress / headline risk → asset response.  
-If nothing shows up in simple event studies, the rest of the stack is entertainment.
+Forecastable shock (observation + lead time) → impact window → market repricing (vol, sectors, delay).  
+Solar is the first stress test; the Rust stack is built to generalize **event → availability → signal** under strict causality.
+
+If nothing shows up in simple event studies, the empirical layer still limits what you can claim — the substrate remains useful for other stream-driven research.
