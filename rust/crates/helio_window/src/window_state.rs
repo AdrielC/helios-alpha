@@ -3,7 +3,11 @@ use helio_time::WindowSpec;
 use crate::agg::EvictingWindowAggregator;
 use crate::buffer::WindowBuffer;
 
-/// Combined **spec + ring buffer + eviction-aware aggregator** (sample-count trailing windows).
+/// Combined **spec + ring buffer + eviction-aware aggregator**.
+///
+/// **Operational model:** only constructs successfully when [`WindowSpec::sample_capacity`](helio_time::WindowSpec::sample_capacity) is `Some`
+/// — i.e. **sample-count** windows. A `WindowSpec` whose `Frequency` is not sample-based does **not**
+/// gain time-keyed eviction from this type alone.
 #[derive(Debug, Clone)]
 pub struct WindowState<T, A> {
     spec: WindowSpec,
@@ -54,6 +58,9 @@ impl<T: Clone, A: EvictingWindowAggregator<T>> WindowState<T, A> {
 
 /// **O(n) per snapshot**: keeps values in a ring buffer and applies `fold` to the full slice.
 /// Use when the summary is not incrementally evictable.
+///
+/// Like [`WindowState`], buffer capacity comes from [`WindowSpec::sample_capacity`](helio_time::WindowSpec::sample_capacity) — **sample-driven**
+/// until a separate time-keyed implementation exists.
 #[derive(Debug, Clone)]
 pub struct FoldWindowState<T, S, F> {
     spec: WindowSpec,

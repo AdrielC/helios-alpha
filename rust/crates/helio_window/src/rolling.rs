@@ -37,7 +37,8 @@ impl<T: Clone> RollingWindowScan<T> {
 }
 
 impl<T: Clone> BatchOptimizedScan for RollingWindowScan<T> {
-    /// Same as sequential [`Scan::step`] (opaque batching). Window fills can emit mid-batch in order.
+    /// **Equivalence-only path today:** identical to stepping each element (lawful, not fused).
+    /// Kept so benchmarks can compare call shapes; do not treat this as a performance win.
     fn step_batch_optimized<E>(&self, state: &mut Self::State, batch: &[Self::In], emit: &mut E)
     where
         E: Emit<Self::Out>,

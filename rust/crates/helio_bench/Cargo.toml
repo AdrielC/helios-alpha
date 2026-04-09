@@ -8,7 +8,8 @@ publish = false
 [dependencies]
 
 [dev-dependencies]
-# Pin below 0.5.1: newer criterion pulls clap 4.6+ which needs a newer Cargo/Rust than some CI images.
+# INTENTIONAL TECH DEBT: pin below 0.5.1 — newer criterion pulls clap 4.6+ which needs a newer
+# Cargo/Rust than some CI images. Revisit when CI minimum toolchain moves; see README.md.
 criterion = "=0.4.0"
 helio_event = { path = "../helio_event" }
 helio_scan = { path = "../helio_scan" }

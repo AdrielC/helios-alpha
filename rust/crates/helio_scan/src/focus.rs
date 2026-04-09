@@ -1,6 +1,10 @@
 use crate::combinator::{ThenState, ZipInputState};
 
 /// Typed path into composed state (minimal optic).
+///
+/// Deliberately **not** a full optic/proc-macro layer. If composed state becomes painful to navigate,
+/// prefer **named state structs at pipeline boundaries** (or a focused macro) over ad hoc
+/// reach-into-private-fields hacks.
 pub trait Focus<T> {
     type Target;
 
