@@ -9,7 +9,7 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | **`helio_scan`** | Cold kernel: `Scan`, `FlushableScan`, `SnapshottingScan`, combinators, checkpoint seam. **No bars, sessions, or market types.** |
 | **`helio_time`** | **Semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; optional `typed_freq`; `AvailabilityGateScan`, `SessionAlignScan`. |
 | **`helio_window`** | **Operations:** `WindowBuffer`, `WindowAggregator` / `EvictingWindowAggregator`, `WindowState`, `FoldWindowState`; scans (`RollingWindowScan`, `RollingAggregatorScan`, `RollingFoldScan`, `SessionWindowScan`, `ForwardHorizonScan`, …). |
-| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **`event_shock`** (`EventShock`, `EventShockKernelScan`). Integration test **`replay_determinism`**. May split later (generic machinery vs analysis) if it grows. |
+| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **event-shock vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` binary). Integration tests: **`replay_determinism`**, **`event_shock_vertical_determinism`**, **`solar_demo_smoke`**. May split later (generic machinery vs analysis) if it grows. |
 | **`helios_signald`** | ZMQ subscriber binary (system `libzmq` required). |
 | **`helio_bench`** | Criterion benchmarks (not in `default-members`; run with `cargo bench -p helio_bench`). |
 
@@ -31,7 +31,24 @@ cargo bench -p helio_bench
 cargo bench -p helio_bench --no-run
 ```
 
-See `rust/crates/helio_bench/README.md`.
+See `rust/crates/helio_bench/README.md`. Event-shock vertical baselines and manual thresholds: [EVENT_SHOCK_BENCHMARKS.md](EVENT_SHOCK_BENCHMARKS.md).
+
+## Solar / normalized event-shock demo (CLI)
+
+End-to-end path: load events + daily bars → vertical pipeline → `trades.csv`, `summary.csv`, `report.md`.
+
+**Solar-normalized CSV** columns: `id,available_at,impact_start,impact_end,severity,confidence` (maps to `EventKind::Solar` via `load_solar_event_shocks_csv`).
+
+```bash
+cd rust
+cargo run -p helio_event --bin replay_event_shock -- \
+  --events fixtures/event_shock/solar_events.csv \
+  --bars fixtures/event_shock/bars.csv \
+  --events-format solar \
+  --out /tmp/event_shock_demo
+```
+
+Generic events (with `kind` / `scope`): use `--events-format csv` and `fixtures/event_shock/events.csv`.
 
 ## Golden-path replay tests
 
