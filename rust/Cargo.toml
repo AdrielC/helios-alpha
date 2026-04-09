@@ -1,0 +1,4 @@
+[workspace]
+resolver = "2"
+members = ["helio_scan", "helios_signald"]
+default-members = ["helio_scan"]
