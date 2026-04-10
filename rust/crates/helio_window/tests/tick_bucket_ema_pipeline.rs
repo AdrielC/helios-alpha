@@ -1,18 +1,22 @@
-//! Integration: **ticks → time buckets → mean → EMA → sequential diff** as one composed `Scan` (`scan_then!`).
+//! Integration: **ticks → time buckets → mean → EMA → sequential diff** (`scan_then!`).
 
 use helio_scan::{scan_then, Arr, FlushReason, FlushableScan, Scan, VecEmitter};
+use helio_time::NanosecondWallBucket;
 use helio_window::{
     BucketBarClose, EmaScan, PriceTick, SequentialDiffScan, TimeBucketAggregatorScan,
 };
 
 const NS_PER_SEC: i64 = 1_000_000_000;
-/// 60-second buckets (smaller than 10m for test speed; same machinery as 10-minute bars).
 const BUCKET_NS: i64 = 60 * NS_PER_SEC;
 
 fn pipeline(alpha: f64) -> impl Scan<In = PriceTick, Out = f64> {
     scan_then!(
-        TimeBucketAggregatorScan::<PriceTick>::new(BUCKET_NS),
-        Arr::<_, BucketBarClose, f64>::new(|b: BucketBarClose| b.mean_price()),
+        TimeBucketAggregatorScan::<NanosecondWallBucket, PriceTick>::new(NanosecondWallBucket {
+            width_ns: BUCKET_NS,
+        }),
+        Arr::<_, BucketBarClose<NanosecondWallBucket>, f64>::new(
+            |b: BucketBarClose<NanosecondWallBucket>| b.mean,
+        ),
         EmaScan::new(alpha),
         SequentialDiffScan::<f64>::new(),
     )
@@ -24,7 +28,6 @@ fn composed_pipeline_bucket_then_ema_then_diff() {
     let mut st = p.init();
     let mut out = VecEmitter::new();
 
-    // Bucket 0: two ticks → close at first tick of bucket 1
     p.step(
         &mut st,
         PriceTick {
@@ -53,7 +56,7 @@ fn composed_pipeline_bucket_then_ema_then_diff() {
     );
     assert!(
         out.0.is_empty(),
-        "first bar mean=110 updates EMA; SequentialDiff emits nothing until second EMA sample"
+        "first bar updates EMA; SequentialDiff waits for second EMA"
     );
 
     p.step(
@@ -64,13 +67,15 @@ fn composed_pipeline_bucket_then_ema_then_diff() {
         },
         &mut out,
     );
-    assert_eq!(out.0.len(), 1, "second bar: EMA=200, diff vs 110");
+    assert_eq!(out.0.len(), 1);
     assert!((out.0[0] - 90.0).abs() < 1e-6, "got {}", out.0[0]);
 }
 
 #[test]
 fn flush_emits_partial_bucket() {
-    let s = TimeBucketAggregatorScan::<PriceTick>::new(BUCKET_NS);
+    let s = TimeBucketAggregatorScan::<NanosecondWallBucket, PriceTick>::new(NanosecondWallBucket {
+        width_ns: BUCKET_NS,
+    });
     let mut st = s.init();
     let mut e = VecEmitter::new();
     s.step(

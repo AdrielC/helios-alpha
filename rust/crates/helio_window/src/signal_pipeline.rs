@@ -1,16 +1,18 @@
-//! Composable **tick → time bucket → smooth → change** pipelines on [`Scan`](helio_scan::Scan).
+//! Composable **timed event → time bucket → smooth → change** on [`Scan`](helio_scan::Scan).
 //!
-//! ## Generic inputs
+//! ## Two generic parameters
 //!
-//! - **[`TimeBucketAggregatorScan<T>`]** — `T` must implement [`TimeBucketSample`]: wall-clock
-//!   `time_ns()` plus a scalar [`mean_sample`](TimeBucketSample::mean_sample) summed for the bar mean.
-//!   Built-in: [`PriceTick`]. Define your own tick type and impl the trait.
-//! - **[`SequentialDiffScan<T>`]** — `T: Copy + Sub<Output = T>` (e.g. `f64`, `i64`); first element
-//!   seeds state only; emits `current - previous` thereafter. Use `SequentialDiffScan::<f64>::default()`.
-//! - **[`EmaScan`]** — `f64` in/out today (smooth the scalar series after `Map` from your bar type).
+//! - **`G: WallBucketGrid`** ([`helio_time::WallBucketGrid`]) — **what a bucket is**: width + `floor(t)` on
+//!   timeline coordinate `G::T` (e.g. [`NanosecondWallBucket`](helio_time::NanosecondWallBucket) or
+//!   [`SecondWallBucket`](helio_time::SecondWallBucket)).
+//! - **`V: TimeBucketEvent<G>`** — **payload**: [`TimeBucketEvent::bucket_time`] picks the coordinate in
+//!   the **same unit** as `G` (ns vs sec is a contract of your grid + event), plus [`mean_sample`]
+//!   for the running mean.
 //!
-//! Typical composition:
-//! `TimeBucketAggregatorScan::<MyTick>::new(ns) → Arr(mean) → EmaScan → SequentialDiffScan::<f64>`.
+//! Use [`helio_time::Timed`] with a small wrapper (e.g. [`TimedPriceEvent`]) when the wall clock lives
+//! in `available_at` / `effective_at` rather than a dedicated `t_ns` field.
+//!
+//! Composition: `TimeBucketAggregatorScan::<G,V>::new(grid) → Arr(mean) → EmaScan → SequentialDiffScan::<f64>`.
 
 use std::marker::PhantomData;
 use std::ops::Sub;
@@ -18,26 +20,28 @@ use std::ops::Sub;
 use helio_scan::{
     Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot,
 };
+use helio_time::{AvailableAt, NanosecondWallBucket, Timed, WallBucketGrid};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-// --- Time bucket sample (generic input to bucket scan) ---
+// --- Event side: generic over bucket grid ---
 
-/// Anything that can be **bucketed by wall time** and contributes one **f64** per sample to the
-/// bar’s arithmetic mean (`sum(mean_sample) / count`).
-pub trait TimeBucketSample: Clone {
-    fn time_ns(&self) -> i64;
+/// A sample that can be placed on grid **`G`** and contributes **`mean_sample`** to the bar average.
+pub trait TimeBucketEvent<G: WallBucketGrid>: Clone {
+    /// Timeline coordinate in the **same unit** as `G::T` (ns for [`NanosecondWallBucket`], seconds for [`SecondWallBucket`](helio_time::SecondWallBucket), etc.).
+    fn bucket_time(&self, grid: &G) -> G::T;
+    /// Summand for arithmetic mean over the bucket (`sum / count`).
     fn mean_sample(&self) -> f64;
 }
 
-/// Trade / quote tick: **nanoseconds since Unix epoch** + price.
+/// Trade tick: **nanoseconds** since epoch + price. Use with [`NanosecondWallBucket`].
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PriceTick {
     pub t_ns: i64,
     pub price: f64,
 }
 
-impl TimeBucketSample for PriceTick {
-    fn time_ns(&self) -> i64 {
+impl TimeBucketEvent<NanosecondWallBucket> for PriceTick {
+    fn bucket_time(&self, _grid: &NanosecondWallBucket) -> i64 {
         self.t_ns
     }
 
@@ -46,50 +50,64 @@ impl TimeBucketSample for PriceTick {
     }
 }
 
-/// Closed bucket: `[bucket_start_ns, bucket_end_ns)` half-open in time; **mean** is over
-/// [`TimeBucketSample::mean_sample`] (for [`PriceTick`], mean price).
+/// [`Timed`] payload where **`available_at`** is interpreted as **epoch nanoseconds** for bucketing
+/// (same unit as [`NanosecondWallBucket`]); `value` is the scalar averaged in the bar.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct BucketBarClose {
-    pub bucket_start_ns: i64,
-    pub bucket_end_ns: i64,
-    /// `sum(mean_sample) / tick_count` for samples in this bucket.
+pub struct TimedPriceEvent {
+    pub inner: Timed<f64>,
+}
+
+impl TimedPriceEvent {
+    pub fn new(price: f64, available_at_ns: i64) -> Self {
+        Self {
+            inner: Timed::new(price, AvailableAt(available_at_ns)),
+        }
+    }
+}
+
+impl TimeBucketEvent<NanosecondWallBucket> for TimedPriceEvent {
+    fn bucket_time(&self, _grid: &NanosecondWallBucket) -> i64 {
+        self.inner.available_at.0
+    }
+
+    fn mean_sample(&self) -> f64 {
+        self.inner.value
+    }
+}
+
+/// Closed bucket on grid **`G`**: half-open `[bucket_start, bucket_end)` in `G::T` space.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BucketBarClose<G: WallBucketGrid> {
+    pub bucket_start: G::T,
+    pub bucket_end: G::T,
     pub mean: f64,
     pub tick_count: u64,
 }
 
-impl BucketBarClose {
+impl<G: WallBucketGrid> BucketBarClose<G> {
     #[inline]
     pub fn mean_price(&self) -> f64 {
         self.mean
     }
 }
 
-#[inline]
-fn floor_bucket_start(t_ns: i64, bucket_dur_ns: i64) -> i64 {
-    if bucket_dur_ns <= 0 {
-        return 0;
-    }
-    t_ns.div_euclid(bucket_dur_ns) * bucket_dur_ns
-}
-
-/// Aggregate **generic** time-stamped samples into fixed-duration wall-clock buckets; emit when the
-/// bucket **changes** (first sample of the next bucket closes the previous one).
+/// Aggregate **`V`** into buckets defined by **`G`**; emit when the bucket key **changes** or on `flush`.
 #[derive(Debug, Clone)]
-pub struct TimeBucketAggregatorScan<T: TimeBucketSample> {
-    pub bucket_dur_ns: i64,
-    _p: PhantomData<T>,
+pub struct TimeBucketAggregatorScan<G: WallBucketGrid, V: TimeBucketEvent<G>> {
+    pub grid: G,
+    _p: PhantomData<V>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TimeBucketAggregatorState {
-    pub open_bucket_start: Option<i64>,
+pub struct TimeBucketAggregatorState<G: WallBucketGrid> {
+    pub open_bucket_start: Option<G::T>,
     pub sum: f64,
     pub tick_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct TimeBucketAggregatorSnapshot {
-    pub open_bucket_start: Option<i64>,
+pub struct TimeBucketAggregatorSnapshot<G: WallBucketGrid> {
+    pub open_bucket_start: Option<G::T>,
     pub sum_bits: u64,
     pub tick_count: u64,
 }
@@ -102,31 +120,28 @@ fn bits_to_f64(b: u64) -> f64 {
     f64::from_bits(b)
 }
 
-impl<T: TimeBucketSample> TimeBucketAggregatorScan<T> {
-    pub fn new(bucket_dur_ns: i64) -> Self {
+impl<G: WallBucketGrid, V: TimeBucketEvent<G>> TimeBucketAggregatorScan<G, V> {
+    pub fn new(grid: G) -> Self {
         Self {
-            bucket_dur_ns,
+            grid,
             _p: PhantomData,
         }
     }
 
-    pub fn ten_minute_buckets() -> Self {
-        Self::new(10 * 60 * 1_000_000_000)
-    }
-
-    fn flush_open_bucket<E: Emit<BucketBarClose>>(
+    fn flush_open_bucket<E: Emit<BucketBarClose<G>>>(
         &self,
-        state: &mut TimeBucketAggregatorState,
-        bucket_start: i64,
+        state: &mut TimeBucketAggregatorState<G>,
+        bucket_start: G::T,
         emit: &mut E,
     ) {
         if state.tick_count == 0 {
             return;
         }
         let mean = state.sum / state.tick_count as f64;
+        let end = self.grid.bucket_end_exclusive(bucket_start);
         emit.emit(BucketBarClose {
-            bucket_start_ns: bucket_start,
-            bucket_end_ns: bucket_start.saturating_add(self.bucket_dur_ns),
+            bucket_start,
+            bucket_end: end,
             mean,
             tick_count: state.tick_count,
         });
@@ -135,10 +150,20 @@ impl<T: TimeBucketSample> TimeBucketAggregatorScan<T> {
     }
 }
 
-impl<T: TimeBucketSample> Scan for TimeBucketAggregatorScan<T> {
-    type In = T;
-    type Out = BucketBarClose;
-    type State = TimeBucketAggregatorState;
+impl<V: TimeBucketEvent<NanosecondWallBucket>> TimeBucketAggregatorScan<NanosecondWallBucket, V> {
+    pub fn nanoseconds_width(width_ns: i64) -> Self {
+        Self::new(NanosecondWallBucket { width_ns })
+    }
+
+    pub fn ten_minute_ns() -> Self {
+        Self::new(NanosecondWallBucket::ten_minutes())
+    }
+}
+
+impl<G: WallBucketGrid, V: TimeBucketEvent<G>> Scan for TimeBucketAggregatorScan<G, V> {
+    type In = V;
+    type Out = BucketBarClose<G>;
+    type State = TimeBucketAggregatorState<G>;
 
     fn init(&self) -> Self::State {
         TimeBucketAggregatorState {
@@ -152,10 +177,11 @@ impl<T: TimeBucketSample> Scan for TimeBucketAggregatorScan<T> {
     where
         E: Emit<Self::Out>,
     {
-        if self.bucket_dur_ns <= 0 {
+        if !self.grid.is_valid() {
             return;
         }
-        let b = floor_bucket_start(input.time_ns(), self.bucket_dur_ns);
+        let t = input.bucket_time(&self.grid);
+        let b = self.grid.bucket_start(t);
         let v = input.mean_sample();
         match state.open_bucket_start {
             None => {
@@ -177,7 +203,7 @@ impl<T: TimeBucketSample> Scan for TimeBucketAggregatorScan<T> {
     }
 }
 
-impl<T: TimeBucketSample> FlushableScan for TimeBucketAggregatorScan<T> {
+impl<G: WallBucketGrid, V: TimeBucketEvent<G>> FlushableScan for TimeBucketAggregatorScan<G, V> {
     type Offset = u64;
 
     fn flush<E>(&self, state: &mut Self::State, _signal: FlushReason<Self::Offset>, emit: &mut E)
@@ -190,8 +216,8 @@ impl<T: TimeBucketSample> FlushableScan for TimeBucketAggregatorScan<T> {
     }
 }
 
-impl<T: TimeBucketSample> SnapshottingScan for TimeBucketAggregatorScan<T> {
-    type Snapshot = TimeBucketAggregatorSnapshot;
+impl<G: WallBucketGrid, V: TimeBucketEvent<G>> SnapshottingScan for TimeBucketAggregatorScan<G, V> {
+    type Snapshot = TimeBucketAggregatorSnapshot<G>;
 
     fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
         TimeBucketAggregatorSnapshot {
@@ -210,11 +236,11 @@ impl<T: TimeBucketSample> SnapshottingScan for TimeBucketAggregatorScan<T> {
     }
 }
 
-impl VersionedSnapshot for TimeBucketAggregatorSnapshot {
+impl<G: WallBucketGrid> VersionedSnapshot for TimeBucketAggregatorSnapshot<G> {
     const VERSION: u32 = 1;
 }
 
-/// Exponential moving average on `f64` (compose after mapping your bar to a scalar).
+/// Exponential moving average on `f64`.
 #[derive(Debug, Clone, Copy)]
 pub struct EmaScan {
     pub alpha: f64,
@@ -287,9 +313,6 @@ impl VersionedSnapshot for EmaSnapshot {
     const VERSION: u32 = 1;
 }
 
-/// Sequential difference: `out = current - previous`; **no emit** until a second value arrives.
-///
-/// Type parameter `T` must support [`Sub`](std::ops::Sub) with output `T` (e.g. `f64`, `i64`).
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SequentialDiffScan<T> {
     _p: PhantomData<T>,
@@ -363,26 +386,25 @@ impl<T: Serialize + DeserializeOwned> VersionedSnapshot for SequentialDiffSnapsh
     const VERSION: u32 = 1;
 }
 
-/// Convenience alias for `f64` diffs.
 pub type SequentialDiffF64 = SequentialDiffScan<f64>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use helio_scan::VecEmitter;
+    use helio_time::SecondWallBucket;
 
-    const MIN: i64 = 60_000_000_000;
-    const BUCKET: i64 = 10 * MIN;
+    const MIN_NS: i64 = 60_000_000_000;
+    const BUCKET_NS: i64 = 10 * MIN_NS;
 
-    /// Custom tick: volume-weighted style sample (mean of unsigned volume as f64).
     #[derive(Debug, Clone, Copy)]
-    struct VolTick {
+    struct VolTickNs {
         t_ns: i64,
         vol: u32,
     }
 
-    impl TimeBucketSample for VolTick {
-        fn time_ns(&self) -> i64 {
+    impl TimeBucketEvent<NanosecondWallBucket> for VolTickNs {
+        fn bucket_time(&self, _g: &NanosecondWallBucket) -> i64 {
             self.t_ns
         }
 
@@ -392,13 +414,15 @@ mod tests {
     }
 
     #[test]
-    fn bucket_generic_custom_tick() {
-        let s = TimeBucketAggregatorScan::<VolTick>::new(BUCKET);
+    fn bucket_generic_vol_tick() {
+        let s = TimeBucketAggregatorScan::new(NanosecondWallBucket {
+            width_ns: BUCKET_NS,
+        });
         let mut st = s.init();
         let mut e = VecEmitter::new();
         s.step(
             &mut st,
-            VolTick {
+            VolTickNs {
                 t_ns: 0,
                 vol: 10,
             },
@@ -406,8 +430,8 @@ mod tests {
         );
         s.step(
             &mut st,
-            VolTick {
-                t_ns: BUCKET,
+            VolTickNs {
+                t_ns: BUCKET_NS,
                 vol: 0,
             },
             &mut e,
@@ -417,8 +441,70 @@ mod tests {
     }
 
     #[test]
+    fn bucket_second_grid_price_tick_seconds() {
+        /// Tick with **epoch seconds** (use with [`SecondWallBucket`]).
+        #[derive(Debug, Clone, Copy)]
+        struct PriceTickSec {
+            t_sec: i64,
+            price: f64,
+        }
+
+        impl TimeBucketEvent<SecondWallBucket> for PriceTickSec {
+            fn bucket_time(&self, _g: &SecondWallBucket) -> i64 {
+                self.t_sec
+            }
+
+            fn mean_sample(&self) -> f64 {
+                self.price
+            }
+        }
+
+        let grid = SecondWallBucket { width_sec: 60 };
+        let s = TimeBucketAggregatorScan::<SecondWallBucket, PriceTickSec>::new(grid);
+        let mut st = s.init();
+        let mut e = VecEmitter::new();
+        s.step(
+            &mut st,
+            PriceTickSec {
+                t_sec: 0,
+                price: 1.0,
+            },
+            &mut e,
+        );
+        s.step(
+            &mut st,
+            PriceTickSec {
+                t_sec: 60,
+                price: 2.0,
+            },
+            &mut e,
+        );
+        assert_eq!(e.0.len(), 1);
+        assert_eq!(e.0[0].bucket_start, 0);
+        assert_eq!(e.0[0].bucket_end, 60);
+    }
+
+    #[test]
+    fn timed_price_event_buckets_by_available_at() {
+        let grid = NanosecondWallBucket {
+            width_ns: BUCKET_NS,
+        };
+        let s = TimeBucketAggregatorScan::<NanosecondWallBucket, TimedPriceEvent>::new(grid);
+        let mut st = s.init();
+        let mut e = VecEmitter::new();
+        s.step(&mut st, TimedPriceEvent::new(100.0, 0), &mut e);
+        s.step(&mut st, TimedPriceEvent::new(110.0, 5 * MIN_NS), &mut e);
+        assert!(e.0.is_empty());
+        s.step(&mut st, TimedPriceEvent::new(50.0, BUCKET_NS), &mut e);
+        assert_eq!(e.0.len(), 1);
+        assert!((e.0[0].mean - 105.0).abs() < 1e-9);
+    }
+
+    #[test]
     fn bucket_emits_on_rollover_mean_correct() {
-        let s = TimeBucketAggregatorScan::<PriceTick>::new(BUCKET);
+        let s = TimeBucketAggregatorScan::new(NanosecondWallBucket {
+            width_ns: BUCKET_NS,
+        });
         let mut st = s.init();
         let mut e = VecEmitter::new();
         s.step(
@@ -432,7 +518,7 @@ mod tests {
         s.step(
             &mut st,
             PriceTick {
-                t_ns: 5 * MIN,
+                t_ns: 5 * MIN_NS,
                 price: 110.0,
             },
             &mut e,
@@ -441,15 +527,14 @@ mod tests {
         s.step(
             &mut st,
             PriceTick {
-                t_ns: BUCKET,
+                t_ns: BUCKET_NS,
                 price: 50.0,
             },
             &mut e,
         );
         assert_eq!(e.0.len(), 1);
-        let b = &e.0[0];
-        assert!((b.mean - 105.0).abs() < 1e-9);
-        assert_eq!(b.tick_count, 2);
+        assert!((e.0[0].mean - 105.0).abs() < 1e-9);
+        assert_eq!(e.0[0].tick_count, 2);
     }
 
     #[test]
