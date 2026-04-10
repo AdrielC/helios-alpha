@@ -17,8 +17,9 @@
 //!
 //! ## Core ideas
 //!
-//! - **[`Scan`]** — `init`, `step(state, input, emit)`. The emit parameter is an [`Emit`] sink so
-//!   combinators can adapt output types without allocating a `Vec` per step.
+//! - **[`Scan`]** — `init`, `step(state, input, emit)`, plus [`Scan::then`] (pipeline) and
+//!   [`Scan::and`] (same-input fan-out). The emit parameter is an [`Emit`] sink so combinators can
+//!   adapt output types without allocating a `Vec` per step.
 //! - **[`FlushableScan`]** — `flush(state, signal, emit)` with [`FlushReason`] (session close,
 //!   checkpoint, watermark, shutdown, …). Keeps **domain inputs** separate from **control**.
 //! - **[`SnapshottingScan`]** — serializable [`Snapshot`](SnapshottingScan::Snapshot) distinct from

@@ -2,7 +2,7 @@
 mod tests {
     use crate::combinator::{Then, ZipInput};
     use crate::control::FlushReason;
-    use crate::emit::{Emit, VecEmitter};
+    use crate::emit::{Emit, VecEmitter, ZipInputOut};
     use crate::focus::{Focus, ThenLeft, ThenRight, ZipInputA, ZipInputB};
     use crate::persist::{CheckpointKeyFn, HashMapStore, Persisted, SnapshotStore};
     use crate::runner::Runner;
@@ -71,6 +71,43 @@ mod tests {
         {
             emit.emit(input * 2);
         }
+    }
+
+    #[test]
+    fn scan_then_matches_then_struct() {
+        let via_trait = DoubleI32.then(DoubleI32);
+        let via_struct = Then {
+            left: DoubleI32,
+            right: DoubleI32,
+        };
+        let mut st_t = via_trait.init();
+        let mut st_s = via_struct.init();
+        let mut e_t = VecEmitter::new();
+        let mut e_s = VecEmitter::new();
+        via_trait.step(&mut st_t, 3, &mut e_t);
+        via_struct.step(&mut st_s, 3, &mut e_s);
+        assert_eq!(e_t.0, e_s.0);
+        assert_eq!(e_t.0, vec![12]);
+    }
+
+    #[test]
+    fn scan_and_matches_zip_input_struct() {
+        let via_trait = IncU64.and(IncU64);
+        let via_struct = ZipInput {
+            a: IncU64,
+            b: IncU64,
+        };
+        let mut st_t = via_trait.init();
+        let mut st_s = via_struct.init();
+        let mut e_t = VecEmitter::new();
+        let mut e_s = VecEmitter::new();
+        via_trait.step(&mut st_t, 2u64, &mut e_t);
+        via_struct.step(&mut st_s, 2u64, &mut e_s);
+        assert_eq!(e_t.0, e_s.0);
+        assert_eq!(
+            e_t.0,
+            vec![ZipInputOut::A(2u64), ZipInputOut::B(2u64)]
+        );
     }
 
     #[test]

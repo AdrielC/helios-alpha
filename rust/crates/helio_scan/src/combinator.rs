@@ -349,13 +349,6 @@ pub trait ScanExt: Scan + Sized {
     {
         FilterMap { inner: self, f }
     }
-
-    fn then<B>(self, right: B) -> Then<Self, B>
-    where
-        B: Scan<In = Self::Out>,
-    {
-        Then { left: self, right }
-    }
 }
 
 impl<S: Scan + Sized> ScanExt for S {}

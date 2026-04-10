@@ -1,5 +1,6 @@
 use serde::{de::DeserializeOwned, Serialize};
 
+use crate::combinator::{Then, ZipInput};
 use crate::control::FlushReason;
 use crate::emit::Emit;
 
@@ -14,6 +15,29 @@ pub trait Scan {
     fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
     where
         E: Emit<Self::Out>;
+
+    /// Pipeline this scan into `right`: each output of `self` becomes an input of `right`.
+    ///
+    /// Same as [`Then`].
+    fn then<B>(self, right: B) -> Then<Self, B>
+    where
+        Self: Sized,
+        B: Scan<In = Self::Out>,
+    {
+        Then { left: self, right }
+    }
+
+    /// Fan-out on the same stream: run both scans on each input (order: `a` outputs first, then `b`).
+    ///
+    /// Requires a cloneable input type. Same as [`ZipInput`].
+    fn and<B>(self, other: B) -> ZipInput<Self, B>
+    where
+        Self: Sized,
+        B: Scan<In = Self::In>,
+        Self::In: Clone,
+    {
+        ZipInput { a: self, b: other }
+    }
 }
 
 /// Optional: logical version for snapshot migration.
