@@ -53,7 +53,10 @@ impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
         mut control_cfg: EventShockControlConfig,
         candidate_entries: Vec<SessionDate>,
         execution_entry_timing: ExecutionEntryTiming,
+        strategy_name: impl Into<String>,
     ) -> Self {
+        let strategy_name = strategy_name.into();
+        control_cfg.strategy_name = strategy_name.clone();
         control_cfg.horizon_sessions = match exit_policy {
             ExitPolicy::FixedHorizonSessions { n } => n,
             _ => control_cfg.horizon_sessions.max(1),
@@ -65,6 +68,7 @@ impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
                 exit_policy,
                 exposure,
                 calendar,
+                strategy_name,
             },
             control: ctrl,
             exec: SignalExecutionScan::with_timing(calendar, execution_entry_timing),

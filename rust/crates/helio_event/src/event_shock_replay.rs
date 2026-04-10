@@ -1,7 +1,10 @@
 //! Incremental / checkpoint replay helpers for [`EventShockVerticalScan`](crate::EventShockVerticalScan).
 
-use helio_scan::{run_slice, FlushReason, FlushableScan, Scan, SnapshottingScan, VecEmitter};
+use helio_scan::{
+    run_receiver, run_slice, FlushReason, FlushableScan, Scan, SnapshottingScan, VecEmitter,
+};
 use helio_time::TradingCalendar;
+use std::sync::mpsc;
 
 use crate::{EventShockVerticalRecord, EventShockVerticalScan, TradeResult};
 
@@ -51,5 +54,48 @@ pub fn collect_vertical_trades_with_checkpoint_resume<C: TradingCalendar + Copy>
     vertical.flush(&mut st2, FlushReason::EndOfInput, &mut e_rest);
     let mut out = e_first.into_inner();
     out.extend(e_rest.into_inner());
+    out
+}
+
+/// Same ordered stream through [`run_receiver`] (channel-driven incremental feed).
+pub fn collect_vertical_trades_receiver<C: TradingCalendar + Copy>(
+    vertical: &EventShockVerticalScan<C>,
+    records: &[EventShockVerticalRecord],
+) -> Vec<TradeResult> {
+    let (tx, rx) = mpsc::channel();
+    for r in records {
+        tx.send(r.clone()).expect("send");
+    }
+    drop(tx);
+    let mut st = vertical.init();
+    let mut e = VecEmitter::new();
+    run_receiver(vertical, &mut st, &rx, &mut e);
+    vertical.flush(&mut st, FlushReason::EndOfInput, &mut e);
+    e.into_inner()
+}
+
+/// Snapshot/restore at each `checkpoint_after` boundary (0 = no intermediate checkpoints).
+pub fn collect_vertical_trades_with_checkpoint_cadence<C: TradingCalendar + Copy>(
+    vertical: &EventShockVerticalScan<C>,
+    records: &[EventShockVerticalRecord],
+    checkpoint_every: usize,
+) -> Vec<TradeResult> {
+    if checkpoint_every == 0 {
+        return collect_vertical_trades_incremental(vertical, records);
+    }
+    let mut out = Vec::new();
+    let mut st = vertical.init();
+    let mut e = VecEmitter::new();
+    for (i, r) in records.iter().enumerate() {
+        vertical.step(&mut st, r.clone(), &mut e);
+        out.extend(e.into_inner());
+        e = VecEmitter::new();
+        if (i + 1) % checkpoint_every == 0 && i + 1 < records.len() {
+            let snap = vertical.snapshot(&st);
+            st = vertical.restore(snap);
+        }
+    }
+    vertical.flush(&mut st, FlushReason::EndOfInput, &mut e);
+    out.extend(e.into_inner());
     out
 }

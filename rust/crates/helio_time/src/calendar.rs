@@ -26,6 +26,12 @@ pub trait TradingCalendar {
 
     /// Midpoint session in the inclusive range \[`a`, `b`\] (by session count, not calendar midpoint).
     fn mid_session_inclusive(&self, a: SessionDate, b: SessionDate) -> SessionDate;
+
+    /// Previous trading session strictly before `d` (by session day index).
+    fn prev_session_before(&self, d: SessionDate) -> SessionDate;
+
+    /// Go back `n` trading sessions from `d` (`n == 0` returns `d`).
+    fn sub_sessions(&self, d: SessionDate, n: u32) -> SessionDate;
 }
 
 #[inline]
@@ -128,6 +134,20 @@ impl TradingCalendar for SimpleWeekdayCalendar {
         let off = (n - 1) / 2;
         self.add_sessions(lo, off)
     }
+
+    fn prev_session_before(&self, d: SessionDate) -> SessionDate {
+        let mut n = d.0 - 1;
+        n = Self::backward_to_trading_day(n);
+        SessionDate(n)
+    }
+
+    fn sub_sessions(&self, d: SessionDate, n: u32) -> SessionDate {
+        let mut cur = d;
+        for _ in 0..n {
+            cur = self.prev_session_before(cur);
+        }
+        cur
+    }
 }
 
 #[cfg(test)]
@@ -142,5 +162,14 @@ mod tests {
         assert_eq!(cal.session_on_or_after_ts(thu).0, 0);
         let fri = cal.first_session_strictly_after_ts(thu);
         assert_eq!(fri.0, 1); // Friday
+    }
+
+    #[test]
+    fn sub_sessions_skips_weekends() {
+        let cal = SimpleWeekdayCalendar;
+        // Monday 1970-01-05 = UTC day index 4; two trading sessions back is Thursday (index 0).
+        let mon = SessionDate(4);
+        let thu = cal.sub_sessions(mon, 2);
+        assert_eq!(thu.0, 0);
     }
 }

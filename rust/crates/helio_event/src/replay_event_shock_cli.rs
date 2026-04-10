@@ -6,10 +6,10 @@
 use crate::{
     bars_from_file, build_vertical_replay, candidate_entries_from_bars,
     collect_vertical_trades_batch, collect_vertical_trades_incremental,
-    collect_vertical_trades_with_checkpoint_resume, summarize_lead_times, shocks_from_file,
-    EventShockControlConfig, EventShockFilterConfig, EventShockMetricsFoldScan,
-    EventShockReplayConfig, EventShockStrategyPreset, EventShockVerticalScan,
-    ExecutionEntryTiming, LabeledTradeResult, ScopeFilter, TradeResult,
+    collect_vertical_trades_with_checkpoint_resume, event_scope_label, summarize_lead_times,
+    shocks_from_file, EventShockControlConfig, EventShockFilterConfig, EventShockMetricsFoldScan,
+    EventShockReplayConfig, EventShockStrategyPreset, EventShockVerticalScan, ExecutionEntryTiming,
+    LabeledTradeResult, ScopeFilter, TradeResult,
 };
 use helio_scan::{Scan, VecEmitter};
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};
@@ -60,6 +60,10 @@ fn parse_strategy(s: &str) -> EventShockStrategyPreset {
         "defense-spy-mid" | "ita-spy-mid" => EventShockStrategyPreset::DefenseSpyPairMidWindow,
         _ => EventShockStrategyPreset::XluSpyPairFiveSession,
     }
+}
+
+fn canonical_strategy_name(s: &str) -> String {
+    parse_strategy(s).cli_name().to_string()
 }
 
 fn parse_execution_entry(s: &str) -> Result<ExecutionEntryTiming, String> {
@@ -157,7 +161,7 @@ fn parse_cli_args(mut args: Vec<String>) -> Result<CliReplay, String> {
             },
             as_of: cfg.as_of_epoch_sec,
             events_format: cfg.events_format,
-            strategy_name: cfg.strategy,
+            strategy_name: canonical_strategy_name(&cfg.strategy),
             min_lead_secs: cfg.min_lead_secs,
             max_lead_secs: cfg.max_lead_secs,
             control_seed: cfg.control_seed,
@@ -233,6 +237,7 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
     let replay = build_vertical_replay(shocks, bars);
 
     let preset = parse_strategy(&cli.strategy_name);
+    let strategy_report = preset.cli_name().to_string();
     let filter = EventShockFilterConfig {
         min_severity: 0.0,
         min_confidence: 0.0,
@@ -251,12 +256,14 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
         EventShockControlConfig {
             seed: cli.control_seed,
             controls_per_treatment: 1,
+            strategy_name: strategy_report.clone(),
             horizon_sessions: preset.control_horizon_sessions(),
             exposure: preset.control_exposure_clone(),
             vol_epsilon: None,
         },
         candidates,
         cli.execution_entry,
+        strategy_report.clone(),
     );
 
     let batch = collect_vertical_trades_batch(&vertical, &replay);
@@ -293,9 +300,11 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
         "event_id",
         "entry_session",
         "exit_session",
+        "strategy",
         "gross_return",
         "max_drawdown",
         "holding_sessions",
+        "scope",
         "matched_treatment",
     ])
     .map_err(|e| e.to_string())?;
@@ -304,9 +313,11 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
             t.event_id.0.to_string(),
             t.entry_session.0.to_string(),
             t.exit_session.0.to_string(),
+            t.strategy_name.clone(),
             format!("{:.6}", t.gross_return),
             format!("{:.6}", t.max_drawdown),
             t.holding_period_sessions.to_string(),
+            event_scope_label(&t.scope),
             t.matched_treatment
                 .map(|m| m.0.to_string())
                 .unwrap_or_default(),
@@ -398,7 +409,7 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
             cli.min_lead_secs.to_string(),
             cli.max_lead_secs.to_string(),
             lead_report.n_tradable_under_band.to_string(),
-            cli.strategy_name.clone(),
+            strategy_report.clone(),
             exec_entry_str.into(),
             s.count.to_string(),
             format!("{:.6}", s.mean_return),
@@ -429,7 +440,7 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
             cli.min_lead_secs.to_string(),
             cli.max_lead_secs.to_string(),
             lead_report.n_tradable_under_band.to_string(),
-            cli.strategy_name.clone(),
+            strategy_report.clone(),
             exec_entry_str.into(),
             "0".into(),
             String::new(),
@@ -459,14 +470,14 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
             .partial_cmp(&a.gross_return)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    let winners: Vec<_> = treat_sorted.iter().take(3).copied().collect();
-    let losers: Vec<_> = treat_sorted.iter().rev().take(3).copied().collect();
+    let winners: Vec<_> = treat_sorted.iter().take(5).copied().collect();
+    let losers: Vec<_> = treat_sorted.iter().rev().take(5).copied().collect();
 
     let md = cli.out_dir.join("report.md");
     let mut report = String::from("# Event shock replay report\n\n");
     report.push_str(&format!(
         "Strategy: `{}` · execution entry: `{}` · events format: `{}` · replay verify: {}\n\n",
-        cli.strategy_name,
+        strategy_report,
         exec_entry_str,
         cli.events_format,
         if cli.skip_verify {
@@ -530,24 +541,38 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
         report.push_str("| Matched-control comparison | (no control rows) |\n");
     }
 
-    report.push_str("\n## Top 3 treatment winners (by gross return)\n\n");
-    report.push_str("| event_id | entry | exit | return |\n|----------|-------|------|--------|\n");
+    report.push_str("\n## Top 5 treatment winners (by gross return)\n\n");
+    report.push_str(
+        "| event_id | entry | exit | strategy | scope | return |\n|----------|-------|------|----------|-------|--------|\n",
+    );
     for t in &winners {
         report.push_str(&format!(
-            "| {} | {} | {} | {:.6} |\n",
-            t.event_id.0, t.entry_session.0, t.exit_session.0, t.gross_return
+            "| {} | {} | {} | `{}` | {} | {:.6} |\n",
+            t.event_id.0,
+            t.entry_session.0,
+            t.exit_session.0,
+            t.strategy_name,
+            event_scope_label(&t.scope),
+            t.gross_return
         ));
     }
     if winners.is_empty() {
         report.push_str("| — | — | — | — |\n");
     }
 
-    report.push_str("\n## Top 3 treatment losers (by gross return)\n\n");
-    report.push_str("| event_id | entry | exit | return |\n|----------|-------|------|--------|\n");
+    report.push_str("\n## Top 5 treatment losers (by gross return)\n\n");
+    report.push_str(
+        "| event_id | entry | exit | strategy | scope | return |\n|----------|-------|------|----------|-------|--------|\n",
+    );
     for t in &losers {
         report.push_str(&format!(
-            "| {} | {} | {} | {:.6} |\n",
-            t.event_id.0, t.entry_session.0, t.exit_session.0, t.gross_return
+            "| {} | {} | {} | `{}` | {} | {:.6} |\n",
+            t.event_id.0,
+            t.entry_session.0,
+            t.exit_session.0,
+            t.strategy_name,
+            event_scope_label(&t.scope),
+            t.gross_return
         ));
     }
     if losers.is_empty() {
@@ -556,7 +581,7 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
 
     report.push_str("\n## All trade rows\n\n");
     report.push_str(
-        "| event | entry | exit | return | mdd | control_for |\n|---|---|---|---|---|---|\n",
+        "| event | entry | exit | strategy | scope | return | mdd | control_for |\n|---|---|---|---|---|---|---|---|\n",
     );
     for t in &trade_vec {
         let ctrl = t
@@ -564,10 +589,24 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
             .map(|m| format!("{}", m.0))
             .unwrap_or_else(|| "—".into());
         report.push_str(&format!(
-            "| {} | {} | {} | {:.6} | {:.6} | {} |\n",
-            t.event_id.0, t.entry_session.0, t.exit_session.0, t.gross_return, t.max_drawdown, ctrl
+            "| {} | {} | {} | `{}` | {} | {:.6} | {:.6} | {} |\n",
+            t.event_id.0,
+            t.entry_session.0,
+            t.exit_session.0,
+            t.strategy_name,
+            event_scope_label(&t.scope),
+            t.gross_return,
+            t.max_drawdown,
+            ctrl
         ));
     }
+
+    report.push_str("\n## Benchmark notes\n\n");
+    report.push_str(
+        "Throughput and checkpoint baselines for this stack live in `docs/EVENT_SHOCK_BENCHMARKS.md` \
+         (run `cargo bench -p helio_bench`). Treat documented medians as order-of-magnitude guardrails; \
+         investigate **>2×** on the same workload, strong signal **>3×**.\n\n",
+    );
 
     fs::write(&md, report).map_err(|e| e.to_string())?;
 

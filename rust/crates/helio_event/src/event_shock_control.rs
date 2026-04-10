@@ -13,6 +13,8 @@ use crate::{AlignedEventShock, EventId, EventShockSignal, Exposure, Symbol};
 pub struct EventShockControlConfig {
     pub seed: u64,
     pub controls_per_treatment: u32,
+    /// Same label as treatment signals (for reporting).
+    pub strategy_name: String,
     /// Holding length in trading sessions (same as treatment signal horizon).
     pub horizon_sessions: u32,
     pub exposure: Exposure,
@@ -25,6 +27,7 @@ impl Default for EventShockControlConfig {
         Self {
             seed: 42,
             controls_per_treatment: 1,
+            strategy_name: String::new(),
             horizon_sessions: 5,
             exposure: Exposure::Pair {
                 long: Symbol("XLU".into()),
@@ -152,6 +155,8 @@ impl<C: TradingCalendar + Copy> Scan for EventShockControlSamplerScan<C> {
                     entry_session: entry,
                     exit_session: exit,
                     exposure: self.cfg.exposure.clone(),
+                    strategy_name: self.cfg.strategy_name.clone(),
+                    scope: input.scope.clone(),
                     matched_treatment: Some(input.event_id),
                 });
             }
