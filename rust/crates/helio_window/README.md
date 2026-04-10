@@ -8,7 +8,7 @@
 |-----------|-------------------------|--------|
 | **`WindowState`**, **`RollingAggregatorScan`**, **`RollingFoldScan`**, **`rolling_mean_scan`** | **Sample count** (`WindowSpec` with `Frequency::Samples` via `sample_capacity()`) | Default rolling path |
 | **`SessionWindowScan`** | **Session** boundaries (`FlushReason::SessionClose`, bar session ids) | Session-keyed, not arbitrary wall-clock |
-| **`TimeBucketAggregatorScan`** (`signal_pipeline`) | **Wall-clock** bucket width in ns; emits **on bucket rollover** (or `flush`) | Tick → bar close mean; compose with `Then` + `Arr` + `EmaScan` + `SequentialDiffScan` — see `tests/tick_bucket_ema_pipeline.rs` |
+| **`TimeBucketAggregatorScan<T>`** (`signal_pipeline`) | **`T: TimeBucketSample`** (`time_ns`, `mean_sample`); **wall-clock** bucket width in ns; emits **on rollover** or `flush` | Default tick: [`PriceTick`](crate::PriceTick). Compose with `Then` + `Arr` + `EmaScan` + `SequentialDiffScan::<f64>` — see `tests/tick_bucket_ema_pipeline.rs` |
 | **Fixed-time / calendar window expiry** | Not implemented as automatic buffer eviction yet | `WindowSpec` may still *describe* fixed/calendar semantics for config-forward APIs; operationally, treat as future work unless a scan explicitly implements it |
 
 If you need **time-keyed** expiry (wall clock, business calendar, watermarks), that belongs in new or extended scans — not inferred from `WindowSpec` alone.

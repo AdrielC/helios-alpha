@@ -1,38 +1,66 @@
 //! Composable **tick → time bucket → smooth → change** pipelines on [`Scan`](helio_scan::Scan).
 //!
-//! - **[`TimeBucketAggregatorScan`]** — fixed wall-clock buckets (e.g. 10 minutes in nanoseconds);
-//!   emits one [`BucketBarClose`] **when the first tick of a new bucket arrives** (previous bucket
-//!   “saturated” by time boundary). Ticks in an empty stream’s first bucket accumulate until rollover.
-//! - **[`EmaScan`]** — exponential moving average over scalar inputs (e.g. bucket mean); emits every step.
-//! - **[`SequentialDiffScan`]** — `out[k] = in[k] - in[k-1]`; **no emit** on the first value.
+//! ## Generic inputs
 //!
-//! Typical composition (same logical stream, sequential `Then`):
-//! `ticks → TimeBucketAggregator → Map(mean) → EmaScan → SequentialDiffScan`.
+//! - **[`TimeBucketAggregatorScan<T>`]** — `T` must implement [`TimeBucketSample`]: wall-clock
+//!   `time_ns()` plus a scalar [`mean_sample`](TimeBucketSample::mean_sample) summed for the bar mean.
+//!   Built-in: [`PriceTick`]. Define your own tick type and impl the trait.
+//! - **[`SequentialDiffScan<T>`]** — `T: Copy + Sub<Output = T>` (e.g. `f64`, `i64`); first element
+//!   seeds state only; emits `current - previous` thereafter. Use `SequentialDiffScan::<f64>::default()`.
+//! - **[`EmaScan`]** — `f64` in/out today (smooth the scalar series after `Map` from your bar type).
+//!
+//! Typical composition:
+//! `TimeBucketAggregatorScan::<MyTick>::new(ns) → Arr(mean) → EmaScan → SequentialDiffScan::<f64>`.
+
+use std::marker::PhantomData;
+use std::ops::Sub;
 
 use helio_scan::{
     Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot,
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-/// One trade or quote tick in **nanoseconds since Unix epoch** (same unit as `i64` wall times).
+// --- Time bucket sample (generic input to bucket scan) ---
+
+/// Anything that can be **bucketed by wall time** and contributes one **f64** per sample to the
+/// bar’s arithmetic mean (`sum(mean_sample) / count`).
+pub trait TimeBucketSample: Clone {
+    fn time_ns(&self) -> i64;
+    fn mean_sample(&self) -> f64;
+}
+
+/// Trade / quote tick: **nanoseconds since Unix epoch** + price.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct PriceTick {
     pub t_ns: i64,
     pub price: f64,
 }
 
-/// Completed bucket summary (mean price over all ticks whose `t_ns` fell in the half-open bucket).
+impl TimeBucketSample for PriceTick {
+    fn time_ns(&self) -> i64 {
+        self.t_ns
+    }
+
+    fn mean_sample(&self) -> f64 {
+        self.price
+    }
+}
+
+/// Closed bucket: `[bucket_start_ns, bucket_end_ns)` half-open in time; **mean** is over
+/// [`TimeBucketSample::mean_sample`] (for [`PriceTick`], mean price).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BucketBarClose {
     pub bucket_start_ns: i64,
     pub bucket_end_ns: i64,
-    pub mean_price: f64,
+    /// `sum(mean_sample) / tick_count` for samples in this bucket.
+    pub mean: f64,
     pub tick_count: u64,
 }
 
 impl BucketBarClose {
+    #[inline]
     pub fn mean_price(&self) -> f64 {
-        self.mean_price
+        self.mean
     }
 }
 
@@ -44,26 +72,25 @@ fn floor_bucket_start(t_ns: i64, bucket_dur_ns: i64) -> i64 {
     t_ns.div_euclid(bucket_dur_ns) * bucket_dur_ns
 }
 
-/// Aggregate ticks into fixed-duration wall-clock buckets; emit when the bucket **changes**
-/// (first tick of the next bucket closes the previous one).
-#[derive(Debug, Clone, Copy)]
-pub struct TimeBucketAggregatorScan {
-    /// Bucket width in nanoseconds (e.g. `10 * 60 * 1_000_000_000` for 10 minutes).
+/// Aggregate **generic** time-stamped samples into fixed-duration wall-clock buckets; emit when the
+/// bucket **changes** (first sample of the next bucket closes the previous one).
+#[derive(Debug, Clone)]
+pub struct TimeBucketAggregatorScan<T: TimeBucketSample> {
     pub bucket_dur_ns: i64,
+    _p: PhantomData<T>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TimeBucketAggregatorState {
-    /// Start of the bucket currently accumulating (`None` before first tick).
     pub open_bucket_start: Option<i64>,
-    pub sum_price: f64,
+    pub sum: f64,
     pub tick_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimeBucketAggregatorSnapshot {
     pub open_bucket_start: Option<i64>,
-    pub sum_price_bits: u64,
+    pub sum_bits: u64,
     pub tick_count: u64,
 }
 
@@ -75,16 +102,16 @@ fn bits_to_f64(b: u64) -> f64 {
     f64::from_bits(b)
 }
 
-impl TimeBucketAggregatorScan {
+impl<T: TimeBucketSample> TimeBucketAggregatorScan<T> {
     pub fn new(bucket_dur_ns: i64) -> Self {
-        Self { bucket_dur_ns }
+        Self {
+            bucket_dur_ns,
+            _p: PhantomData,
+        }
     }
 
-    /// Convenience: 10-minute buckets.
     pub fn ten_minute_buckets() -> Self {
-        Self {
-            bucket_dur_ns: 10 * 60 * 1_000_000_000,
-        }
+        Self::new(10 * 60 * 1_000_000_000)
     }
 
     fn flush_open_bucket<E: Emit<BucketBarClose>>(
@@ -96,27 +123,27 @@ impl TimeBucketAggregatorScan {
         if state.tick_count == 0 {
             return;
         }
-        let mean = state.sum_price / state.tick_count as f64;
+        let mean = state.sum / state.tick_count as f64;
         emit.emit(BucketBarClose {
             bucket_start_ns: bucket_start,
             bucket_end_ns: bucket_start.saturating_add(self.bucket_dur_ns),
-            mean_price: mean,
+            mean,
             tick_count: state.tick_count,
         });
-        state.sum_price = 0.0;
+        state.sum = 0.0;
         state.tick_count = 0;
     }
 }
 
-impl Scan for TimeBucketAggregatorScan {
-    type In = PriceTick;
+impl<T: TimeBucketSample> Scan for TimeBucketAggregatorScan<T> {
+    type In = T;
     type Out = BucketBarClose;
     type State = TimeBucketAggregatorState;
 
     fn init(&self) -> Self::State {
         TimeBucketAggregatorState {
             open_bucket_start: None,
-            sum_price: 0.0,
+            sum: 0.0,
             tick_count: 0,
         }
     }
@@ -128,28 +155,29 @@ impl Scan for TimeBucketAggregatorScan {
         if self.bucket_dur_ns <= 0 {
             return;
         }
-        let b = floor_bucket_start(input.t_ns, self.bucket_dur_ns);
+        let b = floor_bucket_start(input.time_ns(), self.bucket_dur_ns);
+        let v = input.mean_sample();
         match state.open_bucket_start {
             None => {
                 state.open_bucket_start = Some(b);
-                state.sum_price = input.price;
+                state.sum = v;
                 state.tick_count = 1;
             }
             Some(cur) if cur == b => {
-                state.sum_price += input.price;
+                state.sum += v;
                 state.tick_count += 1;
             }
             Some(cur) => {
                 self.flush_open_bucket(state, cur, emit);
                 state.open_bucket_start = Some(b);
-                state.sum_price = input.price;
+                state.sum = v;
                 state.tick_count = 1;
             }
         }
     }
 }
 
-impl FlushableScan for TimeBucketAggregatorScan {
+impl<T: TimeBucketSample> FlushableScan for TimeBucketAggregatorScan<T> {
     type Offset = u64;
 
     fn flush<E>(&self, state: &mut Self::State, _signal: FlushReason<Self::Offset>, emit: &mut E)
@@ -162,13 +190,13 @@ impl FlushableScan for TimeBucketAggregatorScan {
     }
 }
 
-impl SnapshottingScan for TimeBucketAggregatorScan {
+impl<T: TimeBucketSample> SnapshottingScan for TimeBucketAggregatorScan<T> {
     type Snapshot = TimeBucketAggregatorSnapshot;
 
     fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
         TimeBucketAggregatorSnapshot {
             open_bucket_start: state.open_bucket_start,
-            sum_price_bits: f64_to_bits(state.sum_price),
+            sum_bits: f64_to_bits(state.sum),
             tick_count: state.tick_count,
         }
     }
@@ -176,7 +204,7 @@ impl SnapshottingScan for TimeBucketAggregatorScan {
     fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
         TimeBucketAggregatorState {
             open_bucket_start: snapshot.open_bucket_start,
-            sum_price: bits_to_f64(snapshot.sum_price_bits),
+            sum: bits_to_f64(snapshot.sum_bits),
             tick_count: snapshot.tick_count,
         }
     }
@@ -186,7 +214,7 @@ impl VersionedSnapshot for TimeBucketAggregatorSnapshot {
     const VERSION: u32 = 1;
 }
 
-/// Exponential moving average: `ema = alpha * x + (1 - alpha) * ema_prev`; first sample passes through.
+/// Exponential moving average on `f64` (compose after mapping your bar to a scalar).
 #[derive(Debug, Clone, Copy)]
 pub struct EmaScan {
     pub alpha: f64,
@@ -259,24 +287,34 @@ impl VersionedSnapshot for EmaSnapshot {
     const VERSION: u32 = 1;
 }
 
-/// Emits `current - previous` for each value after the first (first value updates state only).
+/// Sequential difference: `out = current - previous`; **no emit** until a second value arrives.
+///
+/// Type parameter `T` must support [`Sub`](std::ops::Sub) with output `T` (e.g. `f64`, `i64`).
 #[derive(Debug, Clone, Copy, Default)]
-pub struct SequentialDiffScan;
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SequentialDiffState {
-    pub prev: Option<f64>,
+pub struct SequentialDiffScan<T> {
+    _p: PhantomData<T>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct SequentialDiffSnapshot {
-    pub prev_bits: Option<u64>,
+impl<T> SequentialDiffScan<T> {
+    pub fn new() -> Self {
+        Self { _p: PhantomData }
+    }
 }
 
-impl Scan for SequentialDiffScan {
-    type In = f64;
-    type Out = f64;
-    type State = SequentialDiffState;
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SequentialDiffState<T> {
+    pub prev: Option<T>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SequentialDiffSnapshot<T> {
+    pub prev: Option<T>,
+}
+
+impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> Scan for SequentialDiffScan<T> {
+    type In = T;
+    type Out = T;
+    type State = SequentialDiffState<T>;
 
     fn init(&self) -> Self::State {
         SequentialDiffState { prev: None }
@@ -293,7 +331,7 @@ impl Scan for SequentialDiffScan {
     }
 }
 
-impl FlushableScan for SequentialDiffScan {
+impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> FlushableScan for SequentialDiffScan<T> {
     type Offset = u64;
 
     fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
@@ -303,25 +341,30 @@ impl FlushableScan for SequentialDiffScan {
     }
 }
 
-impl SnapshottingScan for SequentialDiffScan {
-    type Snapshot = SequentialDiffSnapshot;
+impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> SnapshottingScan
+    for SequentialDiffScan<T>
+{
+    type Snapshot = SequentialDiffSnapshot<T>;
 
     fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
         SequentialDiffSnapshot {
-            prev_bits: state.prev.map(f64_to_bits),
+            prev: state.prev,
         }
     }
 
     fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
         SequentialDiffState {
-            prev: snapshot.prev_bits.map(bits_to_f64),
+            prev: snapshot.prev,
         }
     }
 }
 
-impl VersionedSnapshot for SequentialDiffSnapshot {
+impl<T: Serialize + DeserializeOwned> VersionedSnapshot for SequentialDiffSnapshot<T> {
     const VERSION: u32 = 1;
 }
+
+/// Convenience alias for `f64` diffs.
+pub type SequentialDiffF64 = SequentialDiffScan<f64>;
 
 #[cfg(test)]
 mod tests {
@@ -331,9 +374,51 @@ mod tests {
     const MIN: i64 = 60_000_000_000;
     const BUCKET: i64 = 10 * MIN;
 
+    /// Custom tick: volume-weighted style sample (mean of unsigned volume as f64).
+    #[derive(Debug, Clone, Copy)]
+    struct VolTick {
+        t_ns: i64,
+        vol: u32,
+    }
+
+    impl TimeBucketSample for VolTick {
+        fn time_ns(&self) -> i64 {
+            self.t_ns
+        }
+
+        fn mean_sample(&self) -> f64 {
+            self.vol as f64
+        }
+    }
+
+    #[test]
+    fn bucket_generic_custom_tick() {
+        let s = TimeBucketAggregatorScan::<VolTick>::new(BUCKET);
+        let mut st = s.init();
+        let mut e = VecEmitter::new();
+        s.step(
+            &mut st,
+            VolTick {
+                t_ns: 0,
+                vol: 10,
+            },
+            &mut e,
+        );
+        s.step(
+            &mut st,
+            VolTick {
+                t_ns: BUCKET,
+                vol: 0,
+            },
+            &mut e,
+        );
+        assert_eq!(e.0.len(), 1);
+        assert!((e.0[0].mean - 10.0).abs() < 1e-9);
+    }
+
     #[test]
     fn bucket_emits_on_rollover_mean_correct() {
-        let s = TimeBucketAggregatorScan::new(BUCKET);
+        let s = TimeBucketAggregatorScan::<PriceTick>::new(BUCKET);
         let mut st = s.init();
         let mut e = VecEmitter::new();
         s.step(
@@ -363,7 +448,7 @@ mod tests {
         );
         assert_eq!(e.0.len(), 1);
         let b = &e.0[0];
-        assert!((b.mean_price - 105.0).abs() < 1e-9);
+        assert!((b.mean - 105.0).abs() < 1e-9);
         assert_eq!(b.tick_count, 2);
     }
 
@@ -377,12 +462,22 @@ mod tests {
         assert!((out.0[0] - 100.0).abs() < 1e-9);
         assert!((out.0[1] - 150.0).abs() < 1e-9);
 
-        let d = SequentialDiffScan;
+        let d = SequentialDiffScan::<f64>::new();
         let mut st2 = d.init();
         let mut o2 = VecEmitter::new();
         d.step(&mut st2, 10.0, &mut o2);
         d.step(&mut st2, 13.0, &mut o2);
         d.step(&mut st2, 11.0, &mut o2);
         assert_eq!(o2.0, vec![3.0, -2.0]);
+    }
+
+    #[test]
+    fn sequential_diff_i64() {
+        let d = SequentialDiffScan::<i64>::new();
+        let mut st = d.init();
+        let mut o = VecEmitter::new();
+        d.step(&mut st, 100, &mut o);
+        d.step(&mut st, 107, &mut o);
+        assert_eq!(o.0, vec![7]);
     }
 }

@@ -1,7 +1,9 @@
 //! Integration: **ticks → time buckets → mean → EMA → sequential diff** as one composed `Scan` (`scan_then!`).
 
 use helio_scan::{scan_then, Arr, FlushReason, FlushableScan, Scan, VecEmitter};
-use helio_window::{BucketBarClose, EmaScan, PriceTick, SequentialDiffScan, TimeBucketAggregatorScan};
+use helio_window::{
+    BucketBarClose, EmaScan, PriceTick, SequentialDiffScan, TimeBucketAggregatorScan,
+};
 
 const NS_PER_SEC: i64 = 1_000_000_000;
 /// 60-second buckets (smaller than 10m for test speed; same machinery as 10-minute bars).
@@ -9,10 +11,10 @@ const BUCKET_NS: i64 = 60 * NS_PER_SEC;
 
 fn pipeline(alpha: f64) -> impl Scan<In = PriceTick, Out = f64> {
     scan_then!(
-        TimeBucketAggregatorScan::new(BUCKET_NS),
+        TimeBucketAggregatorScan::<PriceTick>::new(BUCKET_NS),
         Arr::<_, BucketBarClose, f64>::new(|b: BucketBarClose| b.mean_price()),
         EmaScan::new(alpha),
-        SequentialDiffScan,
+        SequentialDiffScan::<f64>::new(),
     )
 }
 
@@ -68,7 +70,7 @@ fn composed_pipeline_bucket_then_ema_then_diff() {
 
 #[test]
 fn flush_emits_partial_bucket() {
-    let s = TimeBucketAggregatorScan::new(BUCKET_NS);
+    let s = TimeBucketAggregatorScan::<PriceTick>::new(BUCKET_NS);
     let mut st = s.init();
     let mut e = VecEmitter::new();
     s.step(
@@ -81,5 +83,5 @@ fn flush_emits_partial_bucket() {
     );
     s.flush(&mut st, FlushReason::EndOfInput, &mut e);
     assert_eq!(e.0.len(), 1);
-    assert!((e.0[0].mean_price - 10.0).abs() < 1e-9);
+    assert!((e.0[0].mean - 10.0).abs() < 1e-9);
 }
