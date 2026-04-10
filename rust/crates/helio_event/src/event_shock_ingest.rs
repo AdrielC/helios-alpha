@@ -5,12 +5,15 @@ use helio_time::{utc_calendar_day, AvailableAt};
 use serde::Deserialize;
 
 use crate::{
-    timed_shock, DailyBar, EventId, EventScope, EventShock, EventShockVerticalRecord, Symbol,
+    timed_shock, DailyBar, EventId, EventKind, EventScope, EventShock, EventShockVerticalRecord,
+    Symbol,
 };
 
 #[derive(Debug, Deserialize)]
 struct EventShockCsvRow {
     id: u64,
+    #[serde(default)]
+    kind: EventKind,
     available_at: i64,
     impact_start: i64,
     impact_end: i64,
@@ -53,6 +56,7 @@ fn row_to_shock(row: EventShockCsvRow) -> Result<EventShock, String> {
     let scope = parse_scope(&row)?;
     Ok(EventShock {
         id: EventId(row.id),
+        kind: row.kind,
         tags: row.tags.unwrap_or_default(),
         observed_at: None,
         available_at: AvailableAt(row.available_at),
@@ -64,7 +68,7 @@ fn row_to_shock(row: EventShockCsvRow) -> Result<EventShock, String> {
     })
 }
 
-/// Header: `id,available_at,impact_start,impact_end,severity,confidence,scope[,scope_id][,symbol][,tags]`
+/// Header: `id[,kind],available_at,impact_start,impact_end,severity,confidence,scope[,scope_id][,symbol][,tags]`
 ///
 /// `tags` is optional; use comma-separated tokens for your own taxonomy (ignored by the vertical).
 pub fn load_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, String> {
@@ -99,6 +103,7 @@ pub fn load_compact_event_shocks_csv(data: &str) -> Result<Vec<EventShock>, Stri
         let row = rec.map_err(|e| e.to_string())?;
         out.push(EventShock {
             id: EventId(row.id),
+            kind: EventKind::default(),
             tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(row.available_at),
@@ -137,6 +142,7 @@ pub fn load_compact_region_event_shocks_csv(data: &str) -> Result<Vec<EventShock
         };
         out.push(EventShock {
             id: EventId(row.id),
+            kind: EventKind::default(),
             tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(row.available_at),

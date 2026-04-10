@@ -21,6 +21,18 @@ pub struct Symbol(pub String);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EventId(pub u64);
 
+/// Caller-defined shock category (opaque to the scan stack; carried for ingest / reporting).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum EventKind {
+    #[default]
+    Other,
+    Macro,
+    Weather,
+    Policy,
+    Technology,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EventScope {
     Global,
@@ -33,6 +45,8 @@ pub enum EventScope {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EventShock {
     pub id: EventId,
+    #[serde(default)]
+    pub kind: EventKind,
     /// Caller-defined labels (comma-separated in CSV); not used by the shock vertical.
     #[serde(default)]
     pub tags: String,
@@ -607,6 +621,7 @@ mod tests {
     fn shock(av: i64, impact_s: i64, impact_e: i64, sev: f64) -> Timed<EventShock> {
         timed_shock(EventShock {
             id: EventId(1),
+            kind: EventKind::default(),
             tags: String::new(),
             observed_at: None,
             available_at: AvailableAt(av),

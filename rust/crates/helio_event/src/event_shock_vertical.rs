@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     EventShockAlignPipelineScan, EventShockControlConfig, EventShockControlSamplerScan,
     EventShockFilterConfig, EventShockReplayRecord, EventShockStreamItem, EventShockToSignalScan,
-    ExitPolicy, Exposure, SignalExecutionScan, TradeResult,
+    ExecutionEntryTiming, ExitPolicy, Exposure, SignalExecutionScan, TradeResult,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,6 +52,7 @@ impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
         exposure: Exposure,
         mut control_cfg: EventShockControlConfig,
         candidate_entries: Vec<SessionDate>,
+        execution_entry_timing: ExecutionEntryTiming,
     ) -> Self {
         control_cfg.horizon_sessions = match exit_policy {
             ExitPolicy::FixedHorizonSessions { n } => n,
@@ -66,7 +67,7 @@ impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
                 calendar,
             },
             control: ctrl,
-            exec: SignalExecutionScan::new(calendar),
+            exec: SignalExecutionScan::with_timing(calendar, execution_entry_timing),
         }
     }
 }

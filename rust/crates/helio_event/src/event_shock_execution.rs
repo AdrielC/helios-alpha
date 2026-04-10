@@ -10,6 +10,20 @@ use std::marker::PhantomData;
 
 use crate::{EventShockSignal, Exposure, Symbol, TradeResult};
 
+/// Where to price the **opening** leg of a simulated hold (deterministic, no slippage).
+///
+/// Spec default: **next session open** after the aligned entry session (i.e. after
+/// [`TradingCalendar::first_session_strictly_after_ts`](helio_time::TradingCalendar) produced
+/// `entry_session`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ExecutionEntryTiming {
+    /// Use **open** of the session **after** `signal.entry_session`.
+    #[default]
+    NextSessionOpen,
+    /// Use **open** of `signal.entry_session` (legacy alignment).
+    EntrySessionOpen,
+}
+
 /// One row per symbol per session (UTC-aligned session index).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DailyBar {
@@ -59,18 +73,31 @@ fn bar_open(state: &EventShockExecutionState, session: SessionDate, sym: &Symbol
     state.bars.get(&(session, sym_key(sym))).map(|b| b.open)
 }
 
-/// Deterministic daily simulation: enter at **open** of `entry_session`, exit at **close** of `exit_session`.
+/// Deterministic daily simulation: enter at **open** (see [`ExecutionEntryTiming`]), exit at **close** of `exit_session`.
 #[derive(Debug, Clone, Copy)]
 pub struct SignalExecutionScan<C: TradingCalendar + Copy = SimpleWeekdayCalendar> {
     pub calendar: C,
+    pub entry_timing: ExecutionEntryTiming,
     _p: PhantomData<C>,
 }
 
 impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
     pub fn new(calendar: C) -> Self {
+        Self::with_timing(calendar, ExecutionEntryTiming::default())
+    }
+
+    pub fn with_timing(calendar: C, entry_timing: ExecutionEntryTiming) -> Self {
         Self {
             calendar,
+            entry_timing,
             _p: PhantomData,
+        }
+    }
+
+    fn entry_price_session(&self, entry_session: SessionDate) -> SessionDate {
+        match self.entry_timing {
+            ExecutionEntryTiming::NextSessionOpen => self.calendar.next_session_after(entry_session),
+            ExecutionEntryTiming::EntrySessionOpen => entry_session,
         }
     }
 }
@@ -86,9 +113,10 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
         if x.0 < e.0 {
             return None;
         }
+        let e_px = self.entry_price_session(e);
         let gross = match &sig.exposure {
             Exposure::Long(sym) => {
-                let o = bar_open(state, e, sym)?;
+                let o = bar_open(state, e_px, sym)?;
                 let c = bar_close(state, x, sym)?;
                 if o == 0.0 {
                     return None;
@@ -96,7 +124,7 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
                 c / o - 1.0
             }
             Exposure::Short(sym) => {
-                let o = bar_open(state, e, sym)?;
+                let o = bar_open(state, e_px, sym)?;
                 let c = bar_close(state, x, sym)?;
                 if c == 0.0 {
                     return None;
@@ -104,9 +132,9 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
                 o / c - 1.0
             }
             Exposure::Pair { long, short } => {
-                let ol = bar_open(state, e, long)?;
+                let ol = bar_open(state, e_px, long)?;
                 let cl = bar_close(state, x, long)?;
-                let os = bar_open(state, e, short)?;
+                let os = bar_open(state, e_px, short)?;
                 let cs = bar_close(state, x, short)?;
                 if ol == 0.0 || os == 0.0 {
                     return None;
@@ -134,13 +162,14 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
     ) -> Option<f64> {
         let e = sig.entry_session;
         let x = sig.exit_session;
+        let e_px = self.entry_price_session(e);
         let mut peak = f64::NEG_INFINITY;
         let mut max_dd = 0.0f64;
-        let mut d = e;
+        let mut d = e_px;
         loop {
             let mark = match &sig.exposure {
                 Exposure::Long(sym) => {
-                    let o = bar_open(state, e, sym)?;
+                    let o = bar_open(state, e_px, sym)?;
                     let c = bar_close(state, d, sym)?;
                     if o == 0.0 {
                         return None;
@@ -148,7 +177,7 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
                     c / o
                 }
                 Exposure::Short(sym) => {
-                    let o = bar_open(state, e, sym)?;
+                    let o = bar_open(state, e_px, sym)?;
                     let c = bar_close(state, d, sym)?;
                     if c == 0.0 {
                         return None;
@@ -156,9 +185,9 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
                     o / c
                 }
                 Exposure::Pair { long, short } => {
-                    let ol = bar_open(state, e, long)?;
+                    let ol = bar_open(state, e_px, long)?;
                     let cl = bar_close(state, d, long)?;
-                    let os = bar_open(state, e, short)?;
+                    let os = bar_open(state, e_px, short)?;
                     let cs = bar_close(state, d, short)?;
                     if ol == 0.0 || os == 0.0 {
                         return None;
