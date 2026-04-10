@@ -77,6 +77,10 @@ The **`Persisted<S, Store, KeyFn>`** wrapper delegates `step`/`flush` to an inne
 
 Extension trait **`ScanExt`** provides `.map`, `.filter_map`, `.then` on any `Scan`.
 
+**Multi-emission and `Vec`:** each `step` may emit **zero or more** values via `Emit`. For a `Vec` per step, use **`Scan::step_collect`** (tests / adapters); keep `step` + custom `Emit` on hot paths. **`EmitWhen`** runs the inner scan every time but **drops emissions** until a predicate on post-step state holds (e.g. rolling window saturated). **`FilterMap`** drops by mapping to `Option`.
+
+**Arrow-style API** (see `rust/crates/helio_scan/src/arrow.rs`, `arrow_core.rs`): `Arr`, `Split`, `Merge`, `Choose`, `Fanin`, `First`/`Second`, `Id`, `Dup`, **`ArrowApply`** `(C, S::In)` decomposition, **`ZipTuple`** / **`Both`** on pair inputs, **`OnLeft`** / **`OnRight`** on `Either` inputs, **`scan_then!`** macro. Example: `cargo run -p helio_scan --example arrow_pipeline`.
+
 **`ZipInput`** requires **`A::In: Clone`** so both children see the same input. **`FlushableScan`** for `ZipInput` forwards **`flush`** to both sides (order: **A** then **B**).
 
 ## Focus (minimal optics)

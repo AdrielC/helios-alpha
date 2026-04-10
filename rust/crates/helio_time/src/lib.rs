@@ -31,6 +31,7 @@ mod gate;
 mod half_open;
 mod layered_schedule;
 mod typed_freq;
+mod wall_bucket;
 mod window_spec;
 
 pub use anchor::*;
@@ -44,6 +45,7 @@ pub use gate::*;
 pub use half_open::*;
 pub use layered_schedule::*;
 pub use typed_freq::*;
+pub use wall_bucket::*;
 pub use window_spec::*;
 
 use helio_scan::SessionDate;

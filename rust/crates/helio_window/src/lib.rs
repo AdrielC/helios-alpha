@@ -22,6 +22,7 @@ mod rolling_time_keyed;
 mod session_keyed;
 mod session_window;
 mod time_keyed;
+mod signal_pipeline;
 mod watermark;
 mod window_state;
 
@@ -37,5 +38,6 @@ pub use rolling_time_keyed::*;
 pub use session_keyed::*;
 pub use session_window::*;
 pub use time_keyed::*;
+pub use signal_pipeline::*;
 pub use watermark::*;
 pub use window_state::*;
