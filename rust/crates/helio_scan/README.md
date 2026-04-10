@@ -12,8 +12,11 @@ From the **workspace root** `rust/`:
 
 ```bash
 cargo test -p helio_scan
+cargo run -p helio_scan --example arrow_pipeline
 cargo doc -p helio_scan --no-deps --open
 ```
+
+Arrow-style combinators (`Arr`, `Split`, `Merge`, `Choose`, `Fanin`, `First`, `Second`) and the [`scan_then!`](https://docs.rs/helio_scan/latest/helio_scan/macro.scan_then.html) macro live in the crate root re-exports; see `examples/arrow_pipeline.rs`.
 
 ## Workspace
 
