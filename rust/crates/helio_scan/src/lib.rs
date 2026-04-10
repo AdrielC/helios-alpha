@@ -17,16 +17,18 @@
 //!
 //! ## Core ideas
 //!
-//! - **[`Scan`]** — `init`, `step(state, input, emit)`, plus [`Scan::then`] (pipeline) and
-//!   [`Scan::and`] (same-input fan-out). The emit parameter is an [`Emit`] sink so combinators can
-//!   adapt output types without allocating a `Vec` per step.
+//! - **[`Scan`]** — `init`, `step(state, input, emit)`, plus [`Scan::step_collect`] when you want a
+//!   `Vec` of outputs (0..N per step: **filter out** by emitting nothing, or gate with
+//!   [`EmitWhen`](crate::EmitWhen)). Also [`Scan::then`] (pipeline) and [`Scan::and`] (same-input fan-out).
+//!   The emit parameter is an [`Emit`] sink so hot paths stay allocation-free for 1:1 scans.
 //! - **[`FlushableScan`]** — `flush(state, signal, emit)` with [`FlushReason`] (session close,
 //!   checkpoint, watermark, shutdown, …). Keeps **domain inputs** separate from **control**.
 //! - **[`SnapshottingScan`]** — serializable [`Snapshot`](SnapshottingScan::Snapshot) distinct from
 //!   raw runtime state when you need stable persistence.
 //! - **Combinators** — [`Map`], [`FilterMap`], [`Then`] (pipeline), [`ZipInput`] (fan-out on same
 //!   input), **arrow-style** [`Arr`], [`Split`], [`Merge`], [`Choose`], [`Fanin`], [`First`], [`Second`]
-//!   ([`arrow`] module) and [`scan_then!`] for nested `Then`.
+//!   ([`arrow`] module), **core arrow** [`Id`], [`Dup`], [`ArrowApply`], [`ZipTuple`] / [`Both`],
+//!   [`EmitWhen`], [`OnLeft`], [`OnRight`] ([`arrow_core`] module), and [`scan_then!`] for nested `Then`.
 //!   Composed state uses **named structs** ([`ThenState`], [`ZipInputState`]) instead of tuple soup.
 //! - **[`Focus`]** — minimal typed paths into composed state ([`ThenLeft`], [`ThenRight`],
 //!   [`ZipInputA`], [`ZipInputB`]).
@@ -49,6 +51,7 @@
 //! exactly-once beyond checkpoint+offset skeletons.
 
 mod arrow;
+mod arrow_core;
 mod batch;
 mod batch_opt;
 mod combinator;
@@ -69,6 +72,7 @@ mod scan;
 mod macros;
 
 pub use arrow::*;
+pub use arrow_core::*;
 pub use batch::*;
 pub use batch_opt::*;
 pub use combinator::*;

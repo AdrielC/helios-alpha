@@ -12,6 +12,10 @@
 //! **Flush / snapshot:** Only [`Arr`], [`Split`], [`Merge`], and [`Choose`] implement [`FlushableScan`] /
 //! [`SnapshottingScan`] when their inner scans do (with aligned `Offset` types). [`First`] / [`Second`] /
 //! [`Fanin`] are **step-only** today because pairing with flush has no natural `C` without extra state.
+//!
+//! **Full Arrow toolbox:** see [`Id`](crate::Id), [`Dup`](crate::Dup), [`ArrowApply`](crate::ArrowApply),
+//! [`ZipTuple`](crate::ZipTuple), [`EmitWhen`](crate::EmitWhen), [`OnLeft`](crate::OnLeft) /
+//! [`OnRight`](crate::OnRight) in the crate root (module `arrow_core`).
 
 use std::marker::PhantomData;
 
@@ -21,6 +25,7 @@ use crate::combinator::Then;
 use crate::control::FlushReason;
 use crate::emit::{Emit, VecEmitter, ZipInputOut};
 use crate::scan::{FlushableScan, Scan, SnapshottingScan};
+use crate::{ArrowApply, EmitWhen, OnLeft, OnRight, ZipTuple};
 
 // --- Either (sum type for choice / fan-in) ---
 
@@ -711,6 +716,45 @@ pub trait ArrowScanExt: Scan + Sized {
         C: Clone,
     {
         Second::new(self)
+    }
+
+    /// Arrow `app` / decomposition: input `(C, Self::In)` — environment `C` + operand.
+    fn apply<C>(self) -> ArrowApply<C, Self> {
+        ArrowApply::new(self)
+    }
+
+    /// Run in parallel with `other` on tuple input `(Self::In, B::In)`; see [`ZipTuple`].
+    fn zip_scan<B>(self, other: B) -> ZipTuple<Self, B>
+    where
+        B: Scan,
+        Self::Out: Clone,
+        B::Out: Clone,
+    {
+        ZipTuple {
+            left: self,
+            right: other,
+        }
+    }
+
+    /// Forward emissions only when `allow_emit(&state)` after each inner step (saturated window, etc.).
+    fn emit_when<G>(self, allow_emit: G) -> EmitWhen<Self, G>
+    where
+        G: Fn(&Self::State) -> bool,
+    {
+        EmitWhen {
+            inner: self,
+            allow_emit,
+        }
+    }
+
+    /// Decompose sum input: run only on [`Either::Left`].
+    fn on_left<R>(self) -> OnLeft<Self, R> {
+        OnLeft::new(self)
+    }
+
+    /// Decompose sum input: run only on [`Either::Right`].
+    fn on_right<L>(self) -> OnRight<L, Self> {
+        OnRight::new(self)
     }
 }
 

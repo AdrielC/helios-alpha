@@ -16,7 +16,7 @@ cargo run -p helio_scan --example arrow_pipeline
 cargo doc -p helio_scan --no-deps --open
 ```
 
-Arrow-style combinators (`Arr`, `Split`, `Merge`, `Choose`, `Fanin`, `First`, `Second`) and the [`scan_then!`](https://docs.rs/helio_scan/latest/helio_scan/macro.scan_then.html) macro live in the crate root re-exports; see `examples/arrow_pipeline.rs`.
+Arrow-style combinators (`Arr`, `Split`, `Merge`, `Choose`, `Fanin`, `First`, `Second`, `Id`, `Dup`, `ArrowApply`, `ZipTuple` / `Both`, `EmitWhen`, `OnLeft` / `OnRight`) and [`scan_then!`](https://docs.rs/helio_scan/latest/helio_scan/macro.scan_then.html) are re-exported from the crate root. Use [`Scan::step_collect`](https://docs.rs/helio_scan/latest/helio_scan/trait.Scan.html#method.step_collect) for a `Vec` of outputs per step. See `examples/arrow_pipeline.rs`.
 
 ## Workspace
 

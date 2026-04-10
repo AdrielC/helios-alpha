@@ -2,9 +2,10 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::combinator::{Then, ZipInput};
 use crate::control::FlushReason;
-use crate::emit::Emit;
+use crate::emit::{Emit, VecEmitter};
 
-/// Base scan: one step updates state and may emit zero or more outputs.
+/// Base scan: one step updates state and may emit **zero or more** outputs (including **one** for
+/// the common 1:1 case, or **none** until a sub-problem is “saturated”, e.g. a full time window).
 pub trait Scan {
     type In;
     type Out;
@@ -15,6 +16,16 @@ pub trait Scan {
     fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
     where
         E: Emit<Self::Out>;
+
+    /// Collect all outputs from one [`step`](Scan::step) into a `Vec` (same semantics as `VecEmitter`).
+    ///
+    /// Prefer [`step`](Scan::step) when you can stream into a custom [`Emit`](crate::emit::Emit) sink
+    /// to avoid allocation on hot paths.
+    fn step_collect(&self, state: &mut Self::State, input: Self::In) -> Vec<Self::Out> {
+        let mut e = VecEmitter::new();
+        self.step(state, input, &mut e);
+        e.into_inner()
+    }
 
     /// Pipeline this scan into `right`: each output of `self` becomes an input of `right`.
     ///
@@ -52,6 +63,17 @@ pub trait FlushableScan: Scan {
     fn flush<E>(&self, state: &mut Self::State, signal: FlushReason<Self::Offset>, emit: &mut E)
     where
         E: Emit<Self::Out>;
+
+    /// Collect all outputs from one [`flush`](FlushableScan::flush) (same idea as [`Scan::step_collect`]).
+    fn flush_collect(
+        &self,
+        state: &mut Self::State,
+        signal: FlushReason<Self::Offset>,
+    ) -> Vec<Self::Out> {
+        let mut e = VecEmitter::new();
+        self.flush(state, signal, &mut e);
+        e.into_inner()
+    }
 }
 
 /// Serialize/deserialize runtime state for external storage.

@@ -68,3 +68,14 @@ macro_rules! scan_fanin {
         }
     };
 }
+
+/// `both!(a, b)` → [`ZipTuple`](crate::ZipTuple) / [`Both`](crate::Both).
+#[macro_export]
+macro_rules! scan_both {
+    ($left:expr, $right:expr $(,)?) => {
+        $crate::ZipTuple {
+            left: $left,
+            right: $right,
+        }
+    };
+}
