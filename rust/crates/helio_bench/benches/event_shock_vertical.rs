@@ -65,6 +65,7 @@ fn vertical_machine() -> EventShockVerticalScan<SimpleWeekdayCalendar> {
         EventShockControlConfig {
             seed: 11,
             controls_per_treatment: 1,
+            strategy_name: "bench".into(),
             horizon_sessions: 4,
             exposure: Exposure::Pair {
                 long: Symbol("XLU".into()),
@@ -74,6 +75,7 @@ fn vertical_machine() -> EventShockVerticalScan<SimpleWeekdayCalendar> {
         },
         cand,
         helio_event::ExecutionEntryTiming::EntrySessionOpen,
+        "bench",
     )
 }
 
@@ -115,6 +117,7 @@ fn bench_align_to_signal(c: &mut Criterion) {
             short: Symbol("SPY".into()),
         },
         calendar: cal,
+        strategy_name: "bench".into(),
     };
     c.bench_function("event_shock_aligned_to_signal", |b| {
         b.iter(|| {

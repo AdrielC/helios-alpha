@@ -5,6 +5,7 @@ use helio_scan::{
     CheckpointKeyFn, FlushReason, FlushableScan, HashMapStore, Persisted, Runner, Scan,
     SessionDate, SnapshottingScan, VecEmitter,
 };
+use helio_window::{SessionSample, SessionWindowScan};
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};
 
 fn day(d: i32) -> i64 {
@@ -74,6 +75,7 @@ fn make_vertical() -> EventShockVerticalScan<SimpleWeekdayCalendar> {
         EventShockControlConfig {
             seed: 99,
             controls_per_treatment: 1,
+            strategy_name: "test-vertical".into(),
             horizon_sessions: 3,
             exposure: Exposure::Pair {
                 long: Symbol("XLU".into()),
@@ -83,6 +85,7 @@ fn make_vertical() -> EventShockVerticalScan<SimpleWeekdayCalendar> {
         },
         cand,
         ExecutionEntryTiming::EntrySessionOpen,
+        "test-vertical",
     )
 }
 
@@ -146,6 +149,49 @@ fn checkpoint_resume_matches_uninterrupted() {
 }
 
 #[test]
+fn receiver_runner_matches_iterator_for_vertical() {
+    let pipe = make_vertical();
+    let replay = build_vertical_replay(sample_shocks(), sample_bars());
+    let a = collect_vertical_trades_incremental(&pipe, &replay);
+    let b = collect_vertical_trades_receiver(&pipe, &replay);
+    assert_eq!(a, b);
+}
+
+#[test]
+fn checkpoint_cadence_matches_uninterrupted() {
+    let pipe = make_vertical();
+    let replay = build_vertical_replay(sample_shocks(), sample_bars());
+    let full = collect_trades(&pipe, &replay);
+    for every in [1usize, 2, 7, 64, 256, 1024] {
+        let c = collect_vertical_trades_with_checkpoint_cadence(&pipe, &replay, every);
+        assert_eq!(
+            full, c,
+            "checkpoint every {every} should match uninterrupted"
+        );
+    }
+}
+
+#[test]
+fn session_window_flush_emits_once_without_double_emit() {
+    let scan = SessionWindowScan::<i32>::new();
+    let mut st = scan.init();
+    let mut e = VecEmitter::new();
+    scan.step(
+        &mut st,
+        SessionSample {
+            session: SessionDate(1),
+            value: 10,
+        },
+        &mut e,
+    );
+    assert!(e.0.is_empty());
+    scan.flush(&mut st, FlushReason::SessionClose(SessionDate(1)), &mut e);
+    assert_eq!(e.0, vec![vec![10]]);
+    scan.flush(&mut st, FlushReason::SessionClose(SessionDate(1)), &mut e);
+    assert_eq!(e.0.len(), 1);
+}
+
+#[test]
 fn persisted_checkpoint_matches_uninterrupted() {
     #[derive(Clone)]
     struct Key;
@@ -188,12 +234,14 @@ fn future_available_events_emit_no_trades_under_gate() {
         EventShockControlConfig {
             seed: 1,
             controls_per_treatment: 0,
+            strategy_name: "gate-test".into(),
             horizon_sessions: 2,
             exposure: Exposure::Long(Symbol("SPY".into())),
             vol_epsilon: None,
         },
         cand,
         ExecutionEntryTiming::EntrySessionOpen,
+        "gate-test",
     );
     let shocks = vec![EventShock {
         id: EventId(100),
@@ -230,12 +278,14 @@ fn shock_stream_order_is_preserved_in_outputs() {
             EventShockControlConfig {
                 seed,
                 controls_per_treatment: 0,
+                strategy_name: "order-test".into(),
                 horizon_sessions: 2,
                 exposure: Exposure::Long(Symbol("SPY".into())),
                 vol_epsilon: None,
             },
             cand.clone(),
             ExecutionEntryTiming::EntrySessionOpen,
+            "order-test",
         )
     };
     let s1 = EventShock {
@@ -302,6 +352,7 @@ fn matched_control_sampling_deterministic_under_seed() {
             EventShockControlConfig {
                 seed,
                 controls_per_treatment: 2,
+                strategy_name: "ctrl-seed".into(),
                 horizon_sessions: 3,
                 exposure: Exposure::Pair {
                     long: Symbol("XLU".into()),
@@ -311,6 +362,7 @@ fn matched_control_sampling_deterministic_under_seed() {
             },
             cand.clone(),
             ExecutionEntryTiming::EntrySessionOpen,
+            "ctrl-seed",
         )
     };
 
@@ -343,12 +395,14 @@ fn next_session_open_execution_changes_returns_vs_entry_open() {
             EventShockControlConfig {
                 seed: 1,
                 controls_per_treatment: 0,
+                strategy_name: "timing".into(),
                 horizon_sessions: 2,
                 exposure: Exposure::Long(Symbol("SPY".into())),
                 vol_epsilon: None,
             },
             cand.clone(),
             timing,
+            "timing",
         )
     };
     let shocks = vec![sample_shocks()[0].clone()];

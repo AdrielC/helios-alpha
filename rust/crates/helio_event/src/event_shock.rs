@@ -90,6 +90,9 @@ pub struct EventShockSignal {
     pub entry_session: SessionDate,
     pub exit_session: SessionDate,
     pub exposure: Exposure,
+    /// Human-readable strategy id (e.g. CLI preset name).
+    pub strategy_name: String,
+    pub scope: EventScope,
     /// `Some(treatment)` when this row is a matched control for causal comparison.
     pub matched_treatment: Option<EventId>,
 }
@@ -102,6 +105,8 @@ pub struct TradeResult {
     pub gross_return: f64,
     pub max_drawdown: f64,
     pub holding_period_sessions: u32,
+    pub strategy_name: String,
+    pub scope: EventScope,
     /// When set, this row is a matched control for the given treatment event.
     pub matched_treatment: Option<EventId>,
 }
@@ -144,6 +149,17 @@ fn scope_matches(filter: &ScopeFilter, scope: &EventScope) -> bool {
     match filter {
         ScopeFilter::Any => true,
         ScopeFilter::Match(s) => s == scope,
+    }
+}
+
+/// Stable short label for reporting (CSV / markdown).
+pub fn event_scope_label(scope: &EventScope) -> String {
+    match scope {
+        EventScope::Global => "global".into(),
+        EventScope::Region(r) => format!("region:{r}"),
+        EventScope::Sector(s) => format!("sector:{s}"),
+        EventScope::Basket(b) => format!("basket:{b}"),
+        EventScope::Instrument(sym) => format!("instrument:{}", sym.0),
     }
 }
 
@@ -302,6 +318,7 @@ pub struct EventShockToSignalScan<C: TradingCalendar + Copy = SimpleWeekdayCalen
     pub exit_policy: ExitPolicy,
     pub exposure: Exposure,
     pub calendar: C,
+    pub strategy_name: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -346,6 +363,8 @@ impl<C: TradingCalendar + Copy> Scan for EventShockToSignalScan<C> {
             entry_session: input.entry_session,
             exit_session,
             exposure: self.exposure.clone(),
+            strategy_name: self.strategy_name.clone(),
+            scope: input.scope.clone(),
             matched_treatment: None,
         });
     }
@@ -518,6 +537,7 @@ impl<C: TradingCalendar + Copy> EventShockSignalKernelScan<C> {
         calendar: C,
         exit_policy: ExitPolicy,
         exposure: Exposure,
+        strategy_name: impl Into<String>,
     ) -> Self {
         Self {
             align_pipe: EventShockAlignPipelineScan::new(decision_available, filter, calendar),
@@ -525,6 +545,7 @@ impl<C: TradingCalendar + Copy> EventShockSignalKernelScan<C> {
                 exit_policy,
                 exposure,
                 calendar,
+                strategy_name: strategy_name.into(),
             },
         }
     }
@@ -670,6 +691,7 @@ mod tests {
             cal,
             ExitPolicy::AtImpactStartSession,
             Exposure::Long(Symbol("SPY".into())),
+            "test",
         );
         let mut st = kernel.init();
         let mut e = VecEmitter::new();

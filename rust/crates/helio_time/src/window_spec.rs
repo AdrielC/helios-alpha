@@ -9,10 +9,11 @@ pub enum WindowDirection {
     Centered,
 }
 
-/// High-level rolling / horizon window description. Used by rolling scans and (later) forward horizons.
+/// High-level rolling / horizon window description.
 ///
-/// For **sample-count** windows, use [`Frequency::Samples`]. Fixed/calendar/session frequencies describe
-/// *time extent* semantics; eviction keyed by time is not implemented in the ring-buffer path yet.
+/// - **Sample-count** [`Frequency::Samples`] — used by `helio_window` ring-buffer rolling (`WindowState`, `RollingAggregatorScan`).
+/// - **Fixed wall span** [`Frequency::Fixed`] on a **trailing** spec — time-keyed eviction in `helio_window::time_keyed`.
+/// - **Session / calendar** frequencies — semantic categories; session-keyed eviction uses `helio_window::session_keyed` (not implicit in `WindowState`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum WindowSpec {
     Trailing { size: Frequency, bounds: Bounds },

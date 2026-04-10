@@ -151,6 +151,8 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
             gross_return: gross,
             max_drawdown: mdd,
             holding_period_sessions: holding,
+            strategy_name: sig.strategy_name.clone(),
+            scope: sig.scope.clone(),
             matched_treatment: sig.matched_treatment,
         })
     }

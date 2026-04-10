@@ -26,6 +26,8 @@ cargo bench -p helio_bench --no-run
 | `execution_modes.rs` | single `step` vs `step_batch` vs `run_iter`; rolling `step` vs `step_batch_optimized` |
 | `scan_pressure.rs` | emit fan-out (0/1/4/16), deep `Map`/`filter_map`, `Persisted` + checkpoint every 64 |
 | `event_shock_vertical.rs` | event-shock ingest → align → signal → e2e replay + checkpoint restart |
+| `time_keyed_windows.rs` | time-keyed + session-keyed rolling vs sample-count baseline |
+| `checkpoint_cadence.rs` | vertical replay with snapshot/restore every 1 / 64 / 256 / 1024 steps |
 
 Documented medians and **manual triage thresholds** (not CI-enforced yet): repo root `docs/EVENT_SHOCK_BENCHMARKS.md`.
 

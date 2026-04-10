@@ -14,6 +14,15 @@ pub enum EventShockStrategyPreset {
 }
 
 impl EventShockStrategyPreset {
+    /// CLI / report label (stable).
+    pub fn cli_name(self) -> &'static str {
+        match self {
+            Self::XluSpyPairThreeSession => "xlu-spy-3",
+            Self::XluSpyPairFiveSession => "xlu-spy-5",
+            Self::DefenseSpyPairMidWindow => "defense-spy-mid",
+        }
+    }
+
     pub fn exit_policy(self) -> ExitPolicy {
         match self {
             Self::XluSpyPairThreeSession => ExitPolicy::FixedHorizonSessions { n: 3 },

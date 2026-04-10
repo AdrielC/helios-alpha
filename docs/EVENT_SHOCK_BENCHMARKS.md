@@ -36,9 +36,37 @@ Until CI runs Criterion with saved baselines, treat **>2×** the median above on
 
 Rolling-window step vs optimized batch for `helio_window` lives in `cargo bench -p helio_bench --bench execution_modes`.
 
+## Time-keyed and session-keyed windows (`time_keyed_windows`)
+
+Recorded on **2026-04-10** from `cargo bench -p helio_bench --bench time_keyed_windows -- --noplot` (Criterion **0.4.0**, release, Linux agent). **4096** elements per iteration.
+
+| Benchmark | Median | Notes |
+|-----------|--------|--------|
+| `time_keyed_window_state/push_f64_span_1h_batch4096` | **~19.7 µs** | `TimeKeyedWindowState` + sum/mean agg, 1h trailing wall span |
+| `time_keyed_rolling_scan/emit_summary_batch4096` | **~19.1 µs** | `TimeKeyedRollingAggregatorScan`, emits after each step |
+| `session_keyed_window_state/trailing_5_sessions_batch4096` | **~93.3 µs** | `SessionKeyedRollingState`, 5-session trailing inclusive window |
+| `sample_count_baseline/rolling_mean_64_batch4096` | **~18.5 µs** | `rolling_mean_scan(64)` for scale comparison |
+
+**Regression triage:** same **>2× / >3×** rule on the same bench and element count. Session-keyed eviction is expected to cost more than a fixed-capacity ring (calendar walks on push).
+
+## Checkpoint cadence on the vertical (`checkpoint_cadence`)
+
+Same **256-shock + bars** stream as the e2e bench; each iteration **asserts** output equality vs an uninterrupted incremental run. Recorded **2026-04-10** with `cargo bench -p helio_bench --bench checkpoint_cadence -- --noplot`.
+
+| Cadence (steps between snapshot/restore) | Median | Notes |
+|------------------------------------------|--------|--------|
+| **1** | **~13.1 ms** | Worst case: snapshot almost every record |
+| **64** | **~4.55 ms** | Near e2e baseline |
+| **256** | **~5.10 ms** | Noise band overlaps 64 / 1024 |
+| **1024** | **~4.40 ms** | Few checkpoints on this stream length |
+
+**Takeaway:** checkpoint frequency matters when it approaches **every step**; sparse checkpoints track the uninterrupted e2e cost.
+
 ## Reproduce
 
 ```bash
 cd rust
 cargo bench -p helio_bench --bench event_shock_vertical -- --noplot
+cargo bench -p helio_bench --bench time_keyed_windows -- --noplot
+cargo bench -p helio_bench --bench checkpoint_cadence -- --noplot
 ```

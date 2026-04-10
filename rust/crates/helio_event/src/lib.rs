@@ -1,10 +1,11 @@
-//! Domain **proving ground** on [`helio_scan`], [`helio_time`], and [`helio_window`]: classic
-//! event-study pipelines **and** generic forecastable **event-shock** machinery (`event_shock`).
+//! **Application / flagship workload** on [`helio_scan`], [`helio_time`], and [`helio_window`]:
+//! classic event-study harness **and** the **event-shock trading vertical** (`EventShock` → gate →
+//! filter → align → signal → execution → metrics; see [`EventShockVerticalScan`] and
+//! `replay_event_shock` binary).
 //!
-//! **Scope:** Internal substrate — names like [`TreatmentSelectorScan`](crate::TreatmentSelectorScan)
-//! and [`CausalEventStudyPipeline`](crate::CausalEventStudyPipeline) are **research-shaped**. If the
-//! crate grows further, consider splitting later into **generic event machinery** vs **event-study
-//! analysis**; nothing here is forced to stay a single public package forever.
+//! **Substrate vs this crate:** `helio_scan`, `helio_time`, `helio_window` are reusable machinery;
+//! `helio_event` is where a concrete **signal-to-trade** path and reporting CLI live. Research-only
+//! names ([`TreatmentSelectorScan`], [`CausalEventStudyPipeline`]) may move if the crate splits later.
 //!
 //! The kernel stays in **`helio_scan`**; this crate may use bars, sessions, and causal tagging.
 

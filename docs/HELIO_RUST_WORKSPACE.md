@@ -6,12 +6,12 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 
 | Crate | Role |
 |-------|------|
-| **`helio_scan`** | Cold kernel: `Scan`, `FlushableScan`, `SnapshottingScan`, combinators, checkpoint seam. **No bars, sessions, or market types.** |
-| **`helio_time`** | **Semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; optional `typed_freq`; `AvailabilityGateScan`, `SessionAlignScan`. |
-| **`helio_window`** | **Operations:** `WindowBuffer`, `WindowAggregator` / `EvictingWindowAggregator`, `WindowState`, `FoldWindowState`; scans (`RollingWindowScan`, `RollingAggregatorScan`, `RollingFoldScan`, `SessionWindowScan`, `ForwardHorizonScan`, …). |
-| **`helio_event`** | Domain proving ground: classic event-study (`TreatmentEvent`, `CausalEventStudyPipeline`, `EventStudyFoldScan`) **and** generic **event-shock vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` binary). Integration tests: **`replay_determinism`**, **`event_shock_vertical_determinism`**, **`event_shock_compact_smoke`**. May split later (generic machinery vs analysis) if it grows. |
-| **`helios_signald`** | ZMQ subscriber binary (system `libzmq` required). |
-| **`helio_bench`** | Criterion benchmarks (not in `default-members`; run with `cargo bench -p helio_bench`). |
+| **`helio_scan`** | **Substrate — kernel:** `Scan`, `FlushableScan`, `SnapshottingScan`, combinators, checkpoint seam. **No bars, sessions, or market types.** |
+| **`helio_time`** | **Substrate — semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; `TradingCalendar`; bucket availability helpers in `availability`. |
+| **`helio_window`** | **Substrate — window ops:** sample-count buffers (`WindowState`, `RollingAggregatorScan`), **time-keyed** (`time_keyed`, `TimeKeyedRollingAggregatorScan`), **session-keyed** (`session_keyed`), `SessionWindowScan`, `ForwardHorizonScan`, … |
+| **`helio_event`** | **Application / proving ground:** classic event-study **and** flagship **event-shock trading vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` CLI, `TradeResult` reporting). This is the default “do something real” crate. |
+| **`helios_signald`** | **Integration:** ZMQ subscriber binary (system `libzmq` required). |
+| **`helio_bench`** | **Internal tooling:** Criterion benchmarks (`publish = false`; `cargo bench -p helio_bench`). |
 
 ## Default members
 
@@ -89,9 +89,9 @@ Architecture / generalization memo: [EVENT_SHOCK_ARCHITECTURE.md](EVENT_SHOCK_AR
 
 ## Roadmap (substrate is wide enough)
 
-1. **One flagship workload** — replayable causal **event-shock** (or event-study) backtest using all of `helio_scan`, `helio_time`, `helio_window`, `helio_event`: checkpoint/restore, rolling/session logic, clustering, complete vs incomplete outcomes, deterministic reproduction.
-2. **Time-keyed expiry for real** — operational support for fixed-time and session-*extent* window eviction (today many rolling paths are **sample-count-only**; `WindowSpec` can describe more than what ring buffers enforce).
-3. **Benchmark budgets** — turn `helio_bench` numbers into documented thresholds or CI smoke checks so regressions are visible (see `rust/crates/helio_bench/README.md`).
+1. **Harden the flagship event-shock path** — more calendar realism, richer reporting, and streaming adapters while keeping batch/incremental/checkpoint equivalence tests green.
+2. **Extend time-keyed / session-keyed coverage** — more scans that take `WindowSpec` only when eviction semantics match (or document the gap).
+3. **Benchmark budgets in CI** — optional saved Criterion baselines or smoke jobs (see `EVENT_SHOCK_BENCHMARKS.md`).
 
 ## Further reading
 

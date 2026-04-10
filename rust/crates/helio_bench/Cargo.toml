@@ -39,3 +39,11 @@ harness = false
 [[bench]]
 name = "event_shock_vertical"
 harness = false
+
+[[bench]]
+name = "time_keyed_windows"
+harness = false
+
+[[bench]]
+name = "checkpoint_cadence"
+harness = false

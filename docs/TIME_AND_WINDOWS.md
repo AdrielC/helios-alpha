@@ -35,12 +35,18 @@ For **epoch-aligned** fixed-width buckets on a scalar timeline, use `helio_time:
 
 ### Do not confuse spec with eviction
 
-| You write in `WindowSpec` | Ring buffer / `WindowState` today |
-|---------------------------|-----------------------------------|
-| `Frequency::Samples(n)` | **Yes** — capacity `n`, FIFO by sample |
-| `Frequency::Fixed` / `Calendar` / `Session` (extent semantics) | **Not** automatic time-keyed eviction in `WindowState` / default rolling scans — semantics are **documented intent** until `helio_window` grows matching machinery |
+| You write in `WindowSpec` | Operational path in `helio_window` |
+|---------------------------|--------------------------------------|
+| `Frequency::Samples(n)` | **`WindowState` / `RollingAggregatorScan`** — capacity `n`, FIFO by sample |
+| `Frequency::Fixed` on **`Trailing`** | **`time_keyed::TimeKeyedWindowState`** — eviction by wall span \([t-\Delta,t)\) on caller-provided keys |
+| `SessionStep` / session counts | **`session_keyed::SessionKeyedRollingState`** — trailing *n* **trading** sessions via `TradingCalendar` |
+| `Frequency::Calendar` | **Not** auto-wired to a generic ring buffer — build or extend a scan with your calendar provider |
 
-Session-**bar** behavior uses dedicated scans (e.g. `SessionWindowScan`) and flush signals, not `WindowSpec` alone.
+Session-**bar** batching still uses `SessionWindowScan` + flush signals (`SessionClose`, `EndOfInput`), not `WindowSpec` alone.
+
+### Bucket interval vs availability
+
+Use **`helio_time::availability`**: `wall_bucket_interval_wall_secs`, `bucket_close_instant`, `available_at_bucket_close` so **bucket close** and **availability** stay explicit for causal correctness.
 
 ## Typed frequency (optional, `helio_time::typed_freq`)
 
@@ -57,7 +63,7 @@ Additive helpers: `Samples<N>`, `Fixed<N, Days>`, `Sessions<N>`, etc. They conve
 
 ## Forward horizon
 
-`ForwardHorizonScan` carries a documentary `WindowSpec` (default `trailing_samples(1)`). Bar-count horizons align with `Frequency::Samples`; **time-keyed** eviction (fixed/calendar/session extents) is future work.
+`ForwardHorizonScan` carries a documentary `WindowSpec` (default `trailing_samples(1)`). Bar-count horizons align with `Frequency::Samples`; wiring it to **time-keyed** or **session-keyed** eviction is still optional / workload-specific.
 
 ## Non-goals (this phase)
 

@@ -22,12 +22,14 @@ fn vertical_for_strategy(
         EventShockControlConfig {
             seed: 77,
             controls_per_treatment: 1,
+            strategy_name: preset.cli_name().to_string(),
             horizon_sessions: preset.control_horizon_sessions(),
             exposure: preset.control_exposure_clone(),
             vol_epsilon: None,
         },
         cand,
         ExecutionEntryTiming::EntrySessionOpen,
+        preset.cli_name(),
     )
 }
 

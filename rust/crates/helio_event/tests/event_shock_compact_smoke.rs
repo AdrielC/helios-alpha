@@ -30,6 +30,7 @@ fn compact_csv_loads_and_produces_treatment_trades() {
         EventShockControlConfig {
             seed: 42,
             controls_per_treatment: 1,
+            strategy_name: "smoke".into(),
             horizon_sessions: 5,
             exposure: Exposure::Pair {
                 long: Symbol("XLU".into()),
@@ -39,6 +40,7 @@ fn compact_csv_loads_and_produces_treatment_trades() {
         },
         cand,
         ExecutionEntryTiming::EntrySessionOpen,
+        "smoke",
     );
 
     let mut st = vertical.init();
