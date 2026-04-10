@@ -29,6 +29,10 @@ Three calendar days, three fixed 24h steps, and three sessions are **not** inter
 `WindowSpec` = trailing / leading / centered + `size: Frequency` + `bounds`.  
 `WindowSpec::sample_capacity()` returns `Some(n)` only for sample-count windows — used by ring-buffer scans today.
 
+### Wall-clock bucket width (`WallBucketGrid`)
+
+For **epoch-aligned** fixed-width buckets on a scalar timeline, use `helio_time::WallBucketGrid` (`NanosecondWallBucket`, `SecondWallBucket`, …) with `helio_window::TimeBucketAggregatorScan<G, V>` and `TimeBucketEvent<G>`. This is separate from `WindowSpec` / sample-count rolling: the grid defines **bucket_start(t)** and **bucket_end_exclusive**; the event type supplies **which instant** maps to `G::T` and the **mean_sample** summand. Wrap `Timed<T>` as `TimedPriceEvent` when bucketing on `available_at` in nanoseconds.
+
 ### Do not confuse spec with eviction
 
 | You write in `WindowSpec` | Ring buffer / `WindowState` today |

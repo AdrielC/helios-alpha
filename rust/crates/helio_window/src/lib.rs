@@ -21,6 +21,7 @@ mod join_latest;
 mod lag;
 mod rolling;
 mod session_window;
+mod signal_pipeline;
 mod watermark;
 mod window_state;
 
@@ -33,5 +34,6 @@ pub use join_latest::*;
 pub use lag::*;
 pub use rolling::*;
 pub use session_window::*;
+pub use signal_pipeline::*;
 pub use watermark::*;
 pub use window_state::*;
