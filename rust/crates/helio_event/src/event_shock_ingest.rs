@@ -1,13 +1,85 @@
 //! CSV / JSON Lines loaders → [`EventShock`](crate::EventShock).
 
 use helio_scan::SessionDate;
-use helio_time::{utc_calendar_day, AvailableAt};
+use helio_time::{utc_calendar_day, AvailableAt, TradingCalendar};
 use serde::Deserialize;
 
 use crate::{
     timed_shock, DailyBar, EventId, EventKind, EventScope, EventShock, EventShockVerticalRecord,
     Symbol,
 };
+
+/// Trading session used to **merge** a shock into the vertical replay stream (same key as
+/// [`crate::vertical_merge_key`] for [`EventShockVerticalRecord::Shock`] when `session_date` is set).
+///
+/// Uses [`TradingCalendar::session_on_or_after_ts`] on [`EventShock::available_at`] so weekend /
+/// holiday semantics match the calendar used by the vertical scan (see
+/// [`build_vertical_replay_with_calendar`]).
+#[inline]
+pub fn merge_session_for_shock<C: TradingCalendar + Copy>(
+    shock: &EventShock,
+    calendar: C,
+) -> SessionDate {
+    calendar.session_on_or_after_ts(shock.available_at.0)
+}
+
+/// Calendar-aware replay: shocks use [`merge_session_for_shock`]; bars keep their CSV `session`
+/// (must already match the same calendar). Prefer this over [`build_vertical_replay`] for
+/// production-style data.
+pub fn build_vertical_replay_with_calendar<C: TradingCalendar + Copy>(
+    shocks: Vec<EventShock>,
+    bars: Vec<DailyBar>,
+    calendar: C,
+) -> Vec<EventShockVerticalRecord> {
+    let mut tagged: Vec<(usize, EventShockVerticalRecord)> = Vec::new();
+    let mut i = 0usize;
+    for b in bars {
+        tagged.push((i, EventShockVerticalRecord::Bar(b)));
+        i += 1;
+    }
+    let mut shock_seq = 0u32;
+    for s in shocks {
+        let session = merge_session_for_shock(&s, calendar);
+        let mut t = timed_shock(s);
+        t.session_date = Some(session);
+        tagged.push((i, EventShockVerticalRecord::Shock(shock_seq, t)));
+        shock_seq = shock_seq.wrapping_add(1);
+        i += 1;
+    }
+    tagged.sort_by(|(ia, a), (ib, b)| {
+        crate::vertical_merge_key(a)
+            .cmp(&crate::vertical_merge_key(b))
+            .then_with(|| ia.cmp(ib))
+    });
+    tagged.into_iter().map(|(_, r)| r).collect()
+}
+
+/// Reject the common footgun where **bars** use the raw UTC calendar day index on a **weekend**
+/// while shocks (and [`merge_session_for_shock`]) roll forward to the next trading session.
+///
+/// Returns `Ok(())` when no bar row uses `session == utc_calendar_day(available_at)` for any
+/// shock where that raw day differs from `merge_session_for_shock`.
+pub fn validate_bar_sessions_vs_shock_calendar<C: TradingCalendar + Copy>(
+    shocks: &[EventShock],
+    bars: &[DailyBar],
+    calendar: C,
+) -> Result<(), String> {
+    for s in shocks {
+        let raw = utc_calendar_day(s.available_at.0);
+        let expected = merge_session_for_shock(s, calendar);
+        if raw == expected.0 {
+            continue;
+        }
+        if bars.iter().any(|b| b.session.0 == raw) {
+            return Err(format!(
+                "bar session uses raw UTC calendar day {raw} but shock {} available_at maps to trading session {} under this calendar; bar rows must use the same session index convention as merge_session_for_shock",
+                s.id.0,
+                expected.0
+            ));
+        }
+    }
+    Ok(())
+}
 
 #[derive(Debug, Deserialize)]
 struct EventShockCsvRow {
@@ -199,7 +271,26 @@ pub fn load_daily_bars_csv(data: &str) -> Result<Vec<DailyBar>, String> {
     Ok(out)
 }
 
-/// Bars first per session, then shocks; **stable** among ties (preserves shock ingest order).
+/// Merge shocks with daily bars into a single ordered stream for [`crate::EventShockVerticalScan`].
+///
+/// ## Merge order
+///
+/// Records are sorted by [`crate::vertical_merge_key`]:
+///
+/// 1. Primary: **session day index** (`DailyBar.session` for bars; shock uses
+///    `utc_calendar_day(available_at)` as the merge session — **raw UTC day**, not
+///    [`TradingCalendar::session_on_or_after_ts`]).
+/// 2. Secondary: **bars before shocks** within the same session (`0` vs `1` in the key).
+/// 3. Tertiary: shock `stream_seq` (ingest order among shocks sharing the same bucket).
+/// 4. **Stable tie-break**: original ingest order (`bars` first in file order, then `shocks`).
+///
+/// ## Late bars
+///
+/// If a bar for session `S` is ordered **after** shocks keyed to `S`, those shocks were already
+/// stepped before the bar arrived; execution may still fill once the bar appears (signals stay
+/// pending). Ordering is **not** automatically "causal by wall clock" beyond this sort key.
+///
+/// For calendar-consistent shock keys, use [`build_vertical_replay_with_calendar`].
 pub fn build_vertical_replay(
     shocks: Vec<EventShock>,
     bars: Vec<DailyBar>,

@@ -7,6 +7,16 @@
 //! `helio_event` is where a concrete **signal-to-trade** path and reporting CLI live. Research-only
 //! names ([`TreatmentSelectorScan`], [`CausalEventStudyPipeline`]) may move if the crate splits later.
 //!
+//! ## Stable vs experimental (API stance)
+//!
+//! **Stable-ish** for integrators: [`EventShock`], [`EventShockVerticalScan`], [`TradeResult`],
+//! [`build_vertical_replay_with_calendar`], [`merge_session_for_shock`],
+//! [`validate_bar_sessions_vs_shock_calendar`], replay collectors in [`crate::event_shock_replay`], and
+//! the `replay_event_shock` binary.
+//!
+//! **Experimental / research-heavy** (may move or change): [`CausalEventStudyPipeline`],
+//! [`TreatmentSelectorScan`], fold and cluster wiring for classic event studies.
+//!
 //! The kernel stays in **`helio_scan`**; this crate may use bars, sessions, and causal tagging.
 
 mod event_shock;

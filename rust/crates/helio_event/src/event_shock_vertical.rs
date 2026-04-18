@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     EventShockAlignPipelineScan, EventShockControlConfig, EventShockControlSamplerScan,
     EventShockFilterConfig, EventShockReplayRecord, EventShockStreamItem, EventShockToSignalScan,
-    ExecutionEntryTiming, ExitPolicy, Exposure, SignalExecutionScan, TradeResult,
+    ExecutionBufferPolicy, ExecutionEntryTiming, ExitPolicy, Exposure, SignalExecutionScan, TradeResult,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -50,9 +50,35 @@ impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
         calendar: C,
         exit_policy: ExitPolicy,
         exposure: Exposure,
+        control_cfg: EventShockControlConfig,
+        candidate_entries: Vec<SessionDate>,
+        execution_entry_timing: ExecutionEntryTiming,
+        strategy_name: impl Into<String>,
+    ) -> Self {
+        Self::with_exec_buffer(
+            decision_available,
+            filter,
+            calendar,
+            exit_policy,
+            exposure,
+            control_cfg,
+            candidate_entries,
+            execution_entry_timing,
+            ExecutionBufferPolicy::default(),
+            strategy_name,
+        )
+    }
+
+    pub fn with_exec_buffer(
+        decision_available: Option<AvailableAt>,
+        filter: EventShockFilterConfig,
+        calendar: C,
+        exit_policy: ExitPolicy,
+        exposure: Exposure,
         mut control_cfg: EventShockControlConfig,
         candidate_entries: Vec<SessionDate>,
         execution_entry_timing: ExecutionEntryTiming,
+        exec_buffer: ExecutionBufferPolicy,
         strategy_name: impl Into<String>,
     ) -> Self {
         let strategy_name = strategy_name.into();
@@ -71,7 +97,11 @@ impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
                 strategy_name,
             },
             control: ctrl,
-            exec: SignalExecutionScan::with_timing(calendar, execution_entry_timing),
+            exec: SignalExecutionScan::with_timing_and_buffer(
+                calendar,
+                execution_entry_timing,
+                exec_buffer,
+            ),
         }
     }
 }
@@ -138,6 +168,11 @@ impl<C: TradingCalendar + Copy> Scan for EventShockVerticalScan<C> {
 impl<C: TradingCalendar + Copy> FlushableScan for EventShockVerticalScan<C> {
     type Offset = u64;
 
+    /// Forwards `signal` to sub-scans in order (align, to_signal, control, exec).
+    ///
+    /// **`FlushReason::Checkpoint`:** each sub-scan receives the same variant; callers should only
+    /// emit checkpoints at record boundaries consistent with their persistence policy. The
+    /// execution sub-scan currently ignores flush (pending signals remain until priced out).
     fn flush<E>(&self, state: &mut Self::State, signal: FlushReason<Self::Offset>, emit: &mut E)
     where
         E: Emit<Self::Out>,
@@ -188,6 +223,12 @@ impl VersionedSnapshot for EventShockVerticalSnapshot {
 }
 
 /// Stable sort key for merging shocks and bars: bars first per session, then shocks.
+///
+/// Tuple is `(session_index, kind, stream_seq)` where `kind` is `0` for bars and `1` for shocks
+/// so bars sort before shocks in the same session. For shocks, `session_index` is
+/// [`EventShockStreamItem::session_date`] when set, otherwise [`utc_calendar_day`] of
+/// `available_at` (legacy [`crate::build_vertical_replay`]); prefer setting `session_date` via
+/// [`crate::build_vertical_replay_with_calendar`].
 #[inline]
 pub fn vertical_merge_key(rec: &EventShockVerticalRecord) -> (i32, u8, u32) {
     match rec {

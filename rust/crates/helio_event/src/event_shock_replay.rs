@@ -1,4 +1,10 @@
 //! Incremental / checkpoint replay helpers for [`EventShockVerticalScan`](crate::EventShockVerticalScan).
+//!
+//! **Checkpoints:** [`collect_vertical_trades_with_checkpoint_resume`] snapshots after exactly
+//! `checkpoint_after` records, restores, then continues. For [`FlushReason::Checkpoint`] inside a
+//! live driver, only emit at boundaries where your persistence layer can resume the same ordered
+//! stream; sub-scans each receive the flush (execution currently ignores it and keeps pending
+//! signals).
 
 use helio_scan::{
     run_receiver, run_slice, FlushReason, FlushableScan, Scan, SnapshottingScan, VecEmitter,
@@ -35,6 +41,9 @@ pub fn collect_vertical_trades_batch<C: TradingCalendar + Copy>(
 }
 
 /// Mid-stream snapshot + restore + continue; must match [`collect_vertical_trades_incremental`].
+///
+/// Snapshots after `checkpoint_after` vertical records (not bytes). `checkpoint_after == 0` means
+/// snapshot before any input (empty state), then replay all records on the restored state.
 pub fn collect_vertical_trades_with_checkpoint_resume<C: TradingCalendar + Copy>(
     vertical: &EventShockVerticalScan<C>,
     records: &[EventShockVerticalRecord],

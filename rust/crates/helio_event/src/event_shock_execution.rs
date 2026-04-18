@@ -10,6 +10,33 @@ use std::marker::PhantomData;
 
 use crate::{EventShockSignal, Exposure, Symbol, TradeResult};
 
+/// How many pending [`EventShockSignal`] rows [`SignalExecutionScan`] may hold when prices are not
+/// yet available (live / streaming); older rows are dropped first when the cap is hit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum ExecutionBufferOverflow {
+    /// Remove the **oldest** pending signal to make room (deterministic).
+    #[default]
+    DropOldest,
+}
+
+/// Backpressure on the execution scan's pending-signal queue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ExecutionBufferPolicy {
+    /// Default replay behavior: never drop a signal for buffer reasons.
+    Unbounded,
+    /// At most `max_pending` signals waiting on bars; when full, apply `overflow` before push.
+    Cap {
+        max_pending: usize,
+        overflow: ExecutionBufferOverflow,
+    },
+}
+
+impl Default for ExecutionBufferPolicy {
+    fn default() -> Self {
+        Self::Unbounded
+    }
+}
+
 /// Where to price the **opening** leg of a simulated hold (deterministic, no slippage).
 ///
 /// Spec default: **next session open** after the aligned entry session (i.e. after
@@ -78,6 +105,7 @@ fn bar_open(state: &EventShockExecutionState, session: SessionDate, sym: &Symbol
 pub struct SignalExecutionScan<C: TradingCalendar + Copy = SimpleWeekdayCalendar> {
     pub calendar: C,
     pub entry_timing: ExecutionEntryTiming,
+    pub buffer_policy: ExecutionBufferPolicy,
     _p: PhantomData<C>,
 }
 
@@ -87,10 +115,42 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
     }
 
     pub fn with_timing(calendar: C, entry_timing: ExecutionEntryTiming) -> Self {
+        Self::with_timing_and_buffer(calendar, entry_timing, ExecutionBufferPolicy::default())
+    }
+
+    pub fn with_timing_and_buffer(
+        calendar: C,
+        entry_timing: ExecutionEntryTiming,
+        buffer_policy: ExecutionBufferPolicy,
+    ) -> Self {
         Self {
             calendar,
             entry_timing,
+            buffer_policy,
             _p: PhantomData,
+        }
+    }
+
+    fn push_pending(&self, state: &mut EventShockExecutionState, sig: EventShockSignal) {
+        match self.buffer_policy {
+            ExecutionBufferPolicy::Unbounded => state.pending.push(sig),
+            ExecutionBufferPolicy::Cap {
+                max_pending,
+                overflow,
+            } => {
+                let cap = max_pending.max(1);
+                match overflow {
+                    ExecutionBufferOverflow::DropOldest => {
+                        while state.pending.len() >= cap {
+                            if state.pending.is_empty() {
+                                break;
+                            }
+                            state.pending.remove(0);
+                        }
+                        state.pending.push(sig);
+                    }
+                }
+            }
         }
     }
 
@@ -235,7 +295,7 @@ impl<C: TradingCalendar + Copy> Scan for SignalExecutionScan<C> {
     {
         match input {
             EventShockReplayRecord::Signal(sig) => {
-                state.pending.push(sig);
+                self.push_pending(state, sig);
                 self.drain_ready(state, emit);
             }
             EventShockReplayRecord::Bar(b) => {
