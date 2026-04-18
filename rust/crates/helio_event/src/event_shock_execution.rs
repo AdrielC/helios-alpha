@@ -101,6 +101,12 @@ fn bar_open(state: &EventShockExecutionState, session: SessionDate, sym: &Symbol
 }
 
 /// Deterministic daily simulation: enter at **open** (see [`ExecutionEntryTiming`]), exit at **close** of `exit_session`.
+///
+/// **Replay merge vs execution:** [`crate::build_vertical_replay`] / [`crate::build_vertical_replay_with_calendar`]
+/// define *when* bars and shocks are stepped relative to each other. This scan still **buffers**
+/// signals until required [`DailyBar`] rows exist, so a shock stepped before its session's bars
+/// can execute once later bars arrive. [`ExecutionBufferPolicy`] caps how many unpriced signals
+/// may wait when using [`Self::with_timing_and_buffer`].
 #[derive(Debug, Clone, Copy)]
 pub struct SignalExecutionScan<C: TradingCalendar + Copy = SimpleWeekdayCalendar> {
     pub calendar: C,
