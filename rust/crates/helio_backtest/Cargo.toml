@@ -5,6 +5,7 @@ edition = "2021"
 description = "Deterministic backtest harness: clock abstraction, pipeline fingerprints, datetime ranges"
 
 [dependencies]
+helio_scan = { path = "../helio_scan" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

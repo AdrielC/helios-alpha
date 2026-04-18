@@ -8,7 +8,7 @@ cargo build --release -p helios_signald   # needs libzmq + C++ toolchain
 
 Crates: `crates/helio_scan`, `crates/helio_time`, `crates/helio_window`, `crates/helio_event`, `crates/helio_backtest`, `crates/helio_backtest_wasm` (WASM + [Ratzilla](https://github.com/ratatui/ratzilla)), `crates/helios_signald`.
 
-**Backtest harness:** `cargo run -p helio_backtest --bin helio-backtest-quick --release` (stdout: bars, toy PnL sum, **annualized daily Sharpe**, `run_wall_secs`).  
+**Backtest harness:** `cargo run -p helio_backtest --bin helio-backtest-quick --release` (stdout: bars, toy PnL sum, **annualized daily Sharpe**, optional **Kalman** summary, `run_wall_secs`). Kalman is a `helio_scan::Scan` (`KalmanLocalLevelScan`) with serde snapshots for pause/resume.  
 **Backtest harness (native TUI):** `cargo run -p helio_backtest --features tui --bin helio-backtest-tui`  
 **tmux:** `bash scripts/helio-backtest-tmux.sh` from repo root  
 **WASM:** see `crates/helio_backtest_wasm/README.md` (`trunk serve`).

@@ -2,8 +2,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::Instant;
 
+use helio_scan::{Scan, SnapshottingScan};
 use crate::clock::*;
 use crate::fingerprint::*;
+use crate::kalman::{run_kalman_local_level, train_local_level_heuristic, KalmanLocalLevelScan};
+use crate::kalman_options::KalmanHarnessOptions;
 use crate::metrics::sharpe_annualized_daily;
 use crate::range::*;
 use crate::Result;
@@ -37,6 +40,8 @@ pub struct BacktestRunSpec {
     pub pipeline: PipelineSpec,
     pub range: EpochRange,
     pub strategy: StrategySpec,
+    #[serde(default)]
+    pub kalman: KalmanHarnessOptions,
     /// Arbitrary JSON merged into fingerprint (sorted keys recommended by caller).
     #[serde(default)]
     pub fingerprint_extra: serde_json::Value,
@@ -60,6 +65,19 @@ pub struct BacktestReport {
     /// Annualized Sharpe from **daily** simple returns using `sqrt(252)` scaling; `None` if
     /// fewer than two days or zero sample volatility.
     pub sharpe_daily_annualized: Option<f64>,
+    /// When [`KalmanHarnessOptions::enabled`] was true: fitted `q`/`r`, last filtered level, sum of squared innovations.
+    #[serde(default)]
+    pub kalman: Option<KalmanHarnessSummary>,
+}
+
+/// Summary statistics from the optional Kalman pass (see [`BacktestRunSpec::kalman`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KalmanHarnessSummary {
+    pub q: f64,
+    pub r: f64,
+    pub train_prefix: usize,
+    pub last_x_hat: f64,
+    pub innovation_energy: f64,
 }
 
 /// Drives a minimal bar stream and aggregates a toy PnL (deterministic given inputs).
@@ -77,6 +95,7 @@ impl<C: Clock> BacktestHarness<C> {
         let _ = EpochRange::new(spec.range.start_epoch_sec, spec.range.end_epoch_sec)?;
         let clock_mode = std::any::type_name::<C>();
         let clock_anchor = self.clock.now_epoch_sec();
+        let kalman_json = serde_json::to_value(&spec.kalman).unwrap_or(json!({}));
         let input = PipelineFingerprintInput {
             pipeline_id: &spec.pipeline.id,
             pipeline_version: &spec.pipeline.version,
@@ -84,6 +103,7 @@ impl<C: Clock> BacktestHarness<C> {
             strategy_digest_hex: &spec.strategy.digest_hex,
             clock_mode,
             clock_anchor_epoch_sec: clock_anchor,
+            kalman: kalman_json.clone(),
             extra: spec.fingerprint_extra.clone(),
         };
         let t0 = Instant::now();
@@ -101,6 +121,45 @@ impl<C: Clock> BacktestHarness<C> {
             acc += w;
         }
         let sharpe_daily_annualized = sharpe_annualized_daily(&daily);
+
+        let kalman = if spec.kalman.enabled {
+            let cap = spec.kalman.train_prefix_cap.unwrap_or(50_000).max(3);
+            let train_prefix = (n_days as usize).min(cap);
+            let cfg = train_local_level_heuristic(&daily[..train_prefix]);
+            let (outs, _st) = run_kalman_local_level(cfg, &daily);
+            let last = outs.last().expect("n_days >= 1");
+            let innovation_energy: f64 = outs.iter().map(|o| o.innovation * o.innovation).sum();
+
+            if spec.kalman.verify_snapshot_resume {
+                let nd = n_days as usize;
+                if nd >= 2 {
+                    let scan = KalmanLocalLevelScan::new(cfg);
+                    let split = (nd / 2).clamp(1, nd.saturating_sub(1));
+                    let mut st_a = scan.init();
+                    let mut e_a = helio_scan::VecEmitter::new();
+                    helio_scan::run_slice(&scan, &mut st_a, &daily[..split], &mut e_a);
+                    let snap = scan.snapshot(&st_a);
+                    let mut st_b = scan.restore(snap);
+                    helio_scan::run_slice(&scan, &mut st_b, &daily[split..], &mut e_a);
+                    let split_out = e_a.into_inner();
+                    assert_eq!(split_out.len(), outs.len());
+                    for (a, b) in outs.iter().zip(split_out.iter()) {
+                        assert!((a.x_hat - b.x_hat).abs() < 1e-9, "kalman snapshot drift");
+                    }
+                }
+            }
+
+            Some(KalmanHarnessSummary {
+                q: cfg.q,
+                r: cfg.r,
+                train_prefix,
+                last_x_hat: last.x_hat,
+                innovation_energy,
+            })
+        } else {
+            None
+        };
+
         let run_wall_secs = t0.elapsed().as_secs_f64();
 
         Ok(BacktestReport {
@@ -115,6 +174,7 @@ impl<C: Clock> BacktestHarness<C> {
             run_wall_secs,
             pnl_simple: acc,
             sharpe_daily_annualized,
+            kalman,
         })
     }
 }
@@ -135,10 +195,16 @@ impl BacktestHarness<FixedClock> {
 pub fn demo_run_spec() -> BacktestRunSpec {
     BacktestRunSpec {
         pipeline: PipelineSpec::new("helio_backtest.demo", "0.1.0"),
-        range: EpochRange::new(0, 6 * 86_400).expect("demo range"),
+        // ~20y of daily toy observations (heavy default for throughput demos).
+        range: EpochRange::new(0, 20 * 365 * 86_400).expect("demo range"),
         strategy: StrategySpec {
             digest_hex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                 .into(),
+        },
+        kalman: KalmanHarnessOptions {
+            enabled: true,
+            train_prefix_cap: Some(50_000),
+            verify_snapshot_resume: false,
         },
         fingerprint_extra: json!({"venue": "XNYS"}),
     }
@@ -184,18 +250,27 @@ mod tests {
     }
 
     #[test]
-    fn ten_year_demo_range_is_subsecond() {
+    fn twenty_year_demo_with_kalman_finishes_quickly() {
         let h = BacktestHarness::fixed(0);
-        let mut spec = demo_run_spec();
-        spec.range = EpochRange::new(0, 10 * 365 * 86_400).expect("10y");
+        let spec = demo_run_spec();
         let t0 = Instant::now();
         let r = h.run(&spec).unwrap();
         let elapsed = t0.elapsed();
-        assert_eq!(r.bars_processed, 10 * 365 + 1);
+        assert_eq!(r.bars_processed, 20 * 365 + 1);
+        assert!(r.kalman.is_some(), "kalman should run by default on demo spec");
         assert!(
-            elapsed.as_millis() < 500,
-            "10y toy backtest took {:?} (expected sub-500ms)",
+            elapsed.as_secs() < 5,
+            "20y + kalman took {:?} (expected < 5s in CI)",
             elapsed
         );
+    }
+
+    #[test]
+    fn kalman_snapshot_resume_matches_in_harness() {
+        let h = BacktestHarness::fixed(0);
+        let mut spec = demo_run_spec();
+        spec.range = EpochRange::new(0, 5_000 * 86_400).expect("range");
+        spec.kalman.verify_snapshot_resume = true;
+        h.run(&spec).expect("verify path");
     }
 }

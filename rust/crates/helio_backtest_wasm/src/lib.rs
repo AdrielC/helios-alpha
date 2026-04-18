@@ -54,13 +54,17 @@ fn run_app() -> io::Result<()> {
                             .sharpe_daily_annualized
                             .map(|x| format!("{x:.3}"))
                             .unwrap_or_else(|| "n/a".into());
+                        let k = r.kalman.as_ref().map(|k| {
+                            format!(" E={:.1}", k.innovation_energy)
+                        });
                         l.push(format!(
-                            "fp={}.. bars={} pnl={:.4} sharpe={} t={:.4}s",
+                            "fp={}.. bars={} pnl={:.4} sharpe={} t={:.4}s{}",
                             &r.fingerprint_hex[..12.min(r.fingerprint_hex.len())],
                             r.bars_processed,
                             r.pnl_simple,
                             sh,
-                            r.run_wall_secs
+                            r.run_wall_secs,
+                            k.unwrap_or_default()
                         ));
                     }
                     Err(e) => l.push(format!("err: {e}")),

@@ -10,6 +10,8 @@ pub struct PipelineFingerprintInput<'a> {
     pub strategy_digest_hex: &'a str,
     pub clock_mode: &'a str,
     pub clock_anchor_epoch_sec: i64,
+    /// Kalman harness options (serialized so filter params affect the fingerprint).
+    pub kalman: serde_json::Value,
     pub extra: serde_json::Value,
 }
 
