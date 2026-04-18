@@ -23,3 +23,7 @@ tui = ["dep:ratatui", "dep:crossterm"]
 name = "helio-backtest-tui"
 path = "src/bin/helio_backtest_tui.rs"
 required-features = ["tui"]
+
+[[bin]]
+name = "helio-backtest-quick"
+path = "src/bin/helio_backtest_quick.rs"

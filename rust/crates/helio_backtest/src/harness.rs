@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::time::Instant;
 
 use crate::clock::*;
 use crate::fingerprint::*;
+use crate::metrics::sharpe_annualized_daily;
 use crate::range::*;
 use crate::Result;
 
@@ -51,7 +53,13 @@ pub struct BacktestReport {
     pub clock_mode: String,
     pub clock_now_epoch_sec: i64,
     pub bars_processed: u64,
+    /// Wall time to execute the backtest body (fingerprint + bar loop), seconds.
+    pub run_wall_secs: f64,
+    /// Sum of per-period toy **simple returns** in the demo path (same units as each daily `w`).
     pub pnl_simple: f64,
+    /// Annualized Sharpe from **daily** simple returns using `sqrt(252)` scaling; `None` if
+    /// fewer than two days or zero sample volatility.
+    pub sharpe_daily_annualized: Option<f64>,
 }
 
 /// Drives a minimal bar stream and aggregates a toy PnL (deterministic given inputs).
@@ -78,18 +86,22 @@ impl<C: Clock> BacktestHarness<C> {
             clock_anchor_epoch_sec: clock_anchor,
             extra: spec.fingerprint_extra.clone(),
         };
+        let t0 = Instant::now();
         let fingerprint_hex = fingerprint_hex(&input);
 
         // Deterministic toy stream: one bar per UTC calendar day in range.
         let n_days = spec.range.span_secs() / 86_400 + 1;
         let bars_processed = n_days;
-        // Toy PnL: hash nibbles of fingerprint modulate a constant — stable for same fingerprint.
+        let mut daily: Vec<f64> = Vec::with_capacity(n_days as usize);
         let mut acc = 0.0f64;
         for i in 0..n_days {
             let t = spec.range.start_epoch_sec + (i as i64) * 86_400;
             let w = ((t % 13) as f64) * 1e-4;
+            daily.push(w);
             acc += w;
         }
+        let sharpe_daily_annualized = sharpe_annualized_daily(&daily);
+        let run_wall_secs = t0.elapsed().as_secs_f64();
 
         Ok(BacktestReport {
             pipeline_id: spec.pipeline.id.clone(),
@@ -100,7 +112,9 @@ impl<C: Clock> BacktestHarness<C> {
             clock_mode: clock_mode.to_string(),
             clock_now_epoch_sec: clock_anchor,
             bars_processed,
+            run_wall_secs,
             pnl_simple: acc,
+            sharpe_daily_annualized,
         })
     }
 }
@@ -132,6 +146,8 @@ pub fn demo_run_spec() -> BacktestRunSpec {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use super::*;
 
     #[test]
@@ -163,5 +179,23 @@ mod tests {
         let r = h.run(&spec).unwrap();
         assert!(r.fingerprint_hex.len() == 64);
         assert_eq!(r.range.start_epoch_sec, spec.range.start_epoch_sec);
+        assert!(r.run_wall_secs >= 0.0);
+        assert!(r.sharpe_daily_annualized.is_some());
+    }
+
+    #[test]
+    fn ten_year_demo_range_is_subsecond() {
+        let h = BacktestHarness::fixed(0);
+        let mut spec = demo_run_spec();
+        spec.range = EpochRange::new(0, 10 * 365 * 86_400).expect("10y");
+        let t0 = Instant::now();
+        let r = h.run(&spec).unwrap();
+        let elapsed = t0.elapsed();
+        assert_eq!(r.bars_processed, 10 * 365 + 1);
+        assert!(
+            elapsed.as_millis() < 500,
+            "10y toy backtest took {:?} (expected sub-500ms)",
+            elapsed
+        );
     }
 }

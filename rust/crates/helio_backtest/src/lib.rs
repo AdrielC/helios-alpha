@@ -8,10 +8,12 @@ mod clock;
 mod error;
 mod fingerprint;
 mod harness;
+mod metrics;
 mod range;
 
 pub use clock::*;
 pub use error::*;
 pub use fingerprint::*;
 pub use harness::*;
+pub use metrics::*;
 pub use range::*;

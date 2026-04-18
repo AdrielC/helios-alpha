@@ -118,13 +118,19 @@ fn run_app(terminal: &mut AppTerminal) -> io::Result<()> {
                         };
                         match report {
                             Ok(r) => {
+                                let sh = r
+                                    .sharpe_daily_annualized
+                                    .map(|x| format!("{x:.3}"))
+                                    .unwrap_or_else(|| "n/a".into());
                                 log.push(format!(
-                                    "fingerprint={}.. range=[{}, {}] bars={} pnl={:.6}",
+                                    "fingerprint={}.. range=[{}, {}] bars={} pnl={:.6} sharpe={} t={:.4}s",
                                     &r.fingerprint_hex[..12.min(r.fingerprint_hex.len())],
                                     r.range.start_epoch_sec,
                                     r.range.end_epoch_sec,
                                     r.bars_processed,
-                                    r.pnl_simple
+                                    r.pnl_simple,
+                                    sh,
+                                    r.run_wall_secs
                                 ));
                             }
                             Err(e) => log.push(format!("error: {e}")),

@@ -49,12 +49,20 @@ fn run_app() -> io::Result<()> {
                 };
                 let mut l = log_k.borrow_mut();
                 match report {
-                    Ok(r) => l.push(format!(
-                        "fp={}.. bars={} pnl={:.4}",
-                        &r.fingerprint_hex[..12.min(r.fingerprint_hex.len())],
-                        r.bars_processed,
-                        r.pnl_simple
-                    )),
+                    Ok(r) => {
+                        let sh = r
+                            .sharpe_daily_annualized
+                            .map(|x| format!("{x:.3}"))
+                            .unwrap_or_else(|| "n/a".into());
+                        l.push(format!(
+                            "fp={}.. bars={} pnl={:.4} sharpe={} t={:.4}s",
+                            &r.fingerprint_hex[..12.min(r.fingerprint_hex.len())],
+                            r.bars_processed,
+                            r.pnl_simple,
+                            sh,
+                            r.run_wall_secs
+                        ));
+                    }
                     Err(e) => l.push(format!("err: {e}")),
                 }
             }
