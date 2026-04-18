@@ -5,7 +5,9 @@ use std::time::Instant;
 use helio_scan::{Scan, SnapshottingScan};
 use crate::clock::*;
 use crate::fingerprint::*;
-use crate::kalman::{run_kalman_local_level, train_local_level_heuristic, KalmanLocalLevelScan};
+use crate::kalman::{
+    fit_local_level_mle, run_kalman_local_level, KalmanLocalLevelScan, LocalLevelMleOptions,
+};
 use crate::kalman_options::KalmanHarnessOptions;
 use crate::metrics::sharpe_annualized_daily;
 use crate::range::*;
@@ -75,9 +77,12 @@ pub struct BacktestReport {
 pub struct KalmanHarnessSummary {
     pub q: f64,
     pub r: f64,
-    pub train_prefix: usize,
+    /// Number of points used to fit `(q, r)` (MLE on innovation likelihood).
+    pub mle_fit_n: usize,
     pub last_x_hat: f64,
     pub innovation_energy: f64,
+    /// `0.5 * Σ (ln S_t + ν²/S_t)` on the **full** series at fitted `(q, r)` (same objective as MLE).
+    pub neg_loglik: f64,
 }
 
 /// Drives a minimal bar stream and aggregates a toy PnL (deterministic given inputs).
@@ -124,11 +129,14 @@ impl<C: Clock> BacktestHarness<C> {
 
         let kalman = if spec.kalman.enabled {
             let cap = spec.kalman.train_prefix_cap.unwrap_or(50_000).max(3);
-            let train_prefix = (n_days as usize).min(cap);
-            let cfg = train_local_level_heuristic(&daily[..train_prefix]);
+            let mle_fit_n = (n_days as usize).min(cap);
+            let fit_slice = &daily[..mle_fit_n];
+            let cfg = fit_local_level_mle(fit_slice, LocalLevelMleOptions::default());
             let (outs, _st) = run_kalman_local_level(cfg, &daily);
             let last = outs.last().expect("n_days >= 1");
             let innovation_energy: f64 = outs.iter().map(|o| o.innovation * o.innovation).sum();
+            let neg_loglik = crate::kalman::innovation_neg_loglik(&daily, cfg.q, cfg.r)
+                .unwrap_or(f64::NAN);
 
             if spec.kalman.verify_snapshot_resume {
                 let nd = n_days as usize;
@@ -152,9 +160,10 @@ impl<C: Clock> BacktestHarness<C> {
             Some(KalmanHarnessSummary {
                 q: cfg.q,
                 r: cfg.r,
-                train_prefix,
+                mle_fit_n,
                 last_x_hat: last.x_hat,
                 innovation_energy,
+                neg_loglik,
             })
         } else {
             None

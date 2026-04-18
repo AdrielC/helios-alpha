@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct KalmanHarnessOptions {
     #[serde(default)]
     pub enabled: bool,
-    /// Max prefix length (from the start of the series) used to fit the fast heuristic; `None` caps at 50_000.
+    /// Max prefix length (from the start of the series) used to **fit** `(q, r)` by MLE; `None` = cap at 50_000.
     #[serde(default)]
     pub train_prefix_cap: Option<usize>,
     /// When true, after the full run verifies mid-stream snapshot+resume matches one shot (O(2n); dev only).

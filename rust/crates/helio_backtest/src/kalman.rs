@@ -1,6 +1,10 @@
 //! Local-level (random-walk) **1D Kalman filter** as a [`helio_scan::Scan`] + [`helio_scan::SnapshottingScan`]:
 //! O(1) per step, **pause/restartable** via snapshot, **serde** for config and snapshots, composable
 //! with `then` / `run_slice` like any other scan.
+//!
+//! Parameter fitting: [`fit_local_level_mle`] maximizes the **Gaussian innovation log-likelihood**
+//! (exact for this linear Gaussian model) by alternating 1D minimization on `ln(q)` and `ln(r)`
+//! with golden-section search — no variance-split heuristics.
 
 use helio_scan::{
     Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot, VecEmitter,
@@ -118,7 +122,6 @@ impl FlushableScan for KalmanLocalLevelScan {
     where
         E: Emit<Self::Out>,
     {
-        // Pure filter: no flush emissions.
     }
 }
 
@@ -140,46 +143,124 @@ impl SnapshottingScan for KalmanLocalLevelScan {
     }
 }
 
-/// Fast **diagonal** heuristic on a prefix of observations (no iterative MLE).
+/// Half the **negative** log-likelihood of innovations under the Kalman filter (up to `const + n*ln(2π)/2`):
+/// `0.5 * Σ_t ( ln(S_t) + ν_t² / S_t )`. Minimizing this is equivalent to MLE for `(q, r)` given the filter.
+pub fn innovation_neg_loglik(y: &[f64], q: f64, r: f64) -> Option<f64> {
+    if y.is_empty() || !(q > 0.0 && r > 0.0 && q.is_finite() && r.is_finite()) {
+        return None;
+    }
+    let mut x = y[0];
+    let mut p = r.max(1e-12);
+    let mut ll = 0.0f64;
+    for &yi in y.iter().skip(1) {
+        let p_prior = p + q;
+        let s = p_prior + r;
+        if !(s > 0.0 && s.is_finite()) {
+            return None;
+        }
+        let nu = yi - x;
+        ll += s.ln() + nu * nu / s;
+        let k = p_prior / s;
+        x = x + k * nu;
+        p = (1.0 - k).max(0.0) * p_prior;
+    }
+    Some(0.5 * ll)
+}
+
+fn golden_section_minimize<F>(mut f: F, a: f64, b: f64, max_iter: usize) -> f64
+where
+    F: FnMut(f64) -> f64,
+{
+    let resphi = 2.0 - (1.0 + 5f64.sqrt()) * 0.5;
+    let mut a = a;
+    let mut b = b;
+    let mut x1 = a + resphi * (b - a);
+    let mut x2 = b - resphi * (b - a);
+    let mut f1 = f(x1);
+    let mut f2 = f(x2);
+    for _ in 0..max_iter {
+        if f1 > f2 {
+            a = x1;
+            x1 = x2;
+            f1 = f2;
+            x2 = b - resphi * (b - a);
+            f2 = f(x2);
+        } else {
+            b = x2;
+            x2 = x1;
+            f2 = f1;
+            x1 = a + resphi * (b - a);
+            f1 = f(x1);
+        }
+        if (b - a).abs() < 1e-7 * (1.0 + a.abs() + b.abs()) {
+            break;
+        }
+    }
+    (a + b) * 0.5
+}
+
+/// Options for [`fit_local_level_mle`].
+#[derive(Debug, Clone, Copy)]
+pub struct LocalLevelMleOptions {
+    /// Alternating passes over `(ln q, ln r)`.
+    pub outer_iters: usize,
+    /// Golden-section iterations per 1D pass.
+    pub golden_iters: usize,
+    pub log_q_lo: f64,
+    pub log_q_hi: f64,
+    pub log_r_lo: f64,
+    pub log_r_hi: f64,
+}
+
+impl Default for LocalLevelMleOptions {
+    fn default() -> Self {
+        Self {
+            outer_iters: 16,
+            golden_iters: 40,
+            log_q_lo: -28.0,
+            log_q_hi: 4.0,
+            log_r_lo: -28.0,
+            log_r_hi: 4.0,
+        }
+    }
+}
+
+/// **MLE** for local-level `(q, r)` by minimizing innovation Gaussian negative log-likelihood,
+/// alternating coordinate-wise golden-section search on `ln q` and `ln r`.
 ///
-/// Uses sample variance of first differences as a scale for process noise and allocates
-/// measurement noise from residual variance vs. a crude signal split. Intended for **warm-start**
-/// or backtest defaults on long streams; refine offline if you need MLE.
-pub fn train_local_level_heuristic(y: &[f64]) -> KalmanLocalLevelConfig {
+/// `x_init = y[0]`, `p_init = r` (diffuse on level relative to first observation noise).
+pub fn fit_local_level_mle(y: &[f64], opts: LocalLevelMleOptions) -> KalmanLocalLevelConfig {
     let n = y.len();
     if n < 3 {
         return KalmanLocalLevelConfig::default();
     }
-    let mean_y: f64 = y.iter().sum::<f64>() / n as f64;
-    let mut v_y = 0.0f64;
-    for yi in y {
-        let d = *yi - mean_y;
-        v_y += d * d;
+    let mut log_q = -12.0f64;
+    let mut log_r = -10.0f64;
+    for _ in 0..opts.outer_iters {
+        log_q = golden_section_minimize(
+            |lq| {
+                innovation_neg_loglik(y, lq.exp(), log_r.exp()).unwrap_or(f64::INFINITY)
+            },
+            opts.log_q_lo,
+            opts.log_q_hi,
+            opts.golden_iters,
+        );
+        log_r = golden_section_minimize(
+            |lr| {
+                innovation_neg_loglik(y, log_q.exp(), lr.exp()).unwrap_or(f64::INFINITY)
+            },
+            opts.log_r_lo,
+            opts.log_r_hi,
+            opts.golden_iters,
+        );
     }
-    v_y /= (n - 1) as f64;
-
-    let mut v_d = 0.0f64;
-    let nd = n - 1;
-    let mut mean_d = 0.0f64;
-    for i in 1..n {
-        mean_d += y[i] - y[i - 1];
-    }
-    mean_d /= nd as f64;
-    for i in 1..n {
-        let d = y[i] - y[i - 1] - mean_d;
-        v_d += d * d;
-    }
-    v_d /= (nd - 1).max(1) as f64;
-
-    let q = (v_d * 0.5).max(1e-16);
-    let r_raw = v_y - q;
-    let r = r_raw.max(v_y * 0.05).max(1e-16);
-
+    let q = log_q.exp().clamp(1e-30, 1e10);
+    let r = log_r.exp().clamp(1e-30, 1e10);
     KalmanLocalLevelConfig {
         q,
         r,
         x_init: y[0],
-        p_init: r.max(1e-8),
+        p_init: r.max(1e-12),
     }
 }
 
@@ -195,7 +276,6 @@ pub fn run_kalman_local_level(
     (e.into_inner(), st)
 }
 
-/// Mid-stream snapshot + restore must match uninterrupted filter.
 #[cfg(test)]
 mod tests {
     use helio_scan::Scan;
@@ -205,7 +285,7 @@ mod tests {
     #[test]
     fn snapshot_resume_matches_continuous() {
         let y: Vec<f64> = (0..5000).map(|i| (i as f64).sin() * 0.01 + (i as f64) * 1e-5).collect();
-        let cfg = train_local_level_heuristic(&y[..500.min(y.len())]);
+        let cfg = fit_local_level_mle(&y, LocalLevelMleOptions::default());
         let scan = KalmanLocalLevelScan::new(cfg);
 
         let mut st1 = scan.init();
@@ -227,5 +307,22 @@ mod tests {
             assert!((a.innovation - b.innovation).abs() < 1e-9);
             assert!((a.x_hat - b.x_hat).abs() < 1e-9);
         }
+    }
+
+    #[test]
+    fn mle_lowers_neg_ll_vs_default() {
+        let y: Vec<f64> = (0..2000)
+            .map(|i| 0.5 * (i as f64) * 1e-4 + (i as f64).sin() * 0.02)
+            .collect();
+        let d = KalmanLocalLevelConfig::default();
+        let n0 = innovation_neg_loglik(&y, d.q, d.r).expect("ll");
+        let cfg = fit_local_level_mle(&y, LocalLevelMleOptions::default());
+        let n1 = innovation_neg_loglik(&y, cfg.q, cfg.r).expect("ll");
+        assert!(
+            n1 < n0,
+            "MLE should improve neg log-lik: default={n0:.4} mle={n1:.4} q={} r={}",
+            cfg.q,
+            cfg.r
+        );
     }
 }

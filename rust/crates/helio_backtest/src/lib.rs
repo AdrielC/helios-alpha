@@ -5,8 +5,8 @@
 //! produce identical [`BacktestReport`] including [`BacktestReport::fingerprint_hex`].
 //!
 //! **Kalman:** [`KalmanLocalLevelScan`] is a [`helio_scan::Scan`] + [`helio_scan::SnapshottingScan`]
-//! (pause/restart via snapshot). [`train_local_level_heuristic`] fits `q`/`r` quickly on a prefix;
-//! enable in runs via [`BacktestRunSpec::kalman`].
+//! (pause/restart via snapshot). [`fit_local_level_mle`] fits `(q, r)` by **MLE** on the
+//! innovation Gaussian likelihood; enable in runs via [`BacktestRunSpec::kalman`].
 
 mod clock;
 mod error;
