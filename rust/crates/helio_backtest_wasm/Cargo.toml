@@ -1,0 +1,14 @@
+[package]
+name = "helio_backtest_wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WebAssembly TUI for helio_backtest (Ratzilla + Trunk)"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+helio_backtest = { path = "../helio_backtest", default-features = false }
+ratzilla = "0.3"
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"

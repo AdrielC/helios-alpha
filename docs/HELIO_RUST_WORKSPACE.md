@@ -10,12 +10,14 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | **`helio_time`** | **Substrate — semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; `TradingCalendar`; bucket availability helpers in `availability`. |
 | **`helio_window`** | **Substrate — window ops:** sample-count buffers (`WindowState`, `RollingAggregatorScan`), **time-keyed** (`time_keyed`, `TimeKeyedRollingAggregatorScan`), **session-keyed** (`session_keyed`), `SessionWindowScan`, `ForwardHorizonScan`, … |
 | **`helio_event`** | **Application / proving ground:** classic event-study **and** flagship **event-shock trading vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` CLI, `TradeResult` reporting). This is the default “do something real” crate. |
+| **`helio_backtest`** | **Backtest harness:** `Clock` / `FixedClock` / `WallClock`, `EpochRange`, SHA-256 **pipeline fingerprint** (id, version, range, strategy digest, clock anchor, extra JSON). Native **Ratatui** TUI: `cargo run -p helio_backtest --features tui --bin helio-backtest-tui`. |
+| **`helio_backtest_wasm`** | **Same harness in the browser** via [Ratzilla](https://github.com/ratatui/ratzilla): `cd crates/helio_backtest_wasm && trunk serve` (see crate README). |
 | **`helios_signald`** | **Integration:** ZMQ subscriber binary (system `libzmq` required). |
 | **`helio_bench`** | **Internal tooling:** Criterion benchmarks (`publish = false`; `cargo bench -p helio_bench`). |
 
 ## Default members
 
-`default-members` includes **`helio_scan`**, **`helio_time`**, **`helio_window`**, **`helio_event`** so `cargo test` in `rust/` does not build ZMQ. Build the daemon explicitly:
+`default-members` includes **`helio_scan`**, **`helio_time`**, **`helio_window`**, **`helio_event`**, **`helio_backtest`** so `cargo test` in `rust/` does not build ZMQ or the WASM crate. Build the daemon explicitly:
 
 ```bash
 cd rust
