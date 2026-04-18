@@ -34,9 +34,22 @@ pub trait TradingCalendar {
     fn sub_sessions(&self, d: SessionDate, n: u32) -> SessionDate;
 }
 
+/// Naive UTC **civil** day bucket: `floor_div(ts, 86_400)` into Unix epoch day indices.
+///
+/// This is **not** a trading-session label: it uses **UTC midnight** boundaries only. A venue
+/// session that **opens the prior local evening** (or any non-UTC calendar) can belong to a
+/// different “day” than this index. For session assignment use [`TradingCalendar`] (e.g.
+/// [`TradingCalendar::session_on_or_after_ts`] / [`TradingCalendar::session_on_or_before_ts`])
+/// after mapping wall time through your **session-date rule** (exchange calendar, `as_of`, etc.).
+#[inline]
+pub fn utc_naive_civil_day_index(ts: i64) -> i32 {
+    ts.div_euclid(86_400) as i32
+}
+
+/// Same as [`utc_naive_civil_day_index`] — kept under this name for older call sites.
 #[inline]
 pub fn utc_calendar_day(ts: i64) -> i32 {
-    ts.div_euclid(86_400) as i32
+    utc_naive_civil_day_index(ts)
 }
 
 /// Monday=0 .. Sunday=6 (ISO-style) for the UTC calendar day containing instant `ts`.

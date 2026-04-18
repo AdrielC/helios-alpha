@@ -1,7 +1,7 @@
 //! CSV / JSON Lines loaders → [`EventShock`](crate::EventShock).
 
 use helio_scan::SessionDate;
-use helio_time::{utc_calendar_day, AvailableAt, TradingCalendar};
+use helio_time::{utc_calendar_day, utc_naive_civil_day_index, AvailableAt, TradingCalendar};
 use serde::Deserialize;
 
 use crate::{
@@ -54,25 +54,31 @@ pub fn build_vertical_replay_with_calendar<C: TradingCalendar + Copy>(
     tagged.into_iter().map(|(_, r)| r).collect()
 }
 
-/// Reject the common footgun where **bars** use the raw UTC calendar day index on a **weekend**
-/// while shocks (and [`merge_session_for_shock`]) roll forward to the next trading session.
+/// Reject one **specific** ingest mistake: bar rows keyed to [`utc_naive_civil_day_index`] of
+/// `available_at` when that naive UTC midnight bucket is **not** a trading session under
+/// `calendar`, while [`merge_session_for_shock`] rolls `available_at` to a different
+/// [`SessionDate`] (typical: shock on Sat/Sun UTC, bars still using the weekend day index).
 ///
-/// Returns `Ok(())` when no bar row uses `session == utc_calendar_day(available_at)` for any
-/// shock where that raw day differs from `merge_session_for_shock`.
+/// **Not a full “session day” audit:** [`utc_naive_civil_day_index`] is only `floor_div(ts, 86400)`
+/// in UTC — it is **not** “the session the event belongs to” for venues whose session **starts
+/// before local midnight** or spans calendar boundaries. Real bars should use the same
+/// **session-date convention** as your exchange calendar (often “trade date” or “session open
+/// date” in a chosen zone), then index `SessionDate` consistently; this helper only catches the
+/// UTC-weekend index footgun above.
 pub fn validate_bar_sessions_vs_shock_calendar<C: TradingCalendar + Copy>(
     shocks: &[EventShock],
     bars: &[DailyBar],
     calendar: C,
 ) -> Result<(), String> {
     for s in shocks {
-        let raw = utc_calendar_day(s.available_at.0);
+        let naive_utc_day = utc_naive_civil_day_index(s.available_at.0);
         let expected = merge_session_for_shock(s, calendar);
-        if raw == expected.0 {
+        if naive_utc_day == expected.0 {
             continue;
         }
-        if bars.iter().any(|b| b.session.0 == raw) {
+        if bars.iter().any(|b| b.session.0 == naive_utc_day) {
             return Err(format!(
-                "bar session uses raw UTC calendar day {raw} but shock {} available_at maps to trading session {} under this calendar; bar rows must use the same session index convention as merge_session_for_shock",
+                "bar session index {naive_utc_day} equals naive UTC civil day (floor_div(epoch_sec,86400)) of shock {} available_at, but that day is not a trading session under this calendar — merge_session_for_shock maps to session {}. Bar session indices must follow your venue session-date rule, not raw UTC midnight buckets when they disagree with the calendar.",
                 s.id.0,
                 expected.0
             ));

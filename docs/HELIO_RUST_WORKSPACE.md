@@ -58,7 +58,7 @@ cargo run -p helio_event --bin replay_event_shock -- \
 
 **Lead-time band** (also applied as pipeline filter): `--min-lead-secs` / `--max-lead-secs`. Outputs `lead_time.csv` and a lead section in `report.md`.
 
-**Replay merge:** the CLI builds the merged stream with `build_vertical_replay_with_calendar` (`SimpleWeekdayCalendar`) and runs `validate_bar_sessions_vs_shock_calendar` so bar `session` indices cannot use raw UTC weekend days when shocks roll forward to the next trading session.
+**Replay merge:** the CLI builds the merged stream with `build_vertical_replay_with_calendar` (`SimpleWeekdayCalendar`) and runs `validate_bar_sessions_vs_shock_calendar` to catch bar `session` indices that still use the **naive UTC civil day** (`floor_div(epoch_sec,86400)`) when that day is not a trading session under the calendar but the shock rolls forward — not a substitute for venue session-date / “day session ends” rules.
 
 **Replay modes:** the CLI checks **batch == incremental == checkpoint-resume** on the merged stream unless `--skip-replay-verify`.
 
