@@ -6,9 +6,10 @@ use helio_scan::{Scan, SnapshottingScan};
 use crate::clock::*;
 use crate::fingerprint::*;
 use crate::kalman::{
-    fit_local_level_mle, run_kalman_local_level, KalmanLocalLevelScan, LocalLevelMleOptions,
+    fit_local_level_em, fit_local_level_mle, run_kalman_local_level, KalmanLocalLevelScan,
+    LocalLevelEmOptions, LocalLevelMleOptions,
 };
-use crate::kalman_options::KalmanHarnessOptions;
+use crate::kalman_options::{KalmanFitMode, KalmanHarnessOptions};
 use crate::metrics::sharpe_annualized_daily;
 use crate::range::*;
 use crate::Result;
@@ -75,9 +76,10 @@ pub struct BacktestReport {
 /// Summary statistics from the optional Kalman pass (see [`BacktestRunSpec::kalman`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KalmanHarnessSummary {
+    pub fit_mode: KalmanFitMode,
     pub q: f64,
     pub r: f64,
-    /// Number of points used to fit `(q, r)` (MLE on innovation likelihood).
+    /// Number of points used to fit `(q, r)`.
     pub mle_fit_n: usize,
     pub last_x_hat: f64,
     pub innovation_energy: f64,
@@ -131,7 +133,10 @@ impl<C: Clock> BacktestHarness<C> {
             let cap = spec.kalman.train_prefix_cap.unwrap_or(50_000).max(3);
             let mle_fit_n = (n_days as usize).min(cap);
             let fit_slice = &daily[..mle_fit_n];
-            let cfg = fit_local_level_mle(fit_slice, LocalLevelMleOptions::default());
+            let cfg = match spec.kalman.fit_mode {
+                KalmanFitMode::Em => fit_local_level_em(fit_slice, LocalLevelEmOptions::default()),
+                KalmanFitMode::Mle => fit_local_level_mle(fit_slice, LocalLevelMleOptions::default()),
+            };
             let (outs, _st) = run_kalman_local_level(cfg, &daily);
             let last = outs.last().expect("n_days >= 1");
             let innovation_energy: f64 = outs.iter().map(|o| o.innovation * o.innovation).sum();
@@ -158,6 +163,7 @@ impl<C: Clock> BacktestHarness<C> {
             }
 
             Some(KalmanHarnessSummary {
+                fit_mode: spec.kalman.fit_mode,
                 q: cfg.q,
                 r: cfg.r,
                 mle_fit_n,
@@ -212,6 +218,7 @@ pub fn demo_run_spec() -> BacktestRunSpec {
         },
         kalman: KalmanHarnessOptions {
             enabled: true,
+            fit_mode: KalmanFitMode::Em,
             train_prefix_cap: Some(50_000),
             verify_snapshot_resume: false,
         },

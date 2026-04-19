@@ -2,9 +2,19 @@
 //! O(1) per step, **pause/restartable** via snapshot, **serde** for config and snapshots, composable
 //! with `then` / `run_slice` like any other scan.
 //!
-//! Parameter fitting: [`fit_local_level_mle`] maximizes the **Gaussian innovation log-likelihood**
-//! (exact for this linear Gaussian model) by alternating 1D minimization on `ln(q)` and `ln(r)`
-//! with golden-section search — no variance-split heuristics.
+//! Parameter fitting:
+//! - [`fit_local_level_em`] — **full EM** for scalar `(q, r)`: E-step = Kalman **filter** + **RTS
+//!   smoother** (smoothed states + lag-one covariance); M-step = closed-form updates from
+//!   smoothed moments.
+//! - [`fit_local_level_mle`] — faster **coordinate-wise MLE** on innovation likelihood (no smoother).
+//!
+//! ## Composition with `helio_scan`
+//!
+//! **[`KalmanLocalLevelScan`]** implements [`Scan`], [`FlushableScan`], [`SnapshottingScan`]: it
+//! composes with **`then`**, **`and`**, **`run_slice`**, checkpoint wrappers, etc., like any other
+//! scan. **EM is offline** on a `&[f64]` slice (`fit_local_level_em`): it is not itself a `Scan`, but
+//! it **outputs** a [`KalmanLocalLevelConfig`] you plug into [`KalmanLocalLevelScan::new`] for
+//! streaming / composable runtime filtering.
 
 use helio_scan::{
     Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot, VecEmitter,
@@ -143,28 +153,202 @@ impl SnapshottingScan for KalmanLocalLevelScan {
     }
 }
 
-/// Half the **negative** log-likelihood of innovations under the Kalman filter (up to `const + n*ln(2π)/2`):
-/// `0.5 * Σ_t ( ln(S_t) + ν_t² / S_t )`. Minimizing this is equivalent to MLE for `(q, r)` given the filter.
-pub fn innovation_neg_loglik(y: &[f64], q: f64, r: f64) -> Option<f64> {
-    if y.is_empty() || !(q > 0.0 && r > 0.0 && q.is_finite() && r.is_finite()) {
+/// Forward pass matching [`KalmanLocalLevelScan`]: stores filtered moments and per-step innovation stats.
+#[derive(Debug, Clone)]
+struct LocalLevelForward {
+    /// Filtered mean `x_{t|t}` and variance `P_{t|t}` after `y[t]`.
+    pub xf: Vec<f64>,
+    pub pf: Vec<f64>,
+    /// Predicted variance `P_{t+1|t} = P_{t|t} + q` after processing `y[t]` (needed for RTS `J_t`).
+    pub p_pred_tp1: Vec<f64>,
+    /// Innovation variance `S_t` when updating with `y[t]`.
+    pub s: Vec<f64>,
+    /// Innovation `ν_t` at update with `y[t]`.
+    pub nu: Vec<f64>,
+}
+
+fn forward_filter_local_level(cfg: KalmanLocalLevelConfig, y: &[f64]) -> Option<LocalLevelForward> {
+    let n = y.len();
+    if n == 0 || !(cfg.q > 0.0 && cfg.r > 0.0) {
         return None;
     }
-    let mut x = y[0];
-    let mut p = r.max(1e-12);
-    let mut ll = 0.0f64;
-    for &yi in y.iter().skip(1) {
-        let p_prior = p + q;
-        let s = p_prior + r;
-        if !(s > 0.0 && s.is_finite()) {
+    let mut xf = Vec::with_capacity(n);
+    let mut pf = Vec::with_capacity(n);
+    let mut p_pred_tp1 = Vec::with_capacity(n);
+    let mut s = Vec::with_capacity(n);
+    let mut nu = Vec::with_capacity(n);
+
+    let mut x = cfg.x_init;
+    let mut p = cfg.p_init;
+    for t in 0..n {
+        let p_prior = p + cfg.q;
+        let st = p_prior + cfg.r;
+        if !(st > 0.0 && st.is_finite()) {
             return None;
         }
-        let nu = yi - x;
-        ll += s.ln() + nu * nu / s;
-        let k = p_prior / s;
-        x = x + k * nu;
-        p = (1.0 - k).max(0.0) * p_prior;
+        let innov = y[t] - x;
+        let k = p_prior / st;
+        let x_new = x + k * innov;
+        let p_new = (1.0 - k).max(0.0) * p_prior;
+        p_pred_tp1.push(p_new + cfg.q);
+        s.push(st);
+        nu.push(innov);
+        xf.push(x_new);
+        pf.push(p_new);
+        x = x_new;
+        p = p_new;
+    }
+    Some(LocalLevelForward {
+        xf,
+        pf,
+        p_pred_tp1,
+        s,
+        nu,
+    })
+}
+
+/// Half the **negative** log-likelihood of innovations (matches [`KalmanLocalLevelScan`] forward pass).
+pub fn innovation_neg_loglik(y: &[f64], q: f64, r: f64) -> Option<f64> {
+    let cfg = KalmanLocalLevelConfig {
+        q,
+        r,
+        x_init: y.first().copied().unwrap_or(0.0),
+        p_init: r.max(1e-12),
+    };
+    let f = forward_filter_local_level(cfg, y)?;
+    let mut ll = 0.0f64;
+    for t in 0..y.len() {
+        ll += f.s[t].ln() + f.nu[t] * f.nu[t] / f.s[t];
     }
     Some(0.5 * ll)
+}
+
+/// RTS smoother: returns smoothed means `xs`, variances `Ps`, and lag-one cross-covariance
+/// `cov_lm1_t[t] = Cov(x_{t-1}, x_t | Y)` for `t >= 1` (index 0 unused).
+fn rts_smooth_local_level(fwd: &LocalLevelForward) -> Option<(Vec<f64>, Vec<f64>, Vec<f64>)> {
+    let n = fwd.xf.len();
+    if n == 0 {
+        return None;
+    }
+    let mut xs = fwd.xf.clone();
+    let mut ps = fwd.pf.clone();
+    let mut cov_lm1_t = vec![0.0; n];
+
+    if n == 1 {
+        return Some((xs, ps, cov_lm1_t));
+    }
+
+    // Backward: xs[t] = xf[t] + J_t (xs[t+1] - xf[t]) with J_t = P_{t|t} / P_{t+1|t}, x_{t+1|t}=xf[t].
+    for t in (0..n - 1).rev() {
+        let denom = fwd.p_pred_tp1[t];
+        if !(denom > 1e-18 && denom.is_finite()) {
+            return None;
+        }
+        let j = fwd.pf[t] / denom;
+        let dx = xs[t + 1] - fwd.xf[t];
+        xs[t] = fwd.xf[t] + j * dx;
+        let dp = ps[t + 1] - denom;
+        ps[t] = fwd.pf[t] + j * j * dp;
+    }
+
+    for t in 1..n {
+        let denom = fwd.p_pred_tp1[t - 1];
+        if !(denom > 1e-18 && denom.is_finite()) {
+            return None;
+        }
+        let j = fwd.pf[t - 1] / denom;
+        cov_lm1_t[t] = j * ps[t];
+    }
+
+    Some((xs, ps, cov_lm1_t))
+}
+
+fn em_mstep_local_level(
+    y: &[f64],
+    xs: &[f64],
+    ps: &[f64],
+    cov_lm1_t: &[f64],
+) -> Option<(f64, f64)> {
+    let n = y.len();
+    if n < 2 || xs.len() != n || ps.len() != n || cov_lm1_t.len() != n {
+        return None;
+    }
+    let mut sum_diff2 = 0.0f64;
+    for t in 1..n {
+        let ex2 = ps[t] + xs[t] * xs[t];
+        let exm12 = ps[t - 1] + xs[t - 1] * xs[t - 1];
+        let c = cov_lm1_t[t];
+        sum_diff2 += ex2 + exm12 - 2.0 * c - 2.0 * xs[t - 1] * xs[t];
+    }
+    let q = (sum_diff2 / (n - 1) as f64).max(1e-30);
+
+    let mut sum_obs2 = 0.0f64;
+    for t in 0..n {
+        let res = y[t] - xs[t];
+        sum_obs2 += res * res + ps[t];
+    }
+    let r = (sum_obs2 / n as f64).max(1e-30);
+    Some((q, r))
+}
+
+/// Options for [`fit_local_level_em`].
+#[derive(Debug, Clone, Copy)]
+pub struct LocalLevelEmOptions {
+    pub max_iters: usize,
+    pub tol_q_rel: f64,
+    pub tol_r_rel: f64,
+    /// Clamp for numerical stability.
+    pub q_max: f64,
+    pub r_max: f64,
+}
+
+impl Default for LocalLevelEmOptions {
+    fn default() -> Self {
+        Self {
+            max_iters: 80,
+            tol_q_rel: 1e-6,
+            tol_r_rel: 1e-6,
+            q_max: 1e6,
+            r_max: 1e6,
+        }
+    }
+}
+
+/// **EM** for scalar local-level `(q, r)`: repeated **E-step** (Kalman filter + RTS smoother) and
+/// **M-step** (closed-form `q`, `r` from smoothed second moments).
+///
+/// Initializes from [`fit_local_level_mle`] then iterates EM. `x_init = y[0]`, `p_init = r` each outer restart.
+pub fn fit_local_level_em(y: &[f64], em_opts: LocalLevelEmOptions) -> KalmanLocalLevelConfig {
+    let n = y.len();
+    if n < 3 {
+        return KalmanLocalLevelConfig::default();
+    }
+    let mut cfg = fit_local_level_mle(y, LocalLevelMleOptions::default());
+    for _ in 0..em_opts.max_iters {
+        let q0 = cfg.q;
+        let r0 = cfg.r;
+        let fwd = match forward_filter_local_level(cfg, y) {
+            Some(f) => f,
+            None => break,
+        };
+        let (xs, ps, cov) = match rts_smooth_local_level(&fwd) {
+            Some(x) => x,
+            None => break,
+        };
+        let Some((q_new, r_new)) = em_mstep_local_level(y, &xs, &ps, &cov) else {
+            break;
+        };
+        cfg.q = q_new.min(em_opts.q_max);
+        cfg.r = r_new.min(em_opts.r_max);
+        cfg.x_init = y[0];
+        cfg.p_init = cfg.r.max(1e-12);
+        let dq = (cfg.q - q0).abs() / q0.max(1e-30);
+        let dr = (cfg.r - r0).abs() / r0.max(1e-30);
+        if dq < em_opts.tol_q_rel && dr < em_opts.tol_r_rel {
+            break;
+        }
+    }
+    cfg
 }
 
 fn golden_section_minimize<F>(mut f: F, a: f64, b: f64, max_iter: usize) -> f64
@@ -324,5 +508,22 @@ mod tests {
             cfg.q,
             cfg.r
         );
+    }
+
+    #[test]
+    fn em_fit_runs_and_filter_matches_scan() {
+        let y: Vec<f64> = (0..500).map(|i| (i as f64).sin() * 0.03).collect();
+        let cfg = fit_local_level_em(&y, LocalLevelEmOptions::default());
+        assert!(cfg.q > 0.0 && cfg.r > 0.0);
+        let (outs, _) = run_kalman_local_level(cfg, &y);
+        let scan = KalmanLocalLevelScan::new(cfg);
+        let mut st = scan.init();
+        let mut e = VecEmitter::new();
+        helio_scan::run_slice(&scan, &mut st, &y, &mut e);
+        let v2 = e.into_inner();
+        assert_eq!(outs.len(), v2.len());
+        for (a, b) in outs.iter().zip(v2.iter()) {
+            assert!((a.x_hat - b.x_hat).abs() < 1e-12);
+        }
     }
 }
