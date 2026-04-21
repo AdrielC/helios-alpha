@@ -28,3 +28,10 @@ This memo records what generalized cleanly when adding a **second ingest shape**
 1. Runnable demo — done.  
 2. Second ingest shape + incremental replay — done (compact-region CSV, replay helpers, CLI verify).  
 3. **Next:** time-keyed / session-keyed window execution, watermarks, bucket completion vs availability — see workspace roadmap in `HELIO_RUST_WORKSPACE.md`.
+
+## Invariant checklist (merge, sessions, checkpoints, execution)
+
+- **Merge key:** [`vertical_merge_key`](rust/crates/helio_event/src/event_shock_vertical.rs) sorts by `(session, kind, stream_seq)` with stable tie-break on ingest order; bars sort before shocks in the same session. See rustdoc on [`build_vertical_replay`](rust/crates/helio_event/src/event_shock_ingest.rs) vs [`build_vertical_replay_with_calendar`](rust/crates/helio_event/src/event_shock_ingest.rs).
+- **Session authority:** shocks in the CLI path use [`merge_session_for_shock`](rust/crates/helio_event/src/event_shock_ingest.rs) with the same [`TradingCalendar`](rust/crates/helio_time/src/calendar.rs) as the vertical; [`validate_bar_sessions_vs_shock_calendar`](rust/crates/helio_event/src/event_shock_ingest.rs) rejects bars keyed to raw UTC weekend days when a shock rolls forward.
+- **Checkpoints:** [`EventShockVerticalScan::flush`](rust/crates/helio_event/src/event_shock_vertical.rs) forwards `FlushReason` to all sub-scans; replay helpers document cadence in [`event_shock_replay`](rust/crates/helio_event/src/event_shock_replay.rs).
+- **Execution backpressure:** [`ExecutionBufferPolicy`](rust/crates/helio_event/src/event_shock_execution.rs) on [`SignalExecutionScan`](rust/crates/helio_event/src/event_shock_execution.rs); default unbounded; optional cap with deterministic `DropOldest`. Wire via [`EventShockVerticalScan::with_exec_buffer`](rust/crates/helio_event/src/event_shock_vertical.rs).

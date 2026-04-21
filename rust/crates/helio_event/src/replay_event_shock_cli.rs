@@ -4,12 +4,13 @@
 //! or omit the subcommand and pass flags only.
 
 use crate::{
-    bars_from_file, build_vertical_replay, candidate_entries_from_bars,
+    bars_from_file, build_vertical_replay_with_calendar, candidate_entries_from_bars,
     collect_vertical_trades_batch, collect_vertical_trades_incremental,
     collect_vertical_trades_with_checkpoint_resume, event_scope_label, summarize_lead_times,
-    shocks_from_file, EventShockControlConfig, EventShockFilterConfig, EventShockMetricsFoldScan,
-    EventShockReplayConfig, EventShockStrategyPreset, EventShockVerticalScan, ExecutionEntryTiming,
-    LabeledTradeResult, ScopeFilter, TradeResult,
+    shocks_from_file, validate_bar_sessions_vs_shock_calendar, EventShockControlConfig,
+    EventShockFilterConfig, EventShockMetricsFoldScan, EventShockReplayConfig,
+    EventShockStrategyPreset, EventShockVerticalScan, ExecutionEntryTiming, LabeledTradeResult,
+    ScopeFilter, TradeResult,
 };
 use helio_scan::{Scan, VecEmitter};
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};
@@ -234,7 +235,9 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
 
     let bars = bars_from_file(&cli.bars_path).map_err(|e| e.to_string())?;
     let candidates = candidate_entries_from_bars(&bars);
-    let replay = build_vertical_replay(shocks, bars);
+    let cal = SimpleWeekdayCalendar;
+    validate_bar_sessions_vs_shock_calendar(&shocks, &bars, cal)?;
+    let replay = build_vertical_replay_with_calendar(shocks, bars, cal);
 
     let preset = parse_strategy(&cli.strategy_name);
     let strategy_report = preset.cli_name().to_string();
@@ -246,7 +249,6 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
         scope: ScopeFilter::Any,
     };
 
-    let cal = SimpleWeekdayCalendar;
     let vertical = EventShockVerticalScan::new(
         cli.as_of.map(AvailableAt),
         filter,
