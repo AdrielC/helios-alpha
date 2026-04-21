@@ -57,7 +57,7 @@ fn validate_rejects_weekend_raw_bar_session_when_shock_rolls_forward() {
     }];
     let err = validate_bar_sessions_vs_shock_calendar(&shocks, &bars, cal).unwrap_err();
     assert!(
-        err.contains("naive UTC civil day") && err.contains("session index 2"),
+        err.contains("raw UTC calendar day 2"),
         "unexpected message: {err}"
     );
 }
