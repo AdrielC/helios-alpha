@@ -58,10 +58,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libzmq3-dev pkg-config g++
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install wasm target (backtest web UI)
+        working-directory: rust
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Cargo test + build (workspace)
         working-directory: rust
         run: |
+          rustc --version
           cargo test
+          cargo check -p helio_backtest_wasm --target wasm32-unknown-unknown
           cargo build --release -p helios_signald

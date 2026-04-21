@@ -10,12 +10,14 @@ Cargo workspace root: **`rust/Cargo.toml`**. Crates live under **`rust/crates/`*
 | **`helio_time`** | **Substrate — semantics:** `Frequency`, `Bounds` (default `[start,end)`), `BucketSpec`, `WindowSpec`, `Anchor`, `TimeWindow`; `Timed<T>` / `AvailableAt`; `TradingCalendar`; bucket availability helpers in `availability`. |
 | **`helio_window`** | **Substrate — window ops:** sample-count buffers (`WindowState`, `RollingAggregatorScan`), **time-keyed** (`time_keyed`, `TimeKeyedRollingAggregatorScan`), **session-keyed** (`session_keyed`), `SessionWindowScan`, `ForwardHorizonScan`, … |
 | **`helio_event`** | **Application / proving ground:** classic event-study **and** flagship **event-shock trading vertical** (`EventShock`, `EventShockVerticalScan`, `replay_event_shock` CLI, `TradeResult` reporting). This is the default “do something real” crate. |
+| **`helio_backtest`** | **Backtest harness:** `Clock` / `FixedClock` / `WallClock`, `EpochRange`, SHA-256 **pipeline fingerprint** (includes optional Kalman options JSON). **Kalman:** `KalmanLocalLevelScan` is a `helio_scan` `Scan` + `SnapshottingScan` (composable with `then` / `run_slice` / checkpoints). Offline fit: **`fit_local_level_em`** (EM: forward filter + **RTS smoother** + M-step for `q`,`r`) or **`fit_local_level_mle`** (faster innovation MLE). `KalmanHarnessOptions.fit_mode` selects `em` vs `mle`. Native **Ratatui** TUI: `cargo run -p helio_backtest --features tui --bin helio-backtest-tui`. |
+| **`helio_backtest_wasm`** | **Same harness in the browser** via [Ratzilla](https://github.com/ratatui/ratzilla): `cd crates/helio_backtest_wasm && trunk serve` (see crate README). |
 | **`helios_signald`** | **Integration:** ZMQ subscriber binary (system `libzmq` required). |
 | **`helio_bench`** | **Internal tooling:** Criterion benchmarks (`publish = false`; `cargo bench -p helio_bench`). |
 
 ## Default members
 
-`default-members` includes **`helio_scan`**, **`helio_time`**, **`helio_window`**, **`helio_event`** so `cargo test` in `rust/` does not build ZMQ. Build the daemon explicitly:
+`default-members` includes **`helio_scan`**, **`helio_time`**, **`helio_window`**, **`helio_event`**, **`helio_backtest`** so `cargo test` in `rust/` does not build ZMQ or the WASM crate. Build the daemon explicitly:
 
 ```bash
 cd rust
@@ -56,7 +58,7 @@ cargo run -p helio_event --bin replay_event_shock -- \
 
 **Lead-time band** (also applied as pipeline filter): `--min-lead-secs` / `--max-lead-secs`. Outputs `lead_time.csv` and a lead section in `report.md`.
 
-**Replay merge:** the CLI builds the merged stream with `build_vertical_replay_with_calendar` (`SimpleWeekdayCalendar`) and runs `validate_bar_sessions_vs_shock_calendar` so bar `session` indices cannot use raw UTC weekend days when shocks roll forward to the next trading session.
+**Replay merge:** the CLI builds the merged stream with `build_vertical_replay_with_calendar` (`SimpleWeekdayCalendar`) and runs `validate_bar_sessions_vs_shock_calendar` to catch bar `session` indices that still use the **naive UTC civil day** (`floor_div(epoch_sec,86400)`) when that day is not a trading session under the calendar but the shock rolls forward — not a substitute for venue session-date / “day session ends” rules.
 
 **Replay modes:** the CLI checks **batch == incremental == checkpoint-resume** on the merged stream unless `--skip-replay-verify`.
 
