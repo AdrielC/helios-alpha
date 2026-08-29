@@ -1,0 +1,211 @@
+{
+  "title": "Choose the Helios Alpha visual world",
+  "question": "The roll assigned Signal Lab Patch Manual. Keep it, take the research-forward alternate, or choose a sharper challenger.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Signal Lab Patch Manual",
+      "kicker": "THE ROLL",
+      "lineage": "modular signal laboratories and field-service foldouts",
+      "thesis": "A strategy becomes legible by tracing one event through typed, reconnectable stages.",
+      "palette": [
+        "#e8eef1",
+        "#101820",
+        "#1746a2",
+        "#d95d22",
+        "#2e7d5b"
+      ],
+      "materials": [
+        "powder-coated instrument panels",
+        "silk-screened legends",
+        "graph inserts",
+        "patch leads"
+      ],
+      "viewport": "A live signal path routes one synthetic event through reorder, bucket, moments, threshold, and checkpoint stages.",
+      "risk": "It becomes a toy if the connectors are decorative instead of functional.",
+      "raised": [
+        {
+          "from": "Tokyo boutique-pop sleeve",
+          "raise": "Configuration density is concentrated into one specification band so the signal path stays calm."
+        },
+        {
+          "from": "Precisionist industrial plate",
+          "raise": "Every stage owns a hard plane with unambiguous order and responsibility."
+        },
+        {
+          "from": "Cloud quarry",
+          "raise": "The event pulse changes atmosphere as state accumulates without obscuring the data."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "model-pick",
+      "label": "Annotated Event Atlas",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "event-study papers, lab notebooks, and transparent plot overlays",
+      "thesis": "Rare-event research reads as a sequence of evidence plates with claims attached to exact observations.",
+      "palette": [
+        "#f5f7f4",
+        "#111b24",
+        "#3155a6",
+        "#c64a2e",
+        "#b7d93d"
+      ],
+      "materials": [
+        "vellum overlays",
+        "registration marks",
+        "ruled annotation margins",
+        "technical ink"
+      ],
+      "viewport": "An aligned-time event study dominates the first screen while marginal notes explain its restartable computation.",
+      "risk": "It can settle into familiar quant-paper territory without a strong interactive mechanism.",
+      "comp": ".impeccable/mocks/decision/model-pick.webp"
+    },
+    {
+      "id": "challenger-film",
+      "label": "Event-Time Cutting Bench",
+      "verdict": "competitive",
+      "lineage": "analog film editing benches and contact sheets",
+      "thesis": "Replay, watermarking, and checkpoints become physical cuts along one inspectable event-time rail.",
+      "palette": [
+        "#171717",
+        "#f2efe6",
+        "#e56a32",
+        "#78909c"
+      ],
+      "materials": [
+        "film leader",
+        "grease-pencil marks",
+        "brushed aluminum",
+        "light-table glass"
+      ],
+      "viewport": "A horizontal event-time rail exposes late arrivals, bucket boundaries, and a draggable checkpoint splice.",
+      "case": "It explains temporal semantics exceptionally well, but strategy composition is less immediate than the assigned direction.",
+      "risk": "The cinematic metaphor can overpower the generic streaming model.",
+      "comp": ".impeccable/mocks/decision/challenger-film.webp"
+    },
+    {
+      "id": "challenger-scroller",
+      "label": "Queue Depth Scroller",
+      "verdict": "competitive",
+      "lineage": "early computer demos and horizontal raster scrollers",
+      "thesis": "A relentless event tape makes queue depth, ordering, and latency impossible to ignore.",
+      "palette": [
+        "#06090d",
+        "#d7ff45",
+        "#28c7fa",
+        "#ff5c7c"
+      ],
+      "materials": [
+        "phosphor pixels",
+        "scanlines",
+        "vector traces",
+        "machined black glass"
+      ],
+      "viewport": "An event queue scrolls across the first screen and branches into reducer and signal lanes with live counters.",
+      "case": "It has the strongest systems identity, but it risks the familiar dark trading-terminal category rut.",
+      "risk": "Visual intensity can reduce long-form reading comfort.",
+      "comp": ".impeccable/mocks/decision/challenger-scroller.webp"
+    },
+    {
+      "id": "challenger-tokyo",
+      "label": "Strategy Obi",
+      "verdict": "declined",
+      "lineage": "Tokyo boutique-pop sleeves with dense information bands",
+      "thesis": "A compact strategy manifest wraps a nearly empty signal surface.",
+      "palette": [
+        "#f6f3ee",
+        "#e53f49",
+        "#121212",
+        "#8db8d8"
+      ],
+      "materials": [
+        "coated stock",
+        "microtype",
+        "spot color",
+        "die-cut bands"
+      ],
+      "viewport": "A dense configuration band frames one sparse statistical plot.",
+      "case": "The density contrast is useful, but it does not support a long-form researcher workflow.",
+      "risk": "It reads as packaging before it reads as an instrument.",
+      "kept": "Concentrate dense configuration into one controlled band."
+    },
+    {
+      "id": "challenger-precisionist",
+      "label": "Precisionist Process Plate",
+      "verdict": "declined",
+      "lineage": "precisionist industrial paintings and cutaway machinery plates",
+      "thesis": "Streaming stages become monumental planes with hard mechanical hierarchy.",
+      "palette": [
+        "#d9e0df",
+        "#17242d",
+        "#b7472a",
+        "#637b83"
+      ],
+      "materials": [
+        "painted steel",
+        "cast concrete",
+        "enamel labels",
+        "blueprint ink"
+      ],
+      "viewport": "A cutaway pipeline fills the frame as if every state transition were part of a machine.",
+      "case": "The hierarchy is strong, but the monumental scale works against rapid experimentation.",
+      "risk": "The system feels fixed when the product promise is pluggability.",
+      "kept": "Give each pipeline stage a hard visual boundary and clear responsibility."
+    },
+    {
+      "id": "challenger-cloud",
+      "label": "Cloud Quarry",
+      "verdict": "declined",
+      "lineage": "quarry sections, weather charts, and atmospheric strata",
+      "thesis": "Rare events are cut from temporal weather systems and assembled into statistical blocks.",
+      "palette": [
+        "#dfe8ec",
+        "#617987",
+        "#ef7e58",
+        "#f7f5ef"
+      ],
+      "materials": [
+        "weathered stone",
+        "tracing paper",
+        "mist",
+        "survey paint"
+      ],
+      "viewport": "A broad event horizon dissolves into cut statistical strata beneath it.",
+      "case": "The temporal atmosphere is evocative, but the composition model is too indirect.",
+      "risk": "Mood displaces operational clarity.",
+      "kept": "Let accumulation subtly change the atmosphere around the event pulse."
+    }
+  ],
+  "reroll": {
+    "registers": [
+      "safer",
+      "bolder"
+    ]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A polished VitePress documentation site with conventional navigation, search, and blue-accented code examples.",
+    "palette": [
+      "#ffffff",
+      "#111827",
+      "#2563eb"
+    ],
+    "materials": [
+      "clean grid",
+      "documentation sidebar",
+      "rounded callouts",
+      "syntax highlighting"
+    ],
+    "viewport": "A centered hero introduces the library above feature cards and a conventional documentation shell.",
+    "risk": "It is useful and credible, but indistinguishable from the category by design.",
+    "comp": ".impeccable/mocks/decision/canon.webp"
+  },
+  "steer": true
+}

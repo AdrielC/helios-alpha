@@ -11,8 +11,8 @@
 //!
 //! **Stable-ish** for integrators: [`EventShock`], [`EventShockVerticalScan`], [`TradeResult`],
 //! [`build_vertical_replay_with_calendar`], [`merge_session_for_shock`],
-//! [`validate_bar_sessions_vs_shock_calendar`], replay collectors in [`crate::event_shock_replay`], and
-//! the `replay_event_shock` binary.
+//! [`validate_bar_sessions_vs_shock_calendar`], replay collectors such as
+//! [`collect_vertical_trades_incremental`], and the `replay_event_shock` binary.
 //!
 //! **Experimental / research-heavy** (may move or change): [`CausalEventStudyPipeline`],
 //! [`TreatmentSelectorScan`], fold and cluster wiring for classic event studies.
@@ -30,9 +30,9 @@ mod event_shock_run_config;
 mod event_shock_services;
 mod event_shock_strategy;
 mod event_shock_vertical;
-mod replay_event_shock_cli;
 mod fold;
 mod pipeline;
+mod replay_event_shock_cli;
 mod sampler;
 mod selector;
 mod types;
@@ -48,9 +48,9 @@ pub use event_shock_run_config::*;
 pub use event_shock_services::*;
 pub use event_shock_strategy::*;
 pub use event_shock_vertical::*;
-pub use replay_event_shock_cli::*;
 pub use fold::*;
 pub use pipeline::*;
+pub use replay_event_shock_cli::*;
 pub use sampler::*;
 pub use selector::*;
 pub use types::*;

@@ -16,7 +16,7 @@ Most quant and event-study logic is naturally a **Mealy-style machine**: on each
 
 - A **single stepping contract** (`Scan`) with an explicit **emit sink** (no per-step `Vec` allocation in the hot path by default).
 - **Control semantics** separate from domain inputs (`FlushableScan` + `FlushReason`).
-- **Persistence seam** (`SnapshottingScan`, `Checkpoint`, `SnapshotStore`, `Persisted` wrapper).
+- **Persistence seam** (`SnapshottingScan`, versioned/fingerprinted `Checkpoint`, fallible `write_checkpoint` / `read_checkpoint`, legacy `Persisted` wrapper).
 - **Static composition** with **named state types** (`ThenState`, `ZipInputState`, …) instead of anonymous tuple nests.
 - **Typed paths into composed state** (`Focus` + canned focuses for `Then` / `ZipInput`).
 
@@ -62,9 +62,11 @@ Do not assume all scans are monoidal; keep algebraic batching in aggregators / s
 ## Control and checkpoints
 
 - **`FlushReason<O>`** — why flush happened: `SessionClose`, `Checkpoint(O)`, `Watermark(O)`, `Shutdown`, `Rebalance`, `EndOfInput`, `Manual`. Different scans may ignore or honor different variants.
-- **`Checkpoint<S, O>`** — bundles **`snapshot`**, **`offset`**, optional **`watermark`**, and **`CheckpointMeta`** (format version, label). **State without an offset is not a resume story**; checkpoints pair serialized state with a stream position (Kafka offset, Redis stream ID, sequence number, session+row, …).
+- **`Checkpoint<S, O>`** bundles **`snapshot`**, **`offset`**, optional **`watermark`**, and **`CheckpointMeta`** (format version, snapshot version, pipeline fingerprint, label). **State without an offset is not a resume story**; checkpoints pair serialized state with a stream position (Kafka offset, Redis stream ID, sequence number, session+row, …).
 
-The **`Persisted<S, Store, KeyFn>`** wrapper delegates `step`/`flush` to an inner scan and, on **`FlushReason::Checkpoint`**, writes a `Checkpoint` via **`SnapshotStore`**. Domain-specific keying is supplied by **`CheckpointKeyFn`**.
+Production runners should call **`write_checkpoint`** with a **`CheckpointContext`** and handle its storage `Result`, then use **`read_and_restore_checkpoint`** with a **`FallibleRestoreScan`** to reject incompatible metadata and invalid snapshot contents before resume. `read_checkpoint` remains available when the caller owns payload validation. A successful snapshot write alone is not exactly-once processing: source position and externally visible outputs still need an atomic protocol or idempotency keys.
+
+The **`Persisted<S, Store, KeyFn>`** wrapper remains for simple in-band runners. It captures storage failures for `take_checkpoint_error()` rather than panicking, but the `FlushableScan` signature cannot return that error directly.
 
 ## Combinators
 
@@ -72,7 +74,7 @@ The **`Persisted<S, Store, KeyFn>`** wrapper delegates `step`/`flush` to an inne
 |------------|---------|----------------|
 | `Map` | Map outputs | Same as inner |
 | `FilterMap` | Filter/map outputs | Same as inner |
-| `Then` | Pipeline: left `Out` → right `In` | `ThenState<L, R>` |
+| `Then` | Pipeline: left `Out` → right `In` through allocation-free `ScanEmit` | `ThenState<L, R>` |
 | `ZipInput` | Same input to two scans; outputs tagged `ZipInputOut::A` / `::B` | `ZipInputState<A, B>` |
 
 Extension trait **`ScanExt`** provides `.map`, `.filter_map`, `.then` on any `Scan`.
@@ -108,7 +110,7 @@ cargo test
 cargo doc -p helio_scan --no-deps --open
 ```
 
-The workspace **`default-members`** lists **`helio_scan`**, **`helio_time`**, **`helio_window`**, **`helio_event`** (not **`helios_signald`**), so a bare `cargo test` inside `rust/` does not require ZMQ.
+The workspace **`default-members`** lists **`helio_scan`**, **`helio_stats`**, **`helio_time`**, **`helio_window`**, **`helio_event`**, and **`helio_backtest`** (not **`helios_signald`**), so a bare `cargo test` inside `rust/` does not require ZMQ.
 
 To build the signal daemon (needs system **libzmq** and a C++ toolchain, as in CI):
 

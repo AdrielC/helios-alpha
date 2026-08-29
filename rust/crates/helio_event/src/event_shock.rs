@@ -4,7 +4,8 @@
 //! own taxonomy; the scan stack does not interpret them.
 
 use helio_scan::{
-    Emit, FlushReason, FlushableScan, Scan, SessionDate, SnapshottingScan, VersionedSnapshot,
+    DiscardEmitter, Emit, FlushReason, FlushableScan, Scan, ScanEmit, SessionDate,
+    SnapshottingScan, VersionedSnapshot,
 };
 use helio_time::{
     AvailabilityGateScan, AvailableAt, ObservedAt, SimpleWeekdayCalendar, Timed, TradingCalendar,
@@ -456,15 +457,9 @@ impl<C: TradingCalendar + Copy> Scan for EventShockAlignPipelineScan<C> {
     where
         E: Emit<Self::Out>,
     {
-        let mut a = helio_scan::VecEmitter::new();
-        self.gate.step(&mut state.gate, input, &mut a);
-        for x in a.into_inner() {
-            let mut b = helio_scan::VecEmitter::new();
-            self.filter.step(&mut state.filter, x, &mut b);
-            for y in b.into_inner() {
-                self.align.step(&mut state.align, y, emit);
-            }
-        }
+        let mut align_emit = ScanEmit::new(&self.align, &mut state.align, emit);
+        let mut filter_emit = ScanEmit::new(&self.filter, &mut state.filter, &mut align_emit);
+        self.gate.step(&mut state.gate, input, &mut filter_emit);
     }
 }
 
@@ -475,14 +470,12 @@ impl<C: TradingCalendar + Copy> FlushableScan for EventShockAlignPipelineScan<C>
     where
         E: Emit<Self::Out>,
     {
-        let mut e_gate = helio_scan::VecEmitter::new();
         self.gate
-            .flush(&mut state.gate, signal.clone(), &mut e_gate);
-        let mut e_filter = helio_scan::VecEmitter::new();
+            .flush(&mut state.gate, signal.clone(), &mut DiscardEmitter);
         self.filter
-            .flush(&mut state.filter, signal.clone(), &mut e_filter);
+            .flush(&mut state.filter, signal.clone(), &mut DiscardEmitter);
         self.align
-            .flush(&mut state.align, signal, &mut helio_scan::VecEmitter::new());
+            .flush(&mut state.align, signal, &mut DiscardEmitter);
     }
 }
 
@@ -567,15 +560,9 @@ impl<C: TradingCalendar + Copy> Scan for EventShockSignalKernelScan<C> {
     where
         E: Emit<Self::Out>,
     {
-        let mut c = helio_scan::VecEmitter::new();
-        self.align_pipe.step(&mut state.align_pipe, input, &mut c);
-        for z in c.into_inner() {
-            let mut d = helio_scan::VecEmitter::new();
-            self.to_signal.step(&mut state.to_signal, z, &mut d);
-            for sig in d.into_inner() {
-                emit.emit(sig);
-            }
-        }
+        let mut signal_emit = ScanEmit::new(&self.to_signal, &mut state.to_signal, emit);
+        self.align_pipe
+            .step(&mut state.align_pipe, input, &mut signal_emit);
     }
 }
 
@@ -586,16 +573,10 @@ impl<C: TradingCalendar + Copy> FlushableScan for EventShockSignalKernelScan<C> 
     where
         E: Emit<Self::Out>,
     {
-        self.align_pipe.flush(
-            &mut state.align_pipe,
-            signal.clone(),
-            &mut helio_scan::VecEmitter::new(),
-        );
-        self.to_signal.flush(
-            &mut state.to_signal,
-            signal,
-            &mut helio_scan::VecEmitter::new(),
-        );
+        self.align_pipe
+            .flush(&mut state.align_pipe, signal.clone(), &mut DiscardEmitter);
+        self.to_signal
+            .flush(&mut state.to_signal, signal, &mut DiscardEmitter);
     }
 }
 

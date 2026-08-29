@@ -10,6 +10,45 @@ pub trait Emit<T> {
     fn emit(&mut self, item: T);
 }
 
+/// Explicitly discard emissions without allocating a temporary collection.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DiscardEmitter;
+
+impl<T> Emit<T> for DiscardEmitter {
+    #[inline]
+    fn emit(&mut self, _item: T) {}
+}
+
+/// Feed emissions directly into another [`crate::Scan`] without an intermediate collection.
+pub struct ScanEmit<'a, S, E>
+where
+    S: crate::Scan,
+{
+    scan: &'a S,
+    state: &'a mut S::State,
+    sink: &'a mut E,
+}
+
+impl<'a, S, E> ScanEmit<'a, S, E>
+where
+    S: crate::Scan,
+{
+    pub fn new(scan: &'a S, state: &'a mut S::State, sink: &'a mut E) -> Self {
+        Self { scan, state, sink }
+    }
+}
+
+impl<S, E> Emit<S::In> for ScanEmit<'_, S, E>
+where
+    S: crate::Scan,
+    E: Emit<S::Out>,
+{
+    #[inline]
+    fn emit(&mut self, item: S::In) {
+        self.scan.step(self.state, item, self.sink);
+    }
+}
+
 /// Collect outputs into a `Vec` (handy in tests).
 #[derive(Debug, Default)]
 pub struct VecEmitter<T>(pub Vec<T>);

@@ -83,3 +83,14 @@ pub trait SnapshottingScan: Scan {
     fn snapshot(&self, state: &Self::State) -> Self::Snapshot;
     fn restore(&self, snapshot: Self::Snapshot) -> Self::State;
 }
+
+/// Opt-in validation for snapshots loaded from external storage.
+///
+/// [`SnapshottingScan::restore`] remains useful for trusted, in-process snapshots. Production
+/// resume paths should prefer this trait so malformed or semantically invalid state is rejected
+/// before processing continues.
+pub trait FallibleRestoreScan: SnapshottingScan {
+    type RestoreError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError>;
+}

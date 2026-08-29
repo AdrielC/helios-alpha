@@ -1,7 +1,7 @@
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::control::FlushReason;
-use crate::emit::{Emit, FilterMapEmit, MapEmit, VecEmitter, ZipInputOut};
+use crate::emit::{Emit, FilterMapEmit, MapEmit, ScanEmit, VecEmitter, ZipInputOut};
 use crate::scan::{FlushableScan, Scan, SnapshottingScan};
 
 // --- Map ---
@@ -171,11 +171,8 @@ where
     where
         E: Emit<Self::Out>,
     {
-        let mut bridge = VecEmitter::new();
+        let mut bridge = ScanEmit::new(&self.right, &mut state.right, emit);
         self.left.step(&mut state.left, input, &mut bridge);
-        for mid in bridge.into_inner() {
-            self.right.step(&mut state.right, mid, emit);
-        }
     }
 }
 
@@ -192,11 +189,10 @@ where
     where
         E: Emit<Self::Out>,
     {
-        let mut bridge = VecEmitter::new();
-        self.left
-            .flush(&mut state.left, signal.clone(), &mut bridge);
-        for mid in bridge.into_inner() {
-            self.right.step(&mut state.right, mid, emit);
+        {
+            let mut bridge = ScanEmit::new(&self.right, &mut state.right, emit);
+            self.left
+                .flush(&mut state.left, signal.clone(), &mut bridge);
         }
         self.right.flush(&mut state.right, signal, emit);
     }

@@ -98,8 +98,57 @@ fn execution_buffer_cap_drops_oldest_pending_signal() {
         EventShockReplayRecord::Signal(sig1.clone()),
         &mut e,
     );
-    exec.step(&mut st, EventShockReplayRecord::Signal(sig2.clone()), &mut e);
+    exec.step(
+        &mut st,
+        EventShockReplayRecord::Signal(sig2.clone()),
+        &mut e,
+    );
     let snap = exec.snapshot(&st);
     assert_eq!(snap.pending.len(), 1);
     assert_eq!(snap.pending[0].event_id, EventId(2));
+}
+
+#[test]
+fn ready_signals_preserve_fifo_order() {
+    let exec = SignalExecutionScan::with_timing_and_buffer(
+        SimpleWeekdayCalendar,
+        ExecutionEntryTiming::EntrySessionOpen,
+        ExecutionBufferPolicy::Cap {
+            max_pending: 8,
+            overflow: ExecutionBufferOverflow::DropOldest,
+        },
+    );
+    let mut state = exec.init();
+    let mut emit = VecEmitter::new();
+    for id in 1..=3 {
+        exec.step(
+            &mut state,
+            EventShockReplayRecord::Signal(EventShockSignal {
+                event_id: EventId(id),
+                entry_session: SessionDate(0),
+                exit_session: SessionDate(1),
+                exposure: Exposure::Long(Symbol("SPY".into())),
+                strategy_name: "fifo".into(),
+                scope: EventScope::Global,
+                matched_treatment: None,
+            }),
+            &mut emit,
+        );
+    }
+    for (session, price) in [(SessionDate(0), 100.0), (SessionDate(1), 101.0)] {
+        exec.step(
+            &mut state,
+            EventShockReplayRecord::Bar(DailyBar {
+                session,
+                symbol: Symbol("SPY".into()),
+                open: price,
+                high: price,
+                low: price,
+                close: price,
+            }),
+            &mut emit,
+        );
+    }
+    let ids: Vec<EventId> = emit.0.into_iter().map(|trade| trade.event_id).collect();
+    assert_eq!(ids, vec![EventId(1), EventId(2), EventId(3)]);
 }

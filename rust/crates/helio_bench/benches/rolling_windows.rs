@@ -3,7 +3,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use helio_scan::{Scan, VecEmitter};
 use helio_time::WindowSpec;
-use helio_window::{rolling_mean_scan, RollingFoldScan, RollingWindowScan};
+use helio_window::{rolling_mean_scan, rolling_moments_scan, RollingFoldScan, RollingWindowScan};
 
 const BATCH: u64 = 4096;
 
@@ -41,6 +41,27 @@ fn rolling_vec_snapshot(c: &mut Criterion) {
     group.finish();
 }
 
+fn rolling_moments_window64(c: &mut Criterion) {
+    let scan = rolling_moments_scan(64);
+    let mut group = c.benchmark_group("rolling_moments");
+    group.throughput(Throughput::Elements(BATCH));
+    group.bench_function("window64_f64_batch4096", |b| {
+        b.iter(|| {
+            let mut state = scan.init();
+            let mut output = VecEmitter::new();
+            for i in 0..BATCH {
+                scan.step(
+                    &mut state,
+                    black_box(1e9 + (i as f64 * 0.017).sin()),
+                    &mut output,
+                );
+            }
+            black_box(output.0.last().map(|summary| summary.moments))
+        });
+    });
+    group.finish();
+}
+
 fn rolling_fold_max(c: &mut Criterion) {
     let scan = RollingFoldScan::new(WindowSpec::trailing_samples(128), 0i64, |xs: &[i64]| {
         *xs.iter().max().unwrap_or(&0)
@@ -63,6 +84,7 @@ fn rolling_fold_max(c: &mut Criterion) {
 criterion_group!(
     benches,
     rolling_mean_window64,
+    rolling_moments_window64,
     rolling_vec_snapshot,
     rolling_fold_max
 );
