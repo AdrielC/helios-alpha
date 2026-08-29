@@ -303,8 +303,7 @@ where
         E: Emit<Self::Out>,
     {
         let mut la = VecEmitter::new();
-        self.left
-            .flush(&mut state.left, signal.clone(), &mut la);
+        self.left.flush(&mut state.left, signal.clone(), &mut la);
         for o in la.into_inner() {
             emit.emit(SplitOut::A(o));
         }
@@ -419,8 +418,7 @@ where
         E: Emit<Self::Out>,
     {
         let mut la = VecEmitter::new();
-        self.left
-            .flush(&mut state.left, signal.clone(), &mut la);
+        self.left.flush(&mut state.left, signal.clone(), &mut la);
         for o in la.into_inner() {
             emit.emit(Either::Left(o));
         }
@@ -526,8 +524,7 @@ where
         E: Emit<Self::Out>,
     {
         let mut la = VecEmitter::new();
-        self.left
-            .flush(&mut state.left, signal.clone(), &mut la);
+        self.left.flush(&mut state.left, signal.clone(), &mut la);
         for o in la.into_inner() {
             emit.emit(Either::Left(o));
         }
@@ -626,8 +623,7 @@ where
         E: Emit<Self::Out>,
     {
         let mut la = VecEmitter::new();
-        self.left
-            .flush(&mut state.left, signal.clone(), &mut la);
+        self.left.flush(&mut state.left, signal.clone(), &mut la);
         for o in la.into_inner() {
             emit.emit(Either::Left(o));
         }
@@ -685,10 +681,7 @@ pub trait ArrowScanExt: Scan + Sized {
     where
         B: Scan<In = Self::Out>,
     {
-        Then {
-            left: self,
-            right,
-        }
+        Then { left: self, right }
     }
 
     fn split<B>(self, right: B) -> Split<Self, B>
@@ -696,10 +689,7 @@ pub trait ArrowScanExt: Scan + Sized {
         B: Scan<In = Self::In>,
         Self::In: Clone,
     {
-        Split {
-            left: self,
-            right,
-        }
+        Split { left: self, right }
     }
 
     /// Wrap as [`First`]; specify carry type `C` (e.g. `scan.first_carry::<String>()`).

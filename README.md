@@ -23,6 +23,7 @@ Under `rust/` lives a **Cargo workspace** of small crates with strict boundaries
 | Crate | Responsibility |
 |-------|------------------|
 | **`helio_scan`** | **Domain-free algebra**: `Scan` / `FlushableScan` / `SnapshottingScan`, combinators, checkpoints, **opaque batching by default** (`ScanBatchExt`), **opt-in** `BatchOptimizedScan`, **runners** (`run_iter`, `run_batch`, `run_receiver`, optional async `run_stream`) — transports stay *outside* the core traits. |
+| **`helio_stats`** | **Domain-free online statistics**: mergeable moments/covariance, deterministic balanced reduction, rolling removal, and a restartable exponential Hawkes intensity scan. |
 | **`helio_time`** | **Semantics only**: `Frequency`, `Bounds`, `BucketSpec`, `WindowSpec`, `Timed<T>`, `AvailableAt`, availability gates — *what* a window means in domain language, **not** automatic eviction of every variant. |
 | **`helio_window`** | **Operational machinery**: ring buffers, aggregators, rolling/session/horizon scans — **today many rolling paths are sample-count-driven**; rich `WindowSpec` can describe more than the ring buffer enforces until time-keyed expiry is implemented (see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md)). |
 | **`helio_event`** | **Event-shock strategies** on the scan stack: causal **event-study** harnesses *and* a domain-agnostic **event-shock vertical** (`EventShock`, lead-time filters, signal generation, replay). Intended to **stress-test** the stack; may split later if it grows. |

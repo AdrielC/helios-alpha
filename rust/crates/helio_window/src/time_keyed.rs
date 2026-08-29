@@ -77,7 +77,10 @@ impl<T: Clone, A: EvictingWindowAggregator<T>> TimeKeyedWindowState<T, A> {
             let old = self.deque.pop_front().expect("front exists");
             self.agg.evict(&old.value);
         }
-        self.deque.push_back(TimeKeyedSample { key, value: value.clone() });
+        self.deque.push_back(TimeKeyedSample {
+            key,
+            value: value.clone(),
+        });
         self.agg.insert(&value);
     }
 

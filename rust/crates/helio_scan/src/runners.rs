@@ -85,7 +85,12 @@ mod stream_tests {
             0
         }
 
-        fn step<E: crate::Emit<Self::Out>>(&self, st: &mut Self::State, input: Self::In, emit: &mut E) {
+        fn step<E: crate::Emit<Self::Out>>(
+            &self,
+            st: &mut Self::State,
+            input: Self::In,
+            emit: &mut E,
+        ) {
             *st += input;
             emit.emit(*st);
         }

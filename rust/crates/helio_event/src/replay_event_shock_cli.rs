@@ -6,8 +6,8 @@
 use crate::{
     bars_from_file, build_vertical_replay_with_calendar, candidate_entries_from_bars,
     collect_vertical_trades_batch, collect_vertical_trades_incremental,
-    collect_vertical_trades_with_checkpoint_resume, event_scope_label, summarize_lead_times,
-    shocks_from_file, validate_bar_sessions_vs_shock_calendar, EventShockControlConfig,
+    collect_vertical_trades_with_checkpoint_resume, event_scope_label, shocks_from_file,
+    summarize_lead_times, validate_bar_sessions_vs_shock_calendar, EventShockControlConfig,
     EventShockFilterConfig, EventShockMetricsFoldScan, EventShockReplayConfig,
     EventShockStrategyPreset, EventShockVerticalScan, ExecutionEntryTiming, LabeledTradeResult,
     ScopeFilter, TradeResult,
@@ -171,7 +171,8 @@ fn parse_cli_args(mut args: Vec<String>) -> Result<CliReplay, String> {
         });
     }
 
-    let events_path = events_path.ok_or_else(|| "--events required (or use --config)".to_string())?;
+    let events_path =
+        events_path.ok_or_else(|| "--events required (or use --config)".to_string())?;
     let bars_path = bars_path.ok_or_else(|| "--bars required (or use --config)".to_string())?;
     Ok(CliReplay {
         events_path,
@@ -274,7 +275,9 @@ fn run_event_shock_replay_cli(cli: CliReplay) -> Result<(), String> {
         collect_vertical_trades_with_checkpoint_resume(&vertical, &replay, replay.len() / 2);
 
     if !cli.skip_verify && (batch != incremental || batch != checkpointed) {
-        return Err("replay verification failed: batch/incremental/checkpoint trades differ".into());
+        return Err(
+            "replay verification failed: batch/incremental/checkpoint trades differ".into(),
+        );
     }
     let trade_vec = batch;
 

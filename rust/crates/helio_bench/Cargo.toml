@@ -13,6 +13,7 @@ publish = false
 criterion = "=0.4.0"
 helio_event = { path = "../helio_event" }
 helio_scan = { path = "../helio_scan" }
+helio_stats = { path = "../helio_stats" }
 helio_time = { path = "../helio_time" }
 helio_window = { path = "../helio_window" }
 
@@ -46,4 +47,8 @@ harness = false
 
 [[bench]]
 name = "checkpoint_cadence"
+harness = false
+
+[[bench]]
+name = "online_stats"
 harness = false

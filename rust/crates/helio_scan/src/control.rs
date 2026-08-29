@@ -18,8 +18,14 @@ pub enum FlushReason<O> {
 
 /// Extra bookkeeping for persisted checkpoints.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct CheckpointMeta {
     pub format_version: u32,
+    /// Logical schema version of the scan snapshot, when the snapshot implements
+    /// [`crate::VersionedSnapshot`].
+    pub snapshot_version: Option<u32>,
+    /// Stable fingerprint of code + configuration used to build the pipeline.
+    pub pipeline_fingerprint: Option<String>,
     pub label: Option<String>,
 }
 
@@ -27,6 +33,8 @@ impl Default for CheckpointMeta {
     fn default() -> Self {
         Self {
             format_version: 1,
+            snapshot_version: None,
+            pipeline_fingerprint: None,
             label: None,
         }
     }

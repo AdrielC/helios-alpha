@@ -128,12 +128,9 @@ impl Scan for ForwardHorizonScan {
                         bars_remaining: p.horizon_trading_days,
                     });
                 }
-                let mut i = 0;
-                while i < state.active.len() {
-                    state.active[i].bars_remaining =
-                        state.active[i].bars_remaining.saturating_sub(1);
-                    if state.active[i].bars_remaining == 0 {
-                        let a = state.active.swap_remove(i);
+                state.active.retain_mut(|a| {
+                    a.bars_remaining = a.bars_remaining.saturating_sub(1);
+                    if a.bars_remaining == 0 {
                         let simple_return = close / a.entry_close - 1.0;
                         emit.emit(ForwardHorizonOutput::Complete(ForwardHorizonOutcome {
                             treatment_id: a.id,
@@ -141,10 +138,11 @@ impl Scan for ForwardHorizonScan {
                             exit_session_day: session_day,
                             simple_return,
                         }));
+                        false
                     } else {
-                        i += 1;
+                        true
                     }
-                }
+                });
             }
         }
     }
@@ -260,5 +258,41 @@ mod tests {
             }
             _ => panic!("expected incomplete"),
         }
+    }
+
+    #[test]
+    fn simultaneous_completions_preserve_treatment_order() {
+        let scan = ForwardHorizonScan::default();
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+
+        for id in [10, 20, 30] {
+            scan.step(
+                &mut state,
+                HorizonInput::Treatment {
+                    id,
+                    horizon_trading_days: 1,
+                },
+                &mut emit,
+            );
+        }
+        scan.step(
+            &mut state,
+            HorizonInput::Bar {
+                session_day: 1,
+                close: 100.0,
+            },
+            &mut emit,
+        );
+
+        let ids: Vec<_> = emit
+            .0
+            .iter()
+            .map(|output| match output {
+                ForwardHorizonOutput::Complete(outcome) => outcome.treatment_id,
+                ForwardHorizonOutput::Incomplete(_) => panic!("unexpected incomplete horizon"),
+            })
+            .collect();
+        assert_eq!(ids, vec![10, 20, 30]);
     }
 }

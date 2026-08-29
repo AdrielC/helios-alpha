@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-29T23:42:20Z",
+  "title": "Design System: Helios Alpha",
+  "extensions": {
+    "colorMeta": {
+      "atlas-ground": {
+        "role": "neutral",
+        "displayName": "Atlas Ground",
+        "canonical": "#f9f9f9",
+        "tonalRamp": ["oklch(15% 0.000 89.9)", "oklch(27% 0.000 89.9)", "oklch(39% 0.000 89.9)", "oklch(51% 0.000 89.9)", "oklch(63% 0.000 89.9)", "oklch(75% 0.000 89.9)", "oklch(87% 0.000 89.9)", "oklch(95% 0.000 89.9)"]
+      },
+      "surface-alt": {
+        "role": "neutral",
+        "displayName": "Alternate Atlas Sheet",
+        "canonical": "#f3f5f7",
+        "tonalRamp": ["oklch(15% 0.003 247.9)", "oklch(27% 0.003 247.9)", "oklch(39% 0.003 247.9)", "oklch(51% 0.003 247.9)", "oklch(63% 0.003 247.9)", "oklch(75% 0.003 247.9)", "oklch(87% 0.003 247.9)", "oklch(95% 0.003 247.9)"]
+      },
+      "surface-soft": {
+        "role": "neutral",
+        "displayName": "Soft Evidence Wash",
+        "canonical": "#eef2f6",
+        "tonalRamp": ["oklch(15% 0.007 247.9)", "oklch(27% 0.007 247.9)", "oklch(39% 0.007 247.9)", "oklch(51% 0.007 247.9)", "oklch(63% 0.007 247.9)", "oklch(75% 0.007 247.9)", "oklch(87% 0.007 247.9)", "oklch(95% 0.007 247.9)"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Atlas Ink",
+        "canonical": "#14223d",
+        "tonalRamp": ["oklch(15% 0.055 262.4)", "oklch(27% 0.055 262.4)", "oklch(39% 0.055 262.4)", "oklch(51% 0.055 262.4)", "oklch(63% 0.055 262.4)", "oklch(75% 0.055 262.4)", "oklch(87% 0.055 262.4)", "oklch(95% 0.055 262.4)"]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Muted Research Ink",
+        "canonical": "#5d687b",
+        "tonalRamp": ["oklch(15% 0.033 261.4)", "oklch(27% 0.033 261.4)", "oklch(39% 0.033 261.4)", "oklch(51% 0.033 261.4)", "oklch(63% 0.033 261.4)", "oklch(75% 0.033 261.4)", "oklch(87% 0.033 261.4)", "oklch(95% 0.033 261.4)"]
+      },
+      "action-cobalt": {
+        "role": "primary",
+        "displayName": "Action Cobalt",
+        "canonical": "#0b4cb6",
+        "tonalRamp": ["oklch(15% 0.179 260.7)", "oklch(27% 0.179 260.7)", "oklch(39% 0.179 260.7)", "oklch(51% 0.179 260.7)", "oklch(63% 0.179 260.7)", "oklch(75% 0.179 260.7)", "oklch(87% 0.179 260.7)", "oklch(95% 0.179 260.7)"]
+      },
+      "action-cobalt-deep": {
+        "role": "primary",
+        "displayName": "Deep Cobalt",
+        "canonical": "#173f89",
+        "tonalRamp": ["oklch(15% 0.132 261.4)", "oklch(27% 0.132 261.4)", "oklch(39% 0.132 261.4)", "oklch(51% 0.132 261.4)", "oklch(63% 0.132 261.4)", "oklch(75% 0.132 261.4)", "oklch(87% 0.132 261.4)", "oklch(95% 0.132 261.4)"]
+      },
+      "action-cobalt-dark": {
+        "role": "primary",
+        "displayName": "Cobalt Ink",
+        "canonical": "#142f68",
+        "tonalRamp": ["oklch(15% 0.106 262.8)", "oklch(27% 0.106 262.8)", "oklch(39% 0.106 262.8)", "oklch(51% 0.106 262.8)", "oklch(63% 0.106 262.8)", "oklch(75% 0.106 262.8)", "oklch(87% 0.106 262.8)", "oklch(95% 0.106 262.8)"]
+      },
+      "confidence-wash": {
+        "role": "primary",
+        "displayName": "Confidence Wash",
+        "canonical": "#e4ecf8",
+        "tonalRamp": ["oklch(15% 0.018 258.4)", "oklch(27% 0.018 258.4)", "oklch(39% 0.018 258.4)", "oklch(51% 0.018 258.4)", "oklch(63% 0.018 258.4)", "oklch(75% 0.018 258.4)", "oklch(87% 0.018 258.4)", "oklch(95% 0.018 258.4)"]
+      },
+      "event-oxide": {
+        "role": "secondary",
+        "displayName": "Event Oxide",
+        "canonical": "#b8535c",
+        "tonalRamp": ["oklch(15% 0.131 16.7)", "oklch(27% 0.131 16.7)", "oklch(39% 0.131 16.7)", "oklch(51% 0.131 16.7)", "oklch(63% 0.131 16.7)", "oklch(75% 0.131 16.7)", "oklch(87% 0.131 16.7)", "oklch(95% 0.131 16.7)"]
+      },
+      "evidence-green": {
+        "role": "tertiary",
+        "displayName": "Evidence Green",
+        "canonical": "#83b844",
+        "tonalRamp": ["oklch(15% 0.157 130.4)", "oklch(27% 0.157 130.4)", "oklch(39% 0.157 130.4)", "oklch(51% 0.157 130.4)", "oklch(63% 0.157 130.4)", "oklch(75% 0.157 130.4)", "oklch(87% 0.157 130.4)", "oklch(95% 0.157 130.4)"]
+      },
+      "evidence-green-ink": {
+        "role": "tertiary",
+        "displayName": "Evidence Green Ink",
+        "canonical": "#527d14",
+        "tonalRamp": ["oklch(15% 0.137 130.4)", "oklch(27% 0.137 130.4)", "oklch(39% 0.137 130.4)", "oklch(51% 0.137 130.4)", "oklch(63% 0.137 130.4)", "oklch(75% 0.137 130.4)", "oklch(87% 0.137 130.4)", "oklch(95% 0.137 130.4)"]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Atlas Rule",
+        "canonical": "#cdcdcf",
+        "tonalRamp": ["oklch(15% 0.003 286.3)", "oklch(27% 0.003 286.3)", "oklch(39% 0.003 286.3)", "oklch(51% 0.003 286.3)", "oklch(63% 0.003 286.3)", "oklch(75% 0.003 286.3)", "oklch(87% 0.003 286.3)", "oklch(95% 0.003 286.3)"]
+      },
+      "rule-soft": {
+        "role": "neutral",
+        "displayName": "Soft Atlas Rule",
+        "canonical": "#e2e3e5",
+        "tonalRamp": ["oklch(15% 0.003 264.5)", "oklch(27% 0.003 264.5)", "oklch(39% 0.003 264.5)", "oklch(51% 0.003 264.5)", "oklch(63% 0.003 264.5)", "oklch(75% 0.003 264.5)", "oklch(87% 0.003 264.5)", "oklch(95% 0.003 264.5)"]
+      },
+      "inverse": {
+        "role": "neutral",
+        "displayName": "Inverse White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15% 0.000 89.9)", "oklch(27% 0.000 89.9)", "oklch(39% 0.000 89.9)", "oklch(51% 0.000 89.9)", "oklch(63% 0.000 89.9)", "oklch(75% 0.000 89.9)", "oklch(87% 0.000 89.9)", "oklch(95% 0.000 89.9)"]
+      },
+      "code-text": {
+        "role": "neutral",
+        "displayName": "Code Plate Text",
+        "canonical": "#dbe6f4",
+        "tonalRamp": ["oklch(15% 0.022 254.4)", "oklch(27% 0.022 254.4)", "oklch(39% 0.022 254.4)", "oklch(51% 0.022 254.4)", "oklch(63% 0.022 254.4)", "oklch(75% 0.022 254.4)", "oklch(87% 0.022 254.4)", "oklch(95% 0.022 254.4)"]
+      },
+      "code-muted": {
+        "role": "neutral",
+        "displayName": "Code Plate Muted",
+        "canonical": "#aebbd0",
+        "tonalRamp": ["oklch(15% 0.033 260.0)", "oklch(27% 0.033 260.0)", "oklch(39% 0.033 260.0)", "oklch(51% 0.033 260.0)", "oklch(63% 0.033 260.0)", "oklch(75% 0.033 260.0)", "oklch(87% 0.033 260.0)", "oklch(95% 0.033 260.0)"]
+      }
+    },
+    "typographyMeta": {
+      "statement": { "displayName": "Atlas Statement", "purpose": "Large section arguments on wide atlas sheets." },
+      "thesis": { "displayName": "Compact Thesis", "purpose": "The primary proposition in a specification band." },
+      "section-title": { "displayName": "Plate Title", "purpose": "Plot, pipeline, and evidence-region headings." },
+      "body": { "displayName": "Research Prose", "purpose": "Explanations, boundaries, and operational context." },
+      "nav-title": { "displayName": "Instrument Wordmark", "purpose": "The restrained text-only product title." },
+      "data": { "displayName": "State Data", "purpose": "Metrics, runtime facts, and checkpoint values." },
+      "label": { "displayName": "Atlas Label", "purpose": "Navigation, metadata, methods, legends, and state names." },
+      "code": { "displayName": "Executable Code", "purpose": "Rust composition examples and executable material." }
+    },
+    "shadows": [],
+    "motion": [
+      { "name": "state-fast", "value": "160ms ease", "purpose": "Color, background, and small transform feedback." },
+      { "name": "event-traverse", "value": "4.8s cubic-bezier(0.35, 0, 0.2, 1) 600ms 1 both", "purpose": "One oxide event pulse traverses a composed pipeline after entry." },
+      { "name": "reduced-motion", "value": "0.01ms 1", "purpose": "Removes traversal while preserving a static selected state." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "1100px" },
+      { "name": "mobile", "value": "760px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Atlas Navigation",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "A slim ruled navigation line with a text-only title and cobalt active state.",
+      "html": "<nav class=\"ds-atlas-nav\" aria-label=\"Design sample\"><a class=\"ds-atlas-brand\" href=\"#\">Helios Alpha</a><a class=\"ds-atlas-nav-link ds-is-active\" href=\"#\">Atlas</a><a class=\"ds-atlas-nav-link\" href=\"#\">Concepts</a><a class=\"ds-atlas-nav-link\" href=\"#\">Research</a></nav>",
+      "css": ".ds-atlas-nav { display: flex; gap: 28px; align-items: center; min-height: 52px; padding: 0 20px; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-atlas-brand, .ds-atlas-nav-link { position: relative; color: inherit; text-decoration: none; text-transform: uppercase; } .ds-atlas-brand { margin-right: auto; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 15px; font-variation-settings: \"MONO\" 1, \"CASL\" 0, \"wght\" 650; letter-spacing: 0.13em; } .ds-atlas-nav-link { align-self: stretch; display: grid; place-items: center; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 11px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.08em; } .ds-atlas-nav-link:hover, .ds-atlas-nav-link:focus-visible, .ds-atlas-nav-link.ds-is-active { color: var(--atlas-blue, #0b4cb6); } .ds-atlas-nav-link.ds-is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; content: \"\"; background: var(--atlas-blue, #0b4cb6); } .ds-atlas-nav-link:focus-visible, .ds-atlas-brand:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 4px; }"
+    },
+    {
+      "name": "Composition Guide Action",
+      "kind": "button",
+      "refersTo": "primary-action",
+      "description": "The transparent, underlined primary action used to move from evidence into a guide.",
+      "html": "<a class=\"ds-primary-action\" href=\"#\">Open the composition guide <span aria-hidden=\"true\">→</span></a>",
+      "css": ".ds-primary-action { display: inline-flex; gap: 16px; align-items: center; min-height: 20px; padding: 0 0 1px; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 11px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 650; letter-spacing: 0.05em; text-decoration: none; text-transform: uppercase; background: transparent; border-bottom: 1px solid currentColor; border-radius: 1px; transition: color 160ms ease; } .ds-primary-action:hover, .ds-primary-action:focus-visible { color: var(--atlas-oxide, #b8535c); } .ds-primary-action:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 4px; }"
+    },
+    {
+      "name": "Specification Band",
+      "kind": "custom",
+      "refersTo": "specification-fact",
+      "description": "Compact runtime facts aligned in a ruled strip beside a thesis.",
+      "html": "<dl class=\"ds-spec-band\"><div><dt>Kernel</dt><dd>helio_scan</dd></div><div><dt>Order</dt><dd>event time</dd></div><div><dt>State</dt><dd>versioned</dd></div><div><dt>Claim</dt><dd>mechanics, not alpha</dd></div></dl>",
+      "css": ".ds-spec-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-spec-band > div { min-width: 0; padding: 10px 20px; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-spec-band > div:first-child { border-left: 0; } .ds-spec-band dt { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; } .ds-spec-band dd { margin: 8px 0 0; overflow: hidden; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 13px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 580; text-overflow: ellipsis; white-space: nowrap; }"
+    },
+    {
+      "name": "Pipeline Stage Selector",
+      "kind": "custom",
+      "refersTo": "stage-node-active",
+      "description": "An inspectable typed stage with explicit index, node, method, and selected state.",
+      "html": "<button class=\"ds-pipeline-stage ds-is-active\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-stage-index\">04</span><span class=\"ds-stage-node\"><svg viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M3 16.5h14M3.5 16V3.5\"/><polyline points=\"5,13 8,10 10.5,12 14.5,6 17,8\"/></svg></span><span class=\"ds-stage-label\">Moments</span><span class=\"ds-stage-method\">try_push(x)</span></button>",
+      "css": ".ds-pipeline-stage { display: grid; grid-template-rows: 10px 36px auto auto; justify-items: start; min-width: 122px; padding: 0 18px 4px 0; color: var(--atlas-ink, #14223d); text-align: left; cursor: pointer; background: transparent; border: 0; } .ds-stage-index, .ds-stage-method { font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-variation-settings: \"MONO\" 1, \"CASL\" 0; text-transform: uppercase; } .ds-stage-index { color: #7f8897; font-size: 9px; } .ds-stage-node { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 2px; color: var(--atlas-blue, #0b4cb6); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-blue, #0b4cb6); border-radius: 50%; transition: color 160ms ease, background 160ms ease, transform 160ms ease; } .ds-stage-node svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.45; } .ds-stage-label { margin-top: 3px; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; } .ds-stage-method { margin-top: 3px; color: var(--atlas-muted, #5d687b); font-size: 9px; } .ds-pipeline-stage:hover .ds-stage-node, .ds-pipeline-stage:focus-visible .ds-stage-node, .ds-pipeline-stage.ds-is-active .ds-stage-node { color: #fff; background: var(--atlas-blue, #0b4cb6); transform: translateY(-2px); } .ds-pipeline-stage.ds-is-active .ds-stage-label { color: var(--atlas-blue, #0b4cb6); } .ds-pipeline-stage:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 5px; }"
+    },
+    {
+      "name": "Annotation Ledger",
+      "kind": "card",
+      "refersTo": "ruled-plate",
+      "description": "A flat ruled list that ties numbered notes to observed evidence.",
+      "html": "<section class=\"ds-annotation-ledger\" aria-label=\"Annotations\"><p class=\"ds-ledger-tab\">Annotations</p><ol><li><span>01</span>Availability time gates the feature stage.</li><li><span>02</span>Late and overflow states remain typed outcomes.</li><li><span>03</span>Signal logic enters at the composition boundary.</li></ol></section>",
+      "css": ".ds-annotation-ledger { padding: 15px 24px 12px; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-ledger-tab { padding-bottom: 6px; margin: 0; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid var(--atlas-blue, #0b4cb6); } .ds-annotation-ledger ol { padding: 0; margin: 7px 0 0; list-style: none; } .ds-annotation-ledger li { display: grid; grid-template-columns: 32px 1fr; gap: 8px; padding: 8px 0; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 12px; line-height: 1.42; border-bottom: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-annotation-ledger li span { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; }"
+    },
+    {
+      "name": "Checkpoint Ledger",
+      "kind": "card",
+      "refersTo": "ruled-plate",
+      "description": "A compact restart-state record that reserves green for verified compatibility.",
+      "html": "<section class=\"ds-checkpoint-ledger\"><p>Checkpoint ledger</p><dl><div><dt>Offset</dt><dd>184,512</dd></div><div><dt>Watermark</dt><dd>09:40:00Z</dd></div><div><dt>Snapshot</dt><dd>v1 · valid</dd></div><div><dt>Resume</dt><dd class=\"ds-is-verified\">compatible</dd></div></dl></section>",
+      "css": ".ds-checkpoint-ledger { padding: 15px 24px 12px; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-checkpoint-ledger > p { margin: 0; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; } .ds-checkpoint-ledger dl { margin: 7px 0 0; border-top: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-checkpoint-ledger dl > div { display: grid; grid-template-columns: 110px 1fr; padding: 5px 0; border-bottom: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-checkpoint-ledger dt, .ds-checkpoint-ledger dd { font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-variation-settings: \"MONO\" 1, \"CASL\" 0; } .ds-checkpoint-ledger dt { color: var(--atlas-muted, #5d687b); font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; } .ds-checkpoint-ledger dd { margin: 0; font-size: 11px; } .ds-checkpoint-ledger .ds-is-verified { color: #527d14; }"
+    },
+    {
+      "name": "Rust Code Plate",
+      "kind": "custom",
+      "refersTo": "code-plate",
+      "description": "An inverted, square-edged plate for executable composition examples.",
+      "html": "<section class=\"ds-code-plate\" aria-label=\"Rust composition example\"><div class=\"ds-code-bar\"><span>pipeline.rs</span><span>domain-free substrate</span></div><pre><code><span class=\"ds-code-keyword\">let</span> state = pipeline.step(event)?;\ncheckpoint.write(offset, state);</code></pre></section>",
+      "css": ".ds-code-plate { color: #dbe6f4; background: var(--atlas-ink, #14223d); border: 1px solid #0d172a; border-radius: 0; } .ds-code-bar { display: flex; justify-content: space-between; padding: 9px 13px; color: #aebbd0; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid #42506a; } .ds-code-plate pre { padding: 24px 26px; margin: 0; overflow-x: auto; background: transparent; } .ds-code-plate code { color: inherit; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 14px; line-height: 1.72; } .ds-code-keyword { color: #85b6ff; }"
+    },
+    {
+      "name": "Evidence Status Strip",
+      "kind": "custom",
+      "refersTo": "evidence-status",
+      "description": "A ruled disclosure that separates synthetic demonstration from verified mechanics and unproven alpha.",
+      "html": "<section class=\"ds-evidence-strip\" aria-label=\"Evidence status\"><strong>Synthetic data</strong><span>The plot explains mechanics. It is not a backtest result.</span><span>Mechanics <b>tested</b> · Alpha <i>unproven</i></span></section>",
+      "css": ".ds-evidence-strip { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; gap: 22px; align-items: center; min-height: 44px; padding: 7px 42px; color: var(--atlas-muted, #5d687b); background: var(--atlas-ground, #f9f9f9); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid var(--atlas-rule, #cdcdcf); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-evidence-strip strong { color: var(--atlas-blue, #0b4cb6); } .ds-evidence-strip b { color: #527d14; font-style: normal; } .ds-evidence-strip i { color: var(--atlas-oxide, #b8535c); font-style: normal; font-weight: 700; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Annotated Event Atlas",
+    "overview": "Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.\n\nThe world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.",
+    "keyCharacteristics": [
+      "Continuous cool-white atlas sheets divided by one-pixel rules.",
+      "Dense but readable evidence, aligned to a shared temporal or structural axis.",
+      "Archivo for explanation and Recursive for labels, metrics, and code.",
+      "Cobalt paths, oxide event marks, and scarce evidence green.",
+      "Flat depth, near-square controls, registration crosses, and authored SVG diagrams."
+    ],
+    "rules": [
+      { "name": "The Evidence Color Rule", "body": "Cobalt means action or active computation, oxide means event or caution, and green means verified evidence. Never use these colors as interchangeable decoration.", "section": "colors" },
+      { "name": "The Two-Hand Rule", "body": "Archivo explains the system. Recursive identifies, measures, and executes it.", "section": "typography" },
+      { "name": "The Shared Axis Rule", "body": "Related evidence must align to the same ruled grid, temporal axis, or state boundary. Do not scatter facts into independent cards.", "section": "layout" },
+      { "name": "The Flat Evidence Rule", "body": "If a region needs hierarchy, change its rule, tone, or alignment before considering any shadow. Shipping surfaces remain shadow-free.", "section": "elevation" },
+      { "name": "The Instrument Shape Rule", "body": "Corners stay square or nearly square. Circles identify nodes and measured points, never decorative badges.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do align state, annotation, and plot evidence to shared rules or axes.",
+      "Do keep synthetic demonstrations visibly labeled and distinguish tested mechanics from unproven alpha.",
+      "Do use cobalt for actions and selected paths, oxide for event or caution, and green only for verified state.",
+      "Do preserve keyboard focus, semantic controls, and a static reduced-motion state.",
+      "Do use authored SVG for diagrams and plots so labels and evidence remain inspectable."
+    ],
+    "donts": [
+      "Don't use generic SaaS feature cards, floating panels, gradients, or drop shadows.",
+      "Don't introduce dark trading-terminal styling, candlestick shorthand, or speculative profit cues.",
+      "Don't round structural containers or turn pipeline nodes into decorative badges.",
+      "Don't scatter evidence into unrelated tiles when a ruled ledger or shared axis can reveal the relationship.",
+      "Don't ship rasterized interface text. Any future shipping raster must carry prompt and provenance metadata."
+    ]
+  }
+}

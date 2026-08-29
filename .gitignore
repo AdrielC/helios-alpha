@@ -74,6 +74,9 @@ docs/_build/
 # PyBuilder
 .pybuilder/
 target/
+node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
 
 # Jupyter Notebook
 .ipynb_checkpoints

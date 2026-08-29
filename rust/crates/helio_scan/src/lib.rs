@@ -19,16 +19,16 @@
 //!
 //! - **[`Scan`]** — `init`, `step(state, input, emit)`, plus [`Scan::step_collect`] when you want a
 //!   `Vec` of outputs (0..N per step: **filter out** by emitting nothing, or gate with
-//!   [`EmitWhen`](crate::EmitWhen)). Also [`Scan::then`] (pipeline) and [`Scan::and`] (same-input fan-out).
+//!   [`EmitWhen`]). Also [`Scan::then`] (pipeline) and [`Scan::and`] (same-input fan-out).
 //!   The emit parameter is an [`Emit`] sink so hot paths stay allocation-free for 1:1 scans.
 //! - **[`FlushableScan`]** — `flush(state, signal, emit)` with [`FlushReason`] (session close,
 //!   checkpoint, watermark, shutdown, …). Keeps **domain inputs** separate from **control**.
 //! - **[`SnapshottingScan`]** — serializable [`Snapshot`](SnapshottingScan::Snapshot) distinct from
 //!   raw runtime state when you need stable persistence.
 //! - **Combinators** — [`Map`], [`FilterMap`], [`Then`] (pipeline), [`ZipInput`] (fan-out on same
-//!   input), **arrow-style** [`Arr`], [`Split`], [`Merge`], [`Choose`], [`Fanin`], [`First`], [`Second`]
-//!   ([`arrow`] module), **core arrow** [`Id`], [`Dup`], [`ArrowApply`], [`ZipTuple`] / [`Both`],
-//!   [`EmitWhen`], [`OnLeft`], [`OnRight`] ([`arrow_core`] module), and [`scan_then!`] for nested `Then`.
+//!   input), **arrow-style** [`Arr`], [`Split`], [`Merge`], [`Choose`], [`Fanin`], [`First`],
+//!   [`Second`], **core arrow** [`Id`], [`Dup`], [`ArrowApply`], [`ZipTuple`] / [`Both`],
+//!   [`EmitWhen`], [`OnLeft`], [`OnRight`], and [`scan_then!`] for nested `Then`.
 //!   Composed state uses **named structs** ([`ThenState`], [`ZipInputState`]) instead of tuple soup.
 //! - **[`Focus`]** — minimal typed paths into composed state ([`ThenLeft`], [`ThenRight`],
 //!   [`ZipInputA`], [`ZipInputB`]).
@@ -37,7 +37,7 @@
 //! - **[`Runner`]** — owns `(machine, state)` and forwards `step` / `flush` / `step_batch`.
 //! - **[`ScanBatchExt`]** — default `step_batch` = ordered `step`; **[`BatchOptimizedScan`]**
 //!   for lawful fused batches (opt-in).
-//! - **Runners** ([`runners`]) — `run_iter` / `run_batch`, `run_slice`, `run_receiver`, optional
+//! - **Runners** — [`run_iter`] / [`run_batch`], [`run_slice`], [`run_receiver`], and optional
 //!   `run_stream` (Tokio MPSC, feature `stream`).
 //!
 //! ## Where domain logic lives

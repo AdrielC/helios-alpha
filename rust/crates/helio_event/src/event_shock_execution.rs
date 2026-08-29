@@ -5,7 +5,7 @@ use helio_scan::{
 };
 use helio_time::{SimpleWeekdayCalendar, TradingCalendar};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::marker::PhantomData;
 
 use crate::{EventShockSignal, Exposure, Symbol, TradeResult};
@@ -70,7 +70,7 @@ pub enum EventShockReplayRecord {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct EventShockExecutionState {
-    pending: Vec<EventShockSignal>,
+    pending: VecDeque<EventShockSignal>,
     bars: HashMap<(SessionDate, String), DailyBar>,
 }
 
@@ -139,7 +139,7 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
 
     fn push_pending(&self, state: &mut EventShockExecutionState, sig: EventShockSignal) {
         match self.buffer_policy {
-            ExecutionBufferPolicy::Unbounded => state.pending.push(sig),
+            ExecutionBufferPolicy::Unbounded => state.pending.push_back(sig),
             ExecutionBufferPolicy::Cap {
                 max_pending,
                 overflow,
@@ -148,12 +148,9 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
                 match overflow {
                     ExecutionBufferOverflow::DropOldest => {
                         while state.pending.len() >= cap {
-                            if state.pending.is_empty() {
-                                break;
-                            }
-                            state.pending.remove(0);
+                            state.pending.pop_front();
                         }
-                        state.pending.push(sig);
+                        state.pending.push_back(sig);
                     }
                 }
             }
@@ -162,7 +159,9 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
 
     fn entry_price_session(&self, entry_session: SessionDate) -> SessionDate {
         match self.entry_timing {
-            ExecutionEntryTiming::NextSessionOpen => self.calendar.next_session_after(entry_session),
+            ExecutionEntryTiming::NextSessionOpen => {
+                self.calendar.next_session_after(entry_session)
+            }
             ExecutionEntryTiming::EntrySessionOpen => entry_session,
         }
     }
@@ -319,13 +318,12 @@ impl<C: TradingCalendar + Copy> SignalExecutionScan<C> {
         state: &mut EventShockExecutionState,
         emit: &mut E,
     ) {
-        let mut i = 0;
-        while i < state.pending.len() {
-            if let Some(tr) = self.try_execute(state, &state.pending[i]) {
-                let _ = state.pending.swap_remove(i);
+        let mut waiting = std::mem::take(&mut state.pending);
+        while let Some(signal) = waiting.pop_front() {
+            if let Some(tr) = self.try_execute(state, &signal) {
                 emit.emit(tr);
             } else {
-                i += 1;
+                state.pending.push_back(signal);
             }
         }
     }
@@ -346,7 +344,7 @@ impl<C: TradingCalendar + Copy> SnapshottingScan for SignalExecutionScan<C> {
 
     fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
         EventShockExecutionSnapshot {
-            pending: state.pending.clone(),
+            pending: state.pending.iter().cloned().collect(),
             bars: state.bars.values().cloned().collect(),
         }
     }
@@ -357,7 +355,7 @@ impl<C: TradingCalendar + Copy> SnapshottingScan for SignalExecutionScan<C> {
             bars.insert((b.session, sym_key(&b.symbol)), b);
         }
         EventShockExecutionState {
-            pending: snapshot.pending,
+            pending: snapshot.pending.into(),
             bars,
         }
     }

@@ -241,8 +241,7 @@ where
         E: Emit<Self::Out>,
     {
         let mut la = VecEmitter::new();
-        self.left
-            .flush(&mut state.left, signal.clone(), &mut la);
+        self.left.flush(&mut state.left, signal.clone(), &mut la);
         let mut lb = VecEmitter::new();
         self.right.flush(&mut state.right, signal, &mut lb);
         let outs_b = lb.into_inner();

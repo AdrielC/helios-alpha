@@ -1,15 +1,17 @@
 //! End-to-end replay record: shocks + bars → [`TradeResult`](crate::TradeResult).
 
 use helio_scan::{
-    Emit, FlushReason, FlushableScan, Scan, SessionDate, SnapshottingScan, VersionedSnapshot,
+    DiscardEmitter, Emit, FlushReason, FlushableScan, Scan, SessionDate, SnapshottingScan,
+    VersionedSnapshot,
 };
 use helio_time::{utc_calendar_day, AvailableAt, SimpleWeekdayCalendar, TradingCalendar};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    EventShockAlignPipelineScan, EventShockControlConfig, EventShockControlSamplerScan,
-    EventShockFilterConfig, EventShockReplayRecord, EventShockStreamItem, EventShockToSignalScan,
-    ExecutionBufferPolicy, ExecutionEntryTiming, ExitPolicy, Exposure, SignalExecutionScan, TradeResult,
+    AlignedEventShock, EventShockAlignPipelineScan, EventShockControlConfig,
+    EventShockControlSamplerScan, EventShockFilterConfig, EventShockReplayRecord, EventShockSignal,
+    EventShockStreamItem, EventShockToSignalScan, ExecutionBufferPolicy, ExecutionEntryTiming,
+    ExitPolicy, Exposure, SignalExecutionScan, TradeResult,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -41,6 +43,68 @@ pub struct EventShockVerticalSnapshot {
     pub to_signal: crate::EventShockToSignalSnapshot,
     pub control: crate::EventShockControlSamplerSnapshot,
     pub exec: crate::EventShockExecutionSnapshot,
+}
+
+struct SignalExecutionEmit<'a, C, E>
+where
+    C: TradingCalendar + Copy,
+{
+    scan: &'a SignalExecutionScan<C>,
+    state: &'a mut crate::EventShockExecutionState,
+    sink: &'a mut E,
+}
+
+impl<C, E> Emit<EventShockSignal> for SignalExecutionEmit<'_, C, E>
+where
+    C: TradingCalendar + Copy,
+    E: Emit<TradeResult>,
+{
+    #[inline]
+    fn emit(&mut self, signal: EventShockSignal) {
+        self.scan.step(
+            self.state,
+            EventShockReplayRecord::Signal(signal),
+            self.sink,
+        );
+    }
+}
+
+struct AlignedExecutionEmit<'a, C, E>
+where
+    C: TradingCalendar + Copy,
+{
+    to_signal: &'a EventShockToSignalScan<C>,
+    to_signal_state: &'a mut crate::EventShockToSignalState,
+    control: &'a EventShockControlSamplerScan<C>,
+    control_state: &'a mut crate::EventShockControlSamplerState,
+    exec: &'a SignalExecutionScan<C>,
+    exec_state: &'a mut crate::EventShockExecutionState,
+    sink: &'a mut E,
+}
+
+impl<C, E> Emit<AlignedEventShock> for AlignedExecutionEmit<'_, C, E>
+where
+    C: TradingCalendar + Copy,
+    E: Emit<TradeResult>,
+{
+    fn emit(&mut self, aligned: AlignedEventShock) {
+        {
+            let mut signal_emit = SignalExecutionEmit {
+                scan: self.exec,
+                state: self.exec_state,
+                sink: self.sink,
+            };
+            self.to_signal
+                .step(self.to_signal_state, aligned.clone(), &mut signal_emit);
+        }
+        let mut control_emit = SignalExecutionEmit {
+            scan: self.exec,
+            state: self.exec_state,
+            sink: self.sink,
+        };
+        self.control
+            .step(self.control_state, aligned, &mut control_emit);
+    }
 }
 
 impl<C: TradingCalendar + Copy> EventShockVerticalScan<C> {
@@ -126,40 +190,21 @@ impl<C: TradingCalendar + Copy> Scan for EventShockVerticalScan<C> {
     {
         match input {
             EventShockVerticalRecord::Shock(_, shock) => {
-                let mut aligned = helio_scan::VecEmitter::new();
+                let mut aligned_emit = AlignedExecutionEmit {
+                    to_signal: &self.to_signal,
+                    to_signal_state: &mut state.to_signal,
+                    control: &self.control,
+                    control_state: &mut state.control,
+                    exec: &self.exec,
+                    exec_state: &mut state.exec,
+                    sink: emit,
+                };
                 self.align_pipe
-                    .step(&mut state.align_pipe, shock, &mut aligned);
-                for a in aligned.into_inner() {
-                    let mut sigs = helio_scan::VecEmitter::new();
-                    self.to_signal
-                        .step(&mut state.to_signal, a.clone(), &mut sigs);
-                    for s in sigs.into_inner() {
-                        let mut e2 = helio_scan::VecEmitter::new();
-                        self.exec
-                            .step(&mut state.exec, EventShockReplayRecord::Signal(s), &mut e2);
-                        for tr in e2.into_inner() {
-                            emit.emit(tr);
-                        }
-                    }
-                    let mut ctr = helio_scan::VecEmitter::new();
-                    self.control.step(&mut state.control, a, &mut ctr);
-                    for s in ctr.into_inner() {
-                        let mut e2 = helio_scan::VecEmitter::new();
-                        self.exec
-                            .step(&mut state.exec, EventShockReplayRecord::Signal(s), &mut e2);
-                        for tr in e2.into_inner() {
-                            emit.emit(tr);
-                        }
-                    }
-                }
+                    .step(&mut state.align_pipe, shock, &mut aligned_emit);
             }
             EventShockVerticalRecord::Bar(b) => {
-                let mut e2 = helio_scan::VecEmitter::new();
                 self.exec
-                    .step(&mut state.exec, EventShockReplayRecord::Bar(b), &mut e2);
-                for tr in e2.into_inner() {
-                    emit.emit(tr);
-                }
+                    .step(&mut state.exec, EventShockReplayRecord::Bar(b), emit);
             }
         }
     }
@@ -177,21 +222,12 @@ impl<C: TradingCalendar + Copy> FlushableScan for EventShockVerticalScan<C> {
     where
         E: Emit<Self::Out>,
     {
-        self.align_pipe.flush(
-            &mut state.align_pipe,
-            signal.clone(),
-            &mut helio_scan::VecEmitter::new(),
-        );
-        self.to_signal.flush(
-            &mut state.to_signal,
-            signal.clone(),
-            &mut helio_scan::VecEmitter::new(),
-        );
-        self.control.flush(
-            &mut state.control,
-            signal.clone(),
-            &mut helio_scan::VecEmitter::new(),
-        );
+        self.align_pipe
+            .flush(&mut state.align_pipe, signal.clone(), &mut DiscardEmitter);
+        self.to_signal
+            .flush(&mut state.to_signal, signal.clone(), &mut DiscardEmitter);
+        self.control
+            .flush(&mut state.control, signal.clone(), &mut DiscardEmitter);
         self.exec.flush(&mut state.exec, signal, emit);
     }
 }

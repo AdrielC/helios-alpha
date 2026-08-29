@@ -104,10 +104,7 @@ mod tests {
         via_trait.step(&mut st_t, 2u64, &mut e_t);
         via_struct.step(&mut st_s, 2u64, &mut e_s);
         assert_eq!(e_t.0, e_s.0);
-        assert_eq!(
-            e_t.0,
-            vec![ZipInputOut::A(2u64), ZipInputOut::B(2u64)]
-        );
+        assert_eq!(e_t.0, vec![ZipInputOut::A(2u64), ZipInputOut::B(2u64)]);
     }
 
     #[test]

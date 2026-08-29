@@ -7,6 +7,7 @@ This document is the **agent-facing** map for the semantic vs operational split.
 | Concern | Crate |
 |---------|--------|
 | Scan algebra (no domain) | `helio_scan` |
+| Stable online/parallel statistics | `helio_stats` |
 | **What** a window/bucket means (frequency, bounds, alignment) | `helio_time` |
 | **How** to hold data and aggregate (ring buffer, traits, scans) | `helio_window` |
 
@@ -31,7 +32,11 @@ Three calendar days, three fixed 24h steps, and three sessions are **not** inter
 
 ### Wall-clock bucket width (`WallBucketGrid`)
 
-For **epoch-aligned** fixed-width buckets on a scalar timeline, use `helio_time::WallBucketGrid` (`NanosecondWallBucket`, `SecondWallBucket`, …) with `helio_window::TimeBucketAggregatorScan<G, V>` and `TimeBucketEvent<G>`. This is separate from `WindowSpec` / sample-count rolling: the grid defines **bucket_start(t)** and **bucket_end_exclusive**; the event type supplies **which instant** maps to `G::T` and the **mean_sample** summand. Wrap `Timed<T>` as `TimedPriceEvent` when bucketing on `available_at` in nanoseconds.
+For new pipelines, use `helio_window::BucketReduceScan<G, V, R>` with a `WallBucketGrid`, `BucketTimed` input, and injected `BucketReducer`. `F64MomentsReducer` supplies stable count/mean/variance without baking price semantics into the scan. It rejects regressed input and non-finite projected values explicitly; checkpoint flushes preserve partial buckets.
+
+When a source can arrive out of order, use `EventTimeReorderScan` or the combined `OrderedBucketPipeline`. The reorder state is capacity-bounded, emits ready values in `(event_time, arrival_sequence)` order, and returns late/overflow records as typed outputs. Its `FallibleRestoreScan` implementation rejects over-capacity, duplicate, mistimed, or watermark-inconsistent snapshots. A watermark first drains ordered input into the bucket reducer and then closes buckets whose right edge is at or before that watermark.
+
+`TimeBucketAggregatorScan<G, V>` remains as a legacy mean-only ordered-input adapter. It no longer closes partial buckets on checkpoint or rebalance.
 
 ### Do not confuse spec with eviction
 
@@ -57,9 +62,16 @@ Additive helpers: `Samples<N>`, `Fixed<N, Days>`, `Sessions<N>`, etc. They conve
 - `WindowBuffer<T>` — FIFO ring (evict from front).
 - `WindowAggregator<T>`, `EvictingWindowAggregator<T>` — insert vs insert+evict.
 - `SumCountMeanAggregator` — eviction-aware sum/count/mean.
+- `RollingMomentsAggregator` / `rolling_moments_scan`: stable rolling mean/variance/stddev with explicit non-finite and numerical-rejection counts.
 - `WindowState<T, A>` — `WindowSpec` + buffer + evicting aggregator (sample-count trailing).
 - `FoldWindowState` — O(window) fold on each emit (generic summaries).
 - `RollingAggregatorScan`, `RollingFoldScan`, `rolling_mean_scan` — emit when buffer is full.
+
+## Mergeable statistics (`helio_stats`)
+
+`OnlineMoments` stores `(count, mean, M2)` and supports Welford updates, rolling removal, and Chan-style partial-state merges. `merge_moments_balanced` fixes a deterministic balanced merge tree for replay. Floating-point merges are associative only in exact arithmetic, so production partitioning and merge order must remain part of the pipeline fingerprint.
+
+`OnlineCovariance` provides mergeable marginal variances, covariance, and correlation. `OnlineMomentsScan`, `OnlineCovarianceScan`, and `HawkesScan` expose these states through the standard `Scan` / snapshot interfaces and reject invalid external snapshots through `FallibleRestoreScan`.
 
 ## Forward horizon
 

@@ -7,7 +7,7 @@ use helio_scan::{
 use helio_time::WindowSpec;
 use serde::{Deserialize, Serialize};
 
-use crate::agg::{EvictingWindowAggregator, SumCountMeanAggregator};
+use crate::agg::{EvictingWindowAggregator, RollingMomentsAggregator, SumCountMeanAggregator};
 use crate::window_state::{FoldWindowState, WindowState};
 
 /// Fixed-size FIFO window; emits **full snapshots** (oldest→newest) when length reaches `max_len`.
@@ -237,6 +237,12 @@ pub fn rolling_mean_scan(n: u32) -> RollingAggregatorScan<f64, SumCountMeanAggre
     RollingAggregatorScan::new(WindowSpec::trailing_samples(n))
 }
 
+/// Trailing *n* samples with stable mean, variance, and standard deviation.
+#[inline]
+pub fn rolling_moments_scan(n: u32) -> RollingAggregatorScan<f64, RollingMomentsAggregator> {
+    RollingAggregatorScan::new(WindowSpec::trailing_samples(n))
+}
+
 /// Fold-on-snapshot rolling window (O(window) per emit).
 #[derive(Debug, Clone)]
 pub struct RollingFoldScan<T, S, F> {
@@ -317,6 +323,51 @@ mod tests {
         s.step(&mut st, 10.0, &mut e);
         assert_eq!(e.0.len(), 2);
         assert!((e.0[1].sum - 15.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rolling_moments_tracks_variance_after_eviction() {
+        let scan = rolling_moments_scan(3);
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+        for value in [1.0, 2.0, 3.0, 10.0] {
+            scan.step(&mut state, value, &mut emit);
+        }
+        assert_eq!(emit.0.len(), 2);
+        assert_eq!(emit.0[0].moments.mean(), Some(2.0));
+        assert_eq!(emit.0[0].moments.sample_variance(), Some(1.0));
+        assert_eq!(emit.0[1].moments.mean(), Some(5.0));
+        assert_eq!(emit.0[1].moments.sample_variance(), Some(19.0));
+    }
+
+    #[test]
+    fn rolling_moments_counts_non_finite_values() {
+        let scan = rolling_moments_scan(2);
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+        scan.step(&mut state, f64::NAN, &mut emit);
+        scan.step(&mut state, 3.0, &mut emit);
+        assert_eq!(emit.0[0].rejected_non_finite, 1);
+        assert_eq!(emit.0[0].moments.mean(), Some(3.0));
+        scan.step(&mut state, 5.0, &mut emit);
+        assert_eq!(emit.0[1].rejected_non_finite, 0);
+        assert_eq!(emit.0[1].moments.mean(), Some(4.0));
+    }
+
+    #[test]
+    fn rolling_moments_does_not_evict_unadmitted_finite_values() {
+        let scan = rolling_moments_scan(2);
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+        for value in [f64::MAX, -f64::MAX, 1.0, 2.0] {
+            scan.step(&mut state, value, &mut emit);
+        }
+
+        assert_eq!(emit.0[0].moments.count(), 1);
+        assert_eq!(emit.0[0].rejected_numerical, 1);
+        assert_eq!(emit.0[2].rejected_numerical, 0);
+        assert_eq!(emit.0[2].moments.mean(), Some(1.5));
+        assert_eq!(emit.0[2].moments.sample_variance(), Some(0.5));
     }
 
     #[test]

@@ -1,0 +1,44 @@
+# Online statistics
+
+Streaming statistics must update one item at a time, merge partial partitions, and survive restart without changing their meaning.
+
+## Variance: Welford locally, Chan across partitions
+
+`OnlineMoments` stores `(count, mean, M2)`, where `M2` is the sum of squared deviations from the mean.
+
+For one new value, Welford's recurrence avoids the catastrophic cancellation in `sum(x²) - sum(x)² / n`. For two partial states, the Chan-Golub-LeVeque merge combines their counts, means, and `M2` values.
+
+```rust
+use helio_stats::{OnlineMoments, merge_moments_balanced};
+
+let mut left = OnlineMoments::new();
+left.try_push(1.0)?;
+left.try_push(2.0)?;
+
+let mut right = OnlineMoments::new();
+right.try_push(3.0)?;
+right.try_push(4.0)?;
+
+let merged = merge_moments_balanced([left, right])?;
+assert_eq!(merged.mean(), Some(2.5));
+```
+
+Floating-point merging is associative only in exact arithmetic. Keep partitioning and the deterministic merge tree in the pipeline fingerprint when bit-reproducible replay matters.
+
+## Rolling removal
+
+`try_remove` supports bounded windows. Removal is less robust than immutable block merges for long-lived, high-dynamic-range series. Rebuild periodically from the owned ring buffer or use a block merge tree when that error profile matters.
+
+## Covariance
+
+`OnlineCovariance` maintains both marginal variances and the co-moment needed for covariance and correlation. It supports the same one-item update, partial merge, snapshot, and validation story.
+
+## Hawkes intensity
+
+`ExponentialHawkes` maintains exponential-kernel excitation in O(1) state per event:
+
+```text
+λ(t) = baseline + Σ jump × markᵢ × exp(-decay × (t - tᵢ))
+```
+
+This is an online filter, not a fitting procedure and not evidence of predictability. Fit parameters out of sample, validate residuals, and include mark and regime assumptions before using intensity as a research feature.

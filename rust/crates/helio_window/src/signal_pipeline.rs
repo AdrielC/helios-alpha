@@ -17,9 +17,7 @@
 use std::marker::PhantomData;
 use std::ops::Sub;
 
-use helio_scan::{
-    Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot,
-};
+use helio_scan::{Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot};
 use helio_time::{AvailableAt, NanosecondWallBucket, Timed, WallBucketGrid};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
@@ -91,7 +89,10 @@ impl<G: WallBucketGrid> BucketBarClose<G> {
     }
 }
 
-/// Aggregate **`V`** into buckets defined by **`G`**; emit when the bucket key **changes** or on `flush`.
+/// Legacy mean-only bucket scan over ordered input.
+///
+/// New pipelines should prefer [`crate::BucketReduceScan`], which supports pluggable reducers,
+/// explicit late-input rejection, watermarks, and checkpoint-safe partial buckets.
 #[derive(Debug, Clone)]
 pub struct TimeBucketAggregatorScan<G: WallBucketGrid, V: TimeBucketEvent<G>> {
     pub grid: G,
@@ -206,10 +207,13 @@ impl<G: WallBucketGrid, V: TimeBucketEvent<G>> Scan for TimeBucketAggregatorScan
 impl<G: WallBucketGrid, V: TimeBucketEvent<G>> FlushableScan for TimeBucketAggregatorScan<G, V> {
     type Offset = u64;
 
-    fn flush<E>(&self, state: &mut Self::State, _signal: FlushReason<Self::Offset>, emit: &mut E)
+    fn flush<E>(&self, state: &mut Self::State, signal: FlushReason<Self::Offset>, emit: &mut E)
     where
         E: Emit<Self::Out>,
     {
+        if matches!(signal, FlushReason::Checkpoint(_) | FlushReason::Rebalance) {
+            return;
+        }
         if let Some(cur) = state.open_bucket_start.take() {
             self.flush_open_bucket(state, cur, emit);
         }
@@ -303,9 +307,7 @@ impl SnapshottingScan for EmaScan {
     }
 
     fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
-        EmaState {
-            ema: snapshot.ema,
-        }
+        EmaState { ema: snapshot.ema }
     }
 }
 
@@ -354,7 +356,9 @@ impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> Scan for Sequenti
     }
 }
 
-impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> FlushableScan for SequentialDiffScan<T> {
+impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> FlushableScan
+    for SequentialDiffScan<T>
+{
     type Offset = u64;
 
     fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
@@ -370,9 +374,7 @@ impl<T: Copy + Sub<Output = T> + Serialize + DeserializeOwned> SnapshottingScan
     type Snapshot = SequentialDiffSnapshot<T>;
 
     fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
-        SequentialDiffSnapshot {
-            prev: state.prev,
-        }
+        SequentialDiffSnapshot { prev: state.prev }
     }
 
     fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
@@ -420,14 +422,7 @@ mod tests {
         });
         let mut st = s.init();
         let mut e = VecEmitter::new();
-        s.step(
-            &mut st,
-            VolTickNs {
-                t_ns: 0,
-                vol: 10,
-            },
-            &mut e,
-        );
+        s.step(&mut st, VolTickNs { t_ns: 0, vol: 10 }, &mut e);
         s.step(
             &mut st,
             VolTickNs {
