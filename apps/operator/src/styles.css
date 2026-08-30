@@ -63,6 +63,6 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3c515e;
+  background: var(--atlas-axis);
   border: 2px solid #091117;
 }

@@ -14,6 +14,17 @@ export type OrderState =
   | "unknown";
 export type StrategyState = "running" | "paused" | "blocked";
 export type StageState = "running" | "paused" | "blocked" | "replaying";
+export type AlertSeverity = "critical" | "warning" | "info";
+export type AlertStatus = "open" | "acknowledged" | "resolved";
+
+export interface OperationsContext {
+  readonly organizationId: string;
+  readonly organizationName: string;
+  readonly workspaceId: string;
+  readonly workspaceName: string;
+  readonly accountId: string;
+  readonly accountName: string;
+}
 
 export interface SignalPoint {
   readonly offsetSeconds: number;
@@ -22,6 +33,7 @@ export interface SignalPoint {
 
 export interface SignalView {
   readonly id: string;
+  readonly strategyId: string;
   readonly hypothesis: string;
   readonly instrument: string;
   readonly state: SignalState;
@@ -118,21 +130,70 @@ export interface StrategyView {
 export interface StageView {
   readonly id: string;
   readonly name: string;
-  readonly kind: "source" | "ordering" | "feature" | "hypothesis" | "risk" | "execution";
+  readonly kind: string;
   readonly state: StageState;
   readonly lagMs: number;
   readonly checkpoint: string;
   readonly detail: string;
+  readonly canPauseBefore: boolean;
+}
+
+export interface AlertView {
+  readonly id: string;
+  readonly severity: AlertSeverity;
+  readonly status: AlertStatus;
+  readonly category: string;
+  readonly title: string;
+  readonly detail: string;
+  readonly openedAt: string;
+  readonly updatedAt: string;
+  readonly relatedEntity?: {
+    readonly kind: string;
+    readonly id: string;
+    readonly label: string;
+  };
+}
+
+export interface MetricPoint {
+  readonly timestamp: string;
+  readonly value: number;
+}
+
+export interface ReferenceLine {
+  readonly label: string;
+  readonly value: number;
+  readonly tone: "neutral" | "warning" | "critical";
+}
+
+export interface MetricSeriesView {
+  readonly id: string;
+  readonly label: string;
+  readonly unit: "USD" | "%" | "ms" | "count";
+  readonly tone: "cyan" | "green" | "coral";
+  readonly points: readonly MetricPoint[];
+  readonly referenceLines: readonly ReferenceLine[];
+}
+
+export interface ActivityView {
+  readonly id: string;
+  readonly sequence: number;
+  readonly occurredAt: string;
+  readonly category: string;
+  readonly source: string;
+  readonly stage: string;
+  readonly entity: string;
+  readonly outcome: string;
+  readonly severity: "normal" | "warning" | "critical";
 }
 
 export interface OperationsSnapshot {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly sequence: number;
   readonly mode: FeedMode;
   readonly provider: string;
   readonly observedAt: string;
   readonly dataClass: "synthetic" | "observed";
-  readonly accountLabel: string;
+  readonly context: OperationsContext;
   readonly strategies: readonly StrategyView[];
   readonly stages: readonly StageView[];
   readonly signals: readonly SignalView[];
@@ -140,6 +201,9 @@ export interface OperationsSnapshot {
   readonly orders: readonly OrderView[];
   readonly fills: readonly FillView[];
   readonly sources: readonly SourceView[];
+  readonly alerts: readonly AlertView[];
+  readonly metrics: readonly MetricSeriesView[];
+  readonly activity: readonly ActivityView[];
   readonly risk: RiskView;
 }
 
@@ -162,13 +226,20 @@ export interface OperationsPort {
 const initialObservedAt = "2026-08-30T15:42:18.420Z";
 
 export const initialOperationsSnapshot: OperationsSnapshot = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   sequence: 184_512,
   mode: "shadow",
   provider: "DemoOperationsPort",
   observedAt: initialObservedAt,
   dataClass: "synthetic",
-  accountLabel: "SPACE-WEATHER / SHADOW",
+  context: {
+    organizationId: "northstar-research",
+    organizationName: "Northstar Research",
+    workspaceId: "event-strategies",
+    workspaceName: "Event Strategies",
+    accountId: "shadow-01",
+    accountName: "Shadow 01",
+  },
   strategies: [
     {
       id: "cme-liquidity-v3",
@@ -204,6 +275,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       lagMs: 184,
       checkpoint: "src:184512",
       detail: "Backfill and live tail joined",
+      canPauseBefore: false,
     },
     {
       id: "event-order",
@@ -213,6 +285,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       lagMs: 311,
       checkpoint: "ord:184508",
       detail: "2s watermark, one declared gap",
+      canPauseBefore: true,
     },
     {
       id: "feature-state",
@@ -222,6 +295,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       lagMs: 422,
       checkpoint: "feat:184505",
       detail: "10m buckets and stable moments",
+      canPauseBefore: true,
     },
     {
       id: "hypothesis-update",
@@ -231,6 +305,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       lagMs: 588,
       checkpoint: "hyp:184501",
       detail: "Point-in-time posterior update",
+      canPauseBefore: true,
     },
     {
       id: "risk-admission",
@@ -240,6 +315,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       lagMs: 642,
       checkpoint: "risk:184498",
       detail: "Capital gate closed",
+      canPauseBefore: true,
     },
     {
       id: "execution-router",
@@ -249,11 +325,13 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       lagMs: 642,
       checkpoint: "exec:184498",
       detail: "No live order authority",
+      canPauseBefore: true,
     },
   ],
   signals: [
     {
       id: "cme-arrival-btc-01",
+      strategyId: "cme-liquidity-v3",
       hypothesis: "CME shock to crypto liquidity",
       instrument: "BTC-USD",
       state: "eligible",
@@ -279,6 +357,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
     },
     {
       id: "kp-grid-semis-02",
+      strategyId: "geomagnetic-semis-v2",
       hypothesis: "Geomagnetic stress to semiconductor basket",
       instrument: "SMH",
       state: "observing",
@@ -305,6 +384,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
     },
     {
       id: "solar-wind-energy-03",
+      strategyId: "solar-wind-vol-v1",
       hypothesis: "Solar-wind impulse to power volatility",
       instrument: "VIX",
       state: "blocked",
@@ -457,6 +537,113 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       detail: "3 instruments current",
     },
   ],
+  alerts: [
+    {
+      id: "alert-source-gap",
+      severity: "warning",
+      status: "open",
+      category: "market data",
+      title: "Packet gap on DSCOVR",
+      detail: "The plasma channel is 4.82 seconds behind its active watermark.",
+      openedAt: "2026-08-30T15:41:58.600Z",
+      updatedAt: "2026-08-30T15:42:13.600Z",
+      relatedEntity: { kind: "source", id: "DSCOVR:solar-wind-plasma", label: "DSCOVR / solar-wind-plasma" },
+    },
+    {
+      id: "alert-capital-gate",
+      severity: "info",
+      status: "open",
+      category: "risk",
+      title: "Capital admission closed",
+      detail: "The account remains in shadow mode until its evidence window completes.",
+      openedAt: "2026-08-30T14:00:00.000Z",
+      updatedAt: "2026-08-30T15:42:18.420Z",
+      relatedEntity: { kind: "account", id: "shadow-01", label: "Shadow 01" },
+    },
+    {
+      id: "alert-capacity-model",
+      severity: "warning",
+      status: "acknowledged",
+      category: "strategy",
+      title: "Capacity evidence expired",
+      detail: "The strategy is blocked pending a refreshed market-impact estimate.",
+      openedAt: "2026-08-30T15:37:20.000Z",
+      updatedAt: "2026-08-30T15:40:02.000Z",
+      relatedEntity: { kind: "strategy", id: "solar-wind-vol-v1", label: "Solar-wind volatility response" },
+    },
+  ],
+  metrics: [
+    {
+      id: "gross-exposure",
+      label: "Gross exposure",
+      unit: "USD",
+      tone: "cyan",
+      points: [
+        { timestamp: "2026-08-30T15:36:48.420Z", value: 22_420 },
+        { timestamp: "2026-08-30T15:37:18.420Z", value: 22_910 },
+        { timestamp: "2026-08-30T15:37:48.420Z", value: 23_080 },
+        { timestamp: "2026-08-30T15:38:18.420Z", value: 23_840 },
+        { timestamp: "2026-08-30T15:38:48.420Z", value: 24_110 },
+        { timestamp: "2026-08-30T15:39:18.420Z", value: 24_820 },
+        { timestamp: "2026-08-30T15:39:48.420Z", value: 25_180 },
+        { timestamp: "2026-08-30T15:40:18.420Z", value: 25_240 },
+        { timestamp: "2026-08-30T15:40:48.420Z", value: 25_610 },
+        { timestamp: "2026-08-30T15:41:18.420Z", value: 25_820 },
+        { timestamp: "2026-08-30T15:41:48.420Z", value: 25_930 },
+        { timestamp: "2026-08-30T15:42:18.420Z", value: 25_977.24 },
+      ],
+      referenceLines: [{ label: "Gross limit", value: 50_000, tone: "warning" }],
+    },
+    {
+      id: "unrealized-pnl",
+      label: "Unrealized P&L",
+      unit: "USD",
+      tone: "green",
+      points: [
+        { timestamp: "2026-08-30T15:36:48.420Z", value: 42.6 },
+        { timestamp: "2026-08-30T15:37:18.420Z", value: 51.4 },
+        { timestamp: "2026-08-30T15:37:48.420Z", value: 48.2 },
+        { timestamp: "2026-08-30T15:38:18.420Z", value: 62.1 },
+        { timestamp: "2026-08-30T15:38:48.420Z", value: 74.6 },
+        { timestamp: "2026-08-30T15:39:18.420Z", value: 68.9 },
+        { timestamp: "2026-08-30T15:39:48.420Z", value: 79.2 },
+        { timestamp: "2026-08-30T15:40:18.420Z", value: 71.8 },
+        { timestamp: "2026-08-30T15:40:48.420Z", value: 83.1 },
+        { timestamp: "2026-08-30T15:41:18.420Z", value: 92.4 },
+        { timestamp: "2026-08-30T15:41:48.420Z", value: 98.3 },
+        { timestamp: "2026-08-30T15:42:18.420Z", value: 101.2816 },
+      ],
+      referenceLines: [{ label: "Flat", value: 0, tone: "neutral" }],
+    },
+    {
+      id: "source-lag",
+      label: "Worst source lag",
+      unit: "ms",
+      tone: "coral",
+      points: [
+        { timestamp: "2026-08-30T15:36:48.420Z", value: 880 },
+        { timestamp: "2026-08-30T15:37:18.420Z", value: 1_120 },
+        { timestamp: "2026-08-30T15:37:48.420Z", value: 940 },
+        { timestamp: "2026-08-30T15:38:18.420Z", value: 1_380 },
+        { timestamp: "2026-08-30T15:38:48.420Z", value: 1_640 },
+        { timestamp: "2026-08-30T15:39:18.420Z", value: 1_920 },
+        { timestamp: "2026-08-30T15:39:48.420Z", value: 2_460 },
+        { timestamp: "2026-08-30T15:40:18.420Z", value: 3_180 },
+        { timestamp: "2026-08-30T15:40:48.420Z", value: 3_620 },
+        { timestamp: "2026-08-30T15:41:18.420Z", value: 4_110 },
+        { timestamp: "2026-08-30T15:41:48.420Z", value: 4_540 },
+        { timestamp: "2026-08-30T15:42:18.420Z", value: 4_820 },
+      ],
+      referenceLines: [{ label: "SLO", value: 2_000, tone: "warning" }],
+    },
+  ],
+  activity: [
+    { id: "act-184512", sequence: 184_512, occurredAt: "15:42:18.420Z", category: "order", source: "risk", stage: "execution-router", entity: "BTC-USD", outcome: "partial fill", severity: "normal" },
+    { id: "act-184511", sequence: 184_511, occurredAt: "15:42:17.980Z", category: "signal", source: "cme-arrival-btc-01", stage: "risk-admission", entity: "BTC-USD", outcome: "eligible", severity: "normal" },
+    { id: "act-184510", sequence: 184_510, occurredAt: "15:42:15.600Z", category: "source", source: "DSCOVR", stage: "event-order", entity: "solar-wind-plasma", outcome: "packet gap", severity: "warning" },
+    { id: "act-184509", sequence: 184_509, occurredAt: "15:42:13.902Z", category: "checkpoint", source: "feature-state", stage: "feature-state", entity: "generation 31", outcome: "committed", severity: "normal" },
+    { id: "act-184508", sequence: 184_508, occurredAt: "15:42:11.102Z", category: "mark", source: "MARKET", stage: "source-fence", entity: "SMH", outcome: "updated", severity: "normal" },
+  ],
   risk: {
     grossExposureMicros: "25977240000",
     grossLimitMicros: "50000000000",
@@ -530,11 +717,47 @@ export class DemoOperationsPort implements OperationsPort {
         freshnessMs: 120 + (this.tick % 4) * 37,
       };
     });
+    const unrealized = positions.reduce(
+      (total, position) => total + Number(BigInt(position.unrealizedPnlMicros)) / 1_000_000,
+      0,
+    );
+    const metricValues: Record<string, number> = {
+      "gross-exposure": Number(BigInt(snapshot.risk.grossExposureMicros)) / 1_000_000 + delta / 1_000_000,
+      "unrealized-pnl": unrealized,
+      "source-lag": snapshot.risk.sourceLagMs + (this.tick % 3) * 36,
+    };
+    const metrics = snapshot.metrics.map((metric) => ({
+      ...metric,
+      points: metric.points.map((point, index, points) => ({
+        timestamp: new Date(observedAt - (points.length - 1 - index) * 30_000).toISOString(),
+        value: index === points.length - 1 ? metricValues[metric.id] ?? point.value : point.value,
+      })),
+    }));
     return {
       ...snapshot,
       sequence: this.sequence,
       observedAt: new Date(observedAt).toISOString(),
       positions,
+      metrics,
+      alerts: snapshot.alerts.map((alert) => {
+        const ageMs = alert.id === "alert-source-gap" ? 15_000 : alert.id === "alert-capacity-model" ? 120_000 : 2_000;
+        const openAgeMs = alert.id === "alert-source-gap" ? 35_000 : alert.id === "alert-capacity-model" ? 300_000 : 7_200_000;
+        return {
+          ...alert,
+          openedAt: new Date(observedAt - openAgeMs).toISOString(),
+          updatedAt: new Date(observedAt - ageMs).toISOString(),
+        };
+      }),
+      activity: snapshot.activity.map((activity, index) =>
+        index === 0
+          ? {
+              ...activity,
+              id: `act-${this.sequence}`,
+              sequence: this.sequence,
+              occurredAt: new Date(observedAt).toISOString().slice(11, 23),
+            }
+          : activity,
+      ),
       sources: snapshot.sources.map((source) => ({
         ...source,
         watermark: new Date(observedAt - source.lagMs).toISOString().slice(11, 23),
@@ -628,14 +851,17 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
     Array.isArray(candidate) ? candidate : fail(path);
 
   const snapshot = record(value, "root");
-  if (snapshot.schemaVersion !== 1) fail("schemaVersion");
+  if (snapshot.schemaVersion !== 2) fail("schemaVersion");
   integer(snapshot.sequence, "sequence");
   oneOf(snapshot.mode, ["demo", "shadow", "paper", "live"], "mode");
   text(snapshot.provider, "provider");
   const observedAt = text(snapshot.observedAt, "observedAt");
   if (!Number.isFinite(Date.parse(observedAt))) fail("observedAt");
   oneOf(snapshot.dataClass, ["synthetic", "observed"], "dataClass");
-  text(snapshot.accountLabel, "accountLabel");
+  const context = record(snapshot.context, "context");
+  for (const field of ["organizationId", "organizationName", "workspaceId", "workspaceName", "accountId", "accountName"] as const) {
+    text(context[field], `context.${field}`);
+  }
 
   for (const [index, candidate] of list(snapshot.strategies, "strategies").entries()) {
     const strategy = record(candidate, `strategies[${index}]`);
@@ -654,22 +880,19 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
     for (const field of ["id", "name", "checkpoint", "detail"] as const) {
       text(stage[field], `stages[${index}].${field}`);
     }
-    oneOf(
-      stage.kind,
-      ["source", "ordering", "feature", "hypothesis", "risk", "execution"],
-      `stages[${index}].kind`,
-    );
+    text(stage.kind, `stages[${index}].kind`);
     oneOf(
       stage.state,
       ["running", "paused", "blocked", "replaying"],
       `stages[${index}].state`,
     );
     integer(stage.lagMs, `stages[${index}].lagMs`);
+    if (typeof stage.canPauseBefore !== "boolean") fail(`stages[${index}].canPauseBefore`);
   }
 
   for (const [index, candidate] of list(snapshot.signals, "signals").entries()) {
     const signal = record(candidate, `signals[${index}]`);
-    for (const field of ["id", "hypothesis", "instrument", "trigger", "horizon", "observedAt", "availableAt", "decisionCut", "action"] as const) {
+    for (const field of ["id", "strategyId", "hypothesis", "instrument", "trigger", "horizon", "observedAt", "availableAt", "decisionCut", "action"] as const) {
       text(signal[field], `signals[${index}].${field}`);
     }
     oneOf(signal.state, ["observing", "eligible", "blocked"], `signals[${index}].state`);
@@ -754,6 +977,51 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
     }
     oneOf(source.health, ["healthy", "degraded", "stale"], `sources[${index}].health`);
     integer(source.lagMs, `sources[${index}].lagMs`);
+  }
+
+  for (const [index, candidate] of list(snapshot.alerts, "alerts").entries()) {
+    const alert = record(candidate, `alerts[${index}]`);
+    for (const field of ["id", "category", "title", "detail", "openedAt", "updatedAt"] as const) {
+      text(alert[field], `alerts[${index}].${field}`);
+    }
+    oneOf(alert.severity, ["critical", "warning", "info"], `alerts[${index}].severity`);
+    oneOf(alert.status, ["open", "acknowledged", "resolved"], `alerts[${index}].status`);
+    if (!Number.isFinite(Date.parse(String(alert.openedAt)))) fail(`alerts[${index}].openedAt`);
+    if (!Number.isFinite(Date.parse(String(alert.updatedAt)))) fail(`alerts[${index}].updatedAt`);
+    if (alert.relatedEntity !== undefined) {
+      const related = record(alert.relatedEntity, `alerts[${index}].relatedEntity`);
+      for (const field of ["kind", "id", "label"] as const) {
+        text(related[field], `alerts[${index}].relatedEntity.${field}`);
+      }
+    }
+  }
+
+  for (const [index, candidate] of list(snapshot.metrics, "metrics").entries()) {
+    const metric = record(candidate, `metrics[${index}]`);
+    for (const field of ["id", "label"] as const) text(metric[field], `metrics[${index}].${field}`);
+    oneOf(metric.unit, ["USD", "%", "ms", "count"], `metrics[${index}].unit`);
+    oneOf(metric.tone, ["cyan", "green", "coral"], `metrics[${index}].tone`);
+    list(metric.points, `metrics[${index}].points`).forEach((candidatePoint, pointIndex) => {
+      const point = record(candidatePoint, `metrics[${index}].points[${pointIndex}]`);
+      const timestamp = text(point.timestamp, `metrics[${index}].points[${pointIndex}].timestamp`);
+      if (!Number.isFinite(Date.parse(timestamp))) fail(`metrics[${index}].points[${pointIndex}].timestamp`);
+      finite(point.value, `metrics[${index}].points[${pointIndex}].value`);
+    });
+    list(metric.referenceLines, `metrics[${index}].referenceLines`).forEach((candidateLine, lineIndex) => {
+      const line = record(candidateLine, `metrics[${index}].referenceLines[${lineIndex}]`);
+      text(line.label, `metrics[${index}].referenceLines[${lineIndex}].label`);
+      finite(line.value, `metrics[${index}].referenceLines[${lineIndex}].value`);
+      oneOf(line.tone, ["neutral", "warning", "critical"], `metrics[${index}].referenceLines[${lineIndex}].tone`);
+    });
+  }
+
+  for (const [index, candidate] of list(snapshot.activity, "activity").entries()) {
+    const activity = record(candidate, `activity[${index}]`);
+    for (const field of ["id", "occurredAt", "category", "source", "stage", "entity", "outcome"] as const) {
+      text(activity[field], `activity[${index}].${field}`);
+    }
+    integer(activity.sequence, `activity[${index}].sequence`);
+    oneOf(activity.severity, ["normal", "warning", "critical"], `activity[${index}].severity`);
   }
 
   const risk = record(snapshot.risk, "risk");
