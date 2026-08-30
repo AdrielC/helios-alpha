@@ -47,11 +47,13 @@
 //!
 //! ## Non-goals (current version)
 //!
-//! Async-first runtime, distributed execution, Arrow kernels, proc-macro optics, and full Kafka
-//! exactly-once beyond checkpoint+offset skeletons.
+//! Async-first runtime, distributed execution, Arrow kernels, proc-macro optics, and concrete
+//! Kafka/database transaction adapters. [`AtomicCommitBundle`] defines portable reference
+//! semantics; infrastructure crates own their actual transaction implementation.
 
 mod arrow;
 mod arrow_core;
+mod atomic;
 mod batch;
 mod batch_opt;
 mod combinator;
@@ -73,6 +75,7 @@ mod macros;
 
 pub use arrow::*;
 pub use arrow_core::*;
+pub use atomic::*;
 pub use batch::*;
 pub use batch_opt::*;
 pub use combinator::*;

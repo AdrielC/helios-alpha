@@ -67,11 +67,54 @@ jobs:
         run: |
           rustc --version
           cargo test
+          cargo clippy -p helio_execution --all-targets -- -D warnings
           cargo test -p helio_hypothesis --all-features
-          cargo check --target wasm32-wasip2 -p helio_scan -p helio_time -p helio_stats -p helio_window -p helio_hypothesis --no-default-features
+          cargo check --target wasm32-wasip2 -p helio_scan -p helio_time -p helio_stats -p helio_window -p helio_hypothesis -p helio_execution --no-default-features
           cargo bench -p helio_bench --bench hypothesis_machine --no-run
           cargo check -p helio_backtest_wasm --target wasm32-unknown-unknown
           cargo build --release -p helios_signald
+
+  capital-controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install focused proof dependencies
+        run: |
+          python -m pip install -U pip
+          python -m pip install "exchange-calendars==4.13.2" "pytest>=8"
+          rustup target add wasm32-wasip2
+
+      - name: Run portable capital-control proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
+            cargo test --manifest-path rust/Cargo.toml \
+              -p helio_scan -p helio_time -p helio_execution \
+              2>&1 | tee evidence/rust-control-tests.log
+          CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
+            cargo check --manifest-path rust/Cargo.toml \
+              --target wasm32-wasip2 -p helio_execution --no-default-features \
+              2>&1 | tee evidence/wasi-portability.log
+          PYTHONPATH=src python -m pytest tests/test_calendar_manifest.py -q \
+            2>&1 | tee evidence/venue-calendar-tests.log
+          printf 'commit=%s\nrun_id=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" \
+            > evidence/context.txt
+          sha256sum evidence/*.log evidence/context.txt > evidence/SHA256SUMS
+
+      - name: Upload content-addressed proof logs
+        uses: actions/upload-artifact@v6
+        with:
+          name: capital-control-tests-${{ github.sha }}
+          path: evidence
+          if-no-files-found: error
 
   golem:
     runs-on: ubuntu-latest

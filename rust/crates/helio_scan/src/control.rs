@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Wall-clock or business-calendar session boundary (placeholder; refine per domain).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SessionDate(pub i32);
 
 /// Why a flush was requested; different scans react differently.

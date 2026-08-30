@@ -99,6 +99,14 @@ export default defineConfig({
             link: "/operations/production-readiness",
           },
           {
+            text: "Capital admission",
+            link: "/operations/capital-admission",
+          },
+          {
+            text: "Incident response",
+            link: "/operations/incident-response",
+          },
+          {
             text: "Golem durability",
             link: "/operations/golem-cloud",
           },

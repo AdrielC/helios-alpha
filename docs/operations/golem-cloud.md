@@ -197,12 +197,18 @@ positions, reservations, account limits, strategy limits, stale-data policy, and
 Its sequential processing is useful for account-level serialization, but accounts or strategy
 groups must be partitioned when one agent becomes a bottleneck.
 
+`helio_execution::RiskAuthority` now supplies the portable state machine for this agent. It owns
+idempotent decisions, reservations, venue-session verification, data freshness, kill switch, and
+order, gross, strategy, symbol-position, and daily-count limits. The Golem wrapper and durable
+production portfolio adapter remain deployment work.
+
 The risk agent produces either a typed rejection or an `OrderIntent` with a stable
 `client_order_id`. It does not accept arbitrary order commands from the research component.
 
 ### `OrderGateway`
 
-The gateway is an external idempotency façade in front of the broker. It stores each
+`helio_execution::OrderGateway` now provides the broker-neutral state machine and paper fault
+harness. The production gateway is an external idempotency façade in front of the broker. It stores each
 `client_order_id` under a unique constraint before transmission, records the broker request and
 response, and reconciles ambiguous timeouts against broker state before retrying.
 
@@ -344,8 +350,9 @@ divergence.
 
 ### Gate 4: paper risk and execution
 
+- The native risk, cost, admission, and gateway state machines pass their crash and fault tests.
 - Deploy `RiskAuthorityAgent` with least-privilege capabilities.
-- Put the idempotent order gateway in front of a paper broker.
+- Put the idempotent order gateway in front of the selected broker's paper environment.
 - Drill ambiguous broker timeouts, duplicate callbacks, partial fills, kill switch, and stale market
   data.
 
@@ -359,5 +366,6 @@ and one reconciled broker identity.
 - Keep automatic rollback limited to software health. Risk and position state must reconcile before
   resuming after any execution incident.
 
-Golem is approved for an implementation spike now. It is approved for live capital only after the
-shadow, crash, risk, and broker-reconciliation gates above have durable evidence.
+Golem is approved for the durable execution path. Live capital remains closed until every mandatory
+artifact in [Capital admission](./capital-admission) is current, including Golem restart recovery,
+broker certification, deployment verification, incident exercise, and shadow execution.

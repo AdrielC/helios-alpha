@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "generated_at_utc": 1788048000,
+    "schema_version": 1,
+    "source": "exchange_calendars",
+    "source_sha256": "5ebae305425ef10d90f34d6934bb52482d960e464f63a320d5f2487f5dcec4bb",
+    "source_version": "4.13.2",
+    "timezone": "America/New_York",
+    "valid_from_utc": 1795564800,
+    "valid_until_utc": 1796083200,
+    "venue": "XNYS"
+  },
+  "sessions": [
+    {
+      "breaks": [],
+      "close_utc": 1795640400,
+      "label": 20782,
+      "open_utc": 1795617000
+    },
+    {
+      "breaks": [],
+      "close_utc": 1795802400,
+      "label": 20784,
+      "open_utc": 1795789800
+    },
+    {
+      "breaks": [],
+      "close_utc": 1796072400,
+      "label": 20787,
+      "open_utc": 1796049000
+    }
+  ]
+}

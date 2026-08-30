@@ -1,6 +1,8 @@
 # Execution and local signal broadcast
 
-This repo is primarily **research**. Live trading needs a **hard boundary** between signal generation and order placement so you never “accidentally” send risk.
+This repository is primarily research. `helios_signald` broadcasts observations and candidates. It
+does not authorize orders. The separate `helio_execution` crate owns the typed risk, cost, broker,
+operations, and capital-admission boundary.
 
 ## Design goals
 
@@ -44,13 +46,16 @@ Alternatives you can swap without changing the JSON body: **Redis pub/sub**, **N
 - **Versioning**: `schema_version` field; bump when fields are removed or semantics change.
 - Code: `helios_alpha.signals.publisher.SignalPublisher` and `rust/crates/helios_signald`.
 
-## Operational checklist (before real money)
+## Operational checklist
 
-- [ ] Execution process runs under a **different user** / **capability drop** than research.
-- [ ] **Rate limits** and **max notional** per signal type in the Rust (or dedicated) risk layer.
-- [ ] **Paper trading** flag in config; broker adapter refuses live when set.
-- [ ] **Audit log** append-only (signal_id, timestamp, outcome).
-- [ ] **Clock sync** (chrony) if you compare wall time to exchange timestamps.
+- [x] Typed paper/live mode and a live gateway that requires a current capital authorization.
+- [x] Order, gross, strategy, position, daily-count, stale-data, venue-session, and kill-switch checks.
+- [x] Stable client order identity with lookup-before-retry reconciliation.
+- [x] Append-shaped incident, gateway, and atomic-outbox records in executable reference stores.
+- [ ] Deploy execution under a separate identity and capability boundary from research.
+- [ ] Certify the selected broker adapter and production account configuration.
+- [ ] Connect clock synchronization, telemetry, alert delivery, and the trusted evidence store.
+- [ ] Complete every artifact in [Capital admission](operations/capital-admission).
 
 ## Where Rust pays off next
 
@@ -60,7 +65,7 @@ Alternatives you can swap without changing the JSON body: **Redis pub/sub**, **N
 | `helio_scan` / `helio_window` / `helio_event` | Rust scan stack (kernel, windows, event-study pipeline). See [HELIO_RUST_WORKSPACE.md](HELIO_RUST_WORKSPACE.md), [HELIO_SCAN.md](HELIO_SCAN.md). |
 | Bar joiner | Align ticks to **CustomBusinessHour** session flags (bitsets) |
 | Feature microbatch | Rolling VWAP, imbalance, spread — feed Python or second ZMQ topic |
-| Risk / OMS shim | Last line before broker; keep **deterministic** and tested |
+| `helio_execution` | Deterministic risk, costs, capacity, paper broker, reconciliation, readiness, and capital admission |
 
 Python keeps: Hydra config, research notebooks, DONKI ingest, event studies.
 

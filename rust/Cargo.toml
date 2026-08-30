@@ -8,6 +8,7 @@ members = [
     "crates/helio_time",
     "crates/helio_window",
     "crates/helio_event",
+    "crates/helio_execution",
     "crates/helio_backtest",
     "crates/helio_backtest_wasm",
     "crates/helio_bench",
@@ -21,5 +22,6 @@ default-members = [
     "crates/helio_time",
     "crates/helio_window",
     "crates/helio_event",
+    "crates/helio_execution",
     "crates/helio_backtest",
 ]

@@ -18,10 +18,12 @@ other event shocks without putting space-weather or trading vocabulary in the co
 [Build a 10-minute signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy) ·
 [Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
 [Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness) ·
+[Inspect capital admission](https://adrielc.github.io/helios-alpha/operations/capital-admission) ·
 [Review the Golem Cloud architecture](https://adrielc.github.io/helios-alpha/operations/golem-cloud)
 
-> **Status:** research infrastructure. The stream mechanics are tested for deterministic replay.
-> The repository does not claim profitable alpha and does not authorize or route live orders.
+> **Status:** research infrastructure with an executable, fail-closed capital-control reference.
+> The repository has no certified live broker adapter or production evidence ledger, does not claim
+> profitable alpha, and does not have permission to trade live capital.
 
 ## What you can compose
 
@@ -145,8 +147,13 @@ A valid recovery point binds:
 
 Restore validates external state before it returns to the hot path. Corrupt statistics, invalid
 watermarks, incompatible fingerprints, over-capacity reorder queues, and non-representable counts
-fail closed. Exactly-once effects still require an idempotent output identity or a transaction that
-coordinates source progress, state, and downstream writes.
+fail closed.
+
+`AtomicCommitBundle` now provides executable reference semantics for the missing commit boundary:
+one transaction advances a contiguous source prefix, stores the matching checkpoint, and appends
+stable output identities to an outbox. `drain_outbox` requires an idempotent sink. Fault tests cover
+failure before commit, a lost commit response, and a lost sink acknowledgement. A production store
+still has to map that contract to its own serializable transaction.
 
 ## Workspace map
 
@@ -159,6 +166,7 @@ coordinates source progress, state, and downstream writes.
 | `helio_window` | Bounded reorder, bucket reduction, rolling and session state | Signal meaning |
 | `helio_stats` | Stable moments, compensated sums, scaled norms, log probabilities, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
 | `helio_event` | An event-shock proving ground and simulated strategy vertical | Broker authorization |
+| `helio_execution` | Fixed-point orders, pre-trade risk, cost and capacity, broker reconciliation, incidents, operational readiness, capital admission | Research signal meaning, broker credentials, production evidence |
 | `helio_backtest` | Fixed clocks, fingerprints, guarded Kalman research, replay harnesses | Live execution guarantees |
 | `helios_signald` | Optional ZMQ integration | Kernel abstractions |
 | `helio_bench` | Criterion workloads and baselines | Runtime dependencies |
@@ -191,6 +199,19 @@ cargo run -p helio_hypothesis --example space_weather
 cargo test -p helio_hypothesis --test space_weather_reference
 ```
 
+Run the capital-control crash and fault matrix:
+
+```bash
+cd rust
+cargo test -p helio_scan -p helio_time -p helio_execution
+cargo clippy -p helio_execution -p helio_time --all-targets -- -D warnings
+```
+
+The end-to-end paper test loses both a commit acknowledgement and a broker acknowledgement, then
+proves that reconciliation produces one accepted order. Live dispatch additionally requires all
+mandatory, unexpired evidence and a ready operational snapshot. See
+[Capital admission](https://adrielc.github.io/helios-alpha/operations/capital-admission).
+
 The complete support boundary is documented in
 [Trade space weather without hiding the causal chain](https://adrielc.github.io/helios-alpha/guide/space-weather-reference).
 
@@ -212,7 +233,7 @@ The smoke test deploys to an isolated local Golem server, repeats one invocation
 agent crash, restarts the full server, and verifies contiguous resume. CI pins the Golem CLI binary
 and checks its SHA-256 digest before running the same proof. Read the
 [Golem deployment guide](https://adrielc.github.io/helios-alpha/operations/golem-cloud) for the
-implemented boundary and the remaining cloud, shadow, risk, and broker gates.
+implemented boundary and the remaining cloud, certified-broker, deployment, and shadow evidence.
 
 ### Run the docs locally
 
@@ -299,13 +320,15 @@ notes separate implemented mechanics from claims that still need data.
 
 - Rich `WindowSpec` semantics exceed what every sample-count ring currently enforces. Use the
   time-keyed window paths when wall-clock expiry is required.
-- A checkpoint write alone does not make signals, broker orders, and source offsets one transaction.
+- The in-memory atomic store proves protocol semantics and crash behavior. It is not a production
+  database adapter.
 - Conjugate independent-arm posteriors are online primitives, not a replacement for hierarchical
   modeling across correlated horizons.
 - The Python event study is a worked research vertical. Its source availability and empirical
   assumptions must be revalidated for each run.
-- Live capital allocation, risk limits, kill switches, broker state reconciliation, and order routing
-  belong in a separate execution authority.
+- The risk, cost, gateway, readiness, incident, and admission state machines are implemented. Live
+  capital remains closed until a separately deployed authority has a certified broker adapter and
+  current production evidence for every mandatory gate.
 
 Start with the [Event Atlas](https://adrielc.github.io/helios-alpha/), then follow one typed value from
 availability through replay before attaching a strategy rule.

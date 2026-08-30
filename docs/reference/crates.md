@@ -9,6 +9,7 @@
 | `helio_time` | Semantics | Frequencies, interval bounds, bucket grids, availability | Operational buffers |
 | `helio_window` | Operations | Reorder, bucket reduction, rolling and session state | Strategy vocabulary |
 | `helio_event` | Proving ground | Event-shock model, filters, signal and simulated execution | Broker authorization |
+| `helio_execution` | Capital controls | Fixed-point orders, risk reservations, costs and capacity, broker reconciliation, operational readiness, incidents, capital admission | Signal research, credentials, production evidence |
 | `helio_backtest` | Harness | Clocks, fingerprints, guarded Kalman research, terminal UI | Live execution guarantees |
 | `helio_backtest_wasm` | Browser adapter | Browser-hosted backtest interface | Core numerical semantics |
 | `helios_signald` | Integration | Optional ZMQ signal bridge | Kernel abstractions |
@@ -24,9 +25,11 @@ helio_scan        helio_time
      ↑                ↑
      └──── helio_window
      ↑
-     └──── helio_hypothesis
-               ↑       ↑
-          helio_event  helio_golem
+     ├──── helio_hypothesis
+     │         ↑       ↑
+     │    helio_event  helio_golem
+     │
+     └──── helio_execution
                            ↑
               helios_hypothesis_shard
 ```

@@ -32,6 +32,10 @@ A useful fingerprint normally includes:
 
 ## Exactly-once boundary
 
-`write_checkpoint` proves that a store accepted a value. It does not make source offsets, emitted signals, broker orders, and state one transaction. Coordinate those systems explicitly or use idempotent output identities.
+`write_checkpoint` proves that a store accepted a value. `AtomicCommitBundle` defines the stronger
+boundary: expected and next source offsets, the checkpoint at that next offset, and every stable
+output identity commit together. `InMemoryAtomicCommitStore` fault-tests the contract. A production
+database adapter must provide the real transaction, and an external sink must deduplicate
+`OutputId`.
 
 See [Restart a pipeline](../guide/restart-a-pipeline) for the operational sequence.

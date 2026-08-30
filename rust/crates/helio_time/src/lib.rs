@@ -31,6 +31,7 @@ mod gate;
 mod half_open;
 mod layered_schedule;
 mod typed_freq;
+mod venue_schedule;
 mod wall_bucket;
 mod window_spec;
 
@@ -45,6 +46,7 @@ pub use gate::*;
 pub use half_open::*;
 pub use layered_schedule::*;
 pub use typed_freq::*;
+pub use venue_schedule::*;
 pub use wall_bucket::*;
 pub use window_spec::*;
 

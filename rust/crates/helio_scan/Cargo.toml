@@ -10,6 +10,7 @@ stream = ["dep:tokio"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+thiserror = "2"
 tokio = { version = "1", features = ["sync"], optional = true }
 
 [dev-dependencies]

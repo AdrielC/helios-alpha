@@ -14,7 +14,7 @@ Helios checkpoints carry:
 
 `read_and_restore_checkpoint` validates metadata first, then invokes the scan's fallible restore path so corrupt or impossible states fail closed.
 
-## Commit order
+## Atomic commit
 
 For an at-least-once source with an idempotent sink:
 
@@ -23,14 +23,17 @@ read input at offset N
         ↓
 update scan state and stage outputs
         ↓
-write checkpoint(state, N, watermark)
+commit next offset N+1 + checkpoint(state, N+1) + output identities
         ↓
-publish outputs with idempotency key
+deliver pending outbox rows by stable OutputId
         ↓
-commit source offset N
+record sink acknowledgement
 ```
 
-This sequence is not exactly-once by itself. A crash between steps can replay an output. Exactly-once behavior requires a shared transaction or a sink that deduplicates a stable output identity.
+`AtomicCommitBundle` rejects gaps, mismatched checkpoint offsets, duplicate output identities, and
+identity reuse with different content. A lost commit response is recovered by retrying the same
+transaction. A crash after an external sink accepts an output may repeat delivery, so the sink still
+has to deduplicate the same `OutputId`.
 
 ## Compatibility gate
 

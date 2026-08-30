@@ -64,7 +64,7 @@ Do not assume all scans are monoidal; keep algebraic batching in aggregators / s
 - **`FlushReason<O>`** — why flush happened: `SessionClose`, `Checkpoint(O)`, `Watermark(O)`, `Shutdown`, `Rebalance`, `EndOfInput`, `Manual`. Different scans may ignore or honor different variants.
 - **`Checkpoint<S, O>`** bundles **`snapshot`**, **`offset`**, optional **`watermark`**, and **`CheckpointMeta`** (format version, snapshot version, pipeline fingerprint, label). **State without an offset is not a resume story**; checkpoints pair serialized state with a stream position (Kafka offset, Redis stream ID, sequence number, session+row, …).
 
-Production runners should call **`write_checkpoint`** with a **`CheckpointContext`** and handle its storage `Result`, then use **`read_and_restore_checkpoint`** with a **`FallibleRestoreScan`** to reject incompatible metadata and invalid snapshot contents before resume. `read_checkpoint` remains available when the caller owns payload validation. A successful snapshot write alone is not exactly-once processing: source position and externally visible outputs still need an atomic protocol or idempotency keys.
+Production runners should call **`write_checkpoint`** with a **`CheckpointContext`** and handle its storage `Result`, then use **`read_and_restore_checkpoint`** with a **`FallibleRestoreScan`** to reject incompatible metadata and invalid snapshot contents before resume. `read_checkpoint` remains available when the caller owns payload validation. `AtomicCommitBundle` and `InMemoryAtomicCommitStore` define and fault-test the stronger source-prefix, checkpoint, and outbox transaction. Production adapters must implement those semantics in their own store, and external sinks must deduplicate `OutputId`.
 
 The **`Persisted<S, Store, KeyFn>`** wrapper remains for simple in-band runners. It captures storage failures for `take_checkpoint_error()` rather than panicking, but the `FlushableScan` signature cannot return that error directly.
 
@@ -110,7 +110,9 @@ cargo test
 cargo doc -p helio_scan --no-deps --open
 ```
 
-The workspace **`default-members`** lists **`helio_scan`**, **`helio_stats`**, **`helio_time`**, **`helio_window`**, **`helio_event`**, and **`helio_backtest`** (not **`helios_signald`**), so a bare `cargo test` inside `rust/` does not require ZMQ.
+The workspace **`default-members`** include the substrate, hypothesis, Golem kernel, event,
+execution, and backtest crates, but not **`helios_signald`**, so a bare `cargo test` inside `rust/`
+does not require ZMQ.
 
 To build the signal daemon (needs system **libzmq** and a C++ toolchain, as in CI):
 
@@ -134,7 +136,9 @@ Reasonable next layers **in `helio_scan` only**:
 - More combinators: **merge**, **branch**, **fold** sink adapters, **stateful_map**.
 - Transport-agnostic snapshot encoding seam (serde today; bincode/postcard later at the store).
 
-Explicit **non-goals** for the kernel: async-first APIs, market/session types, Arrow-native kernels, proc-macro optics, full Kafka exactly-once beyond **checkpoint + offset** skeletons.
+Explicit **non-goals** for the kernel: async-first APIs, market/session types, Arrow-native kernels,
+proc-macro optics, and connector-specific transaction implementations. The kernel defines atomic
+reference semantics; Kafka, database, and broker adapters own their concrete commits.
 
 ## Files
 
@@ -146,6 +150,7 @@ Explicit **non-goals** for the kernel: async-first APIs, market/session types, A
 | `rust/crates/helio_scan/src/emit.rs` | `Emit`, `VecEmitter`, bridge adapters |
 | `rust/crates/helio_scan/src/scan.rs` | Core traits |
 | `rust/crates/helio_scan/src/control.rs` | `FlushReason`, `Checkpoint`, … |
+| `rust/crates/helio_scan/src/atomic.rs` | Atomic source/checkpoint/outbox reference protocol |
 | `rust/crates/helio_scan/src/combinator.rs` | `Map`, `FilterMap`, `Then`, `ZipInput` |
 | `rust/crates/helio_scan/src/focus.rs` | `Focus`, `ThenLeft`, … |
 | `rust/crates/helio_scan/src/persist.rs` | `SnapshotStore`, `Persisted`, … |
