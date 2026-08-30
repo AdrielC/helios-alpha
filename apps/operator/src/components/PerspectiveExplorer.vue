@@ -6,7 +6,7 @@ const props = defineProps<{ snapshot: OperationsSnapshot }>();
 
 const host = ref<HTMLElement | null>(null);
 const state = ref<"loading" | "ready" | "error">("loading");
-const message = ref("Loading the analytical runtime…");
+const message = ref("Loading");
 
 let viewer: HTMLElement & {
   load(client: unknown): Promise<void>;
@@ -99,7 +99,31 @@ function explorerRows(snapshot: OperationsSnapshot): readonly Record<string, unk
     detail: source.detail,
     sequence: snapshot.sequence,
   }));
-  return [...signalRows, ...positionRows, ...orderRows, ...fillRows, ...sourceRows];
+  const alertRows = snapshot.alerts.map((alert) => ({
+    row_id: `alert:${alert.id}`,
+    kind: "alert",
+    instrument: alert.relatedEntity?.label ?? snapshot.context.accountName,
+    strategy: alert.category,
+    state: `${alert.severity} · ${alert.status}`,
+    value: alert.severity === "critical" ? 3 : alert.severity === "warning" ? 2 : 1,
+    unit: "severity",
+    event_time: new Date(alert.updatedAt),
+    detail: alert.title,
+    sequence: snapshot.sequence,
+  }));
+  const activityRows = snapshot.activity.map((activity) => ({
+    row_id: `activity:${activity.id}`,
+    kind: activity.category,
+    instrument: activity.entity,
+    strategy: activity.stage,
+    state: activity.outcome,
+    value: activity.sequence,
+    unit: "sequence",
+    event_time: observedAt,
+    detail: activity.source,
+    sequence: activity.sequence,
+  }));
+  return [...signalRows, ...positionRows, ...orderRows, ...fillRows, ...sourceRows, ...alertRows, ...activityRows];
 }
 
 onMounted(async () => {
@@ -118,7 +142,7 @@ onMounted(async () => {
     perspective.default.init_server(serverWasm);
     perspective.default.init_client(clientWasm);
 
-    message.value = "Registering the analytical viewer…";
+    message.value = "Loading viewer";
     const [perspectiveViewer, viewerWasmUrl, viewerWasmModule] = await Promise.all([
       import("@perspective-dev/viewer"),
       import("@perspective-dev/viewer/dist/wasm/perspective-viewer.wasm?url"),
@@ -129,9 +153,9 @@ onMounted(async () => {
     const viewerWasm = await fetchWasm(viewerWasmUrl.default, "Perspective viewer WASM");
     await perspectiveViewer.init_client(viewerWasm, viewerWasmModule);
     await customElements.whenDefined("perspective-viewer");
-    message.value = "Starting the isolated WebAssembly worker…";
+    message.value = "Starting worker";
     worker = (await within(perspective.default.worker(), "Perspective worker startup")) as typeof worker;
-    message.value = "Indexing the current operations snapshot…";
+    message.value = "Indexing snapshot";
     table = (await within(
       worker.table(explorerRows(props.snapshot), {
         index: "row_id",
@@ -143,7 +167,7 @@ onMounted(async () => {
     viewer.setAttribute("theme", "Pro Dark");
     viewer.setAttribute("aria-label", "Live operations data explorer");
     host.value?.replaceChildren(viewer);
-    message.value = "Drawing the keyed live table…";
+    message.value = "Drawing table";
     await within(viewer.load(worker), "Perspective viewer connection");
     await within(
       viewer.restore({
@@ -157,11 +181,11 @@ onMounted(async () => {
       "Perspective viewer restore",
     );
     state.value = "ready";
-    message.value = "Perspective ready";
+    message.value = "Ready";
   } catch (error) {
     console.error(error);
     state.value = "error";
-    message.value = "The analytical worker could not start. Reload the explorer to retry.";
+    message.value = "Explorer unavailable";
   }
 });
 
@@ -183,8 +207,7 @@ onBeforeUnmount(async () => {
   <section class="perspective-explorer" aria-labelledby="explorer-heading">
     <header>
       <div>
-        <h2 id="explorer-heading">Live data explorer</h2>
-        <p>Pivot, group, filter, and export the current operations snapshot without touching order authority.</p>
+        <h2 id="explorer-heading">Explore</h2>
       </div>
       <div class="perspective-state" :data-state="state" role="status">
         <span aria-hidden="true"></span>
@@ -198,8 +221,8 @@ onBeforeUnmount(async () => {
       </div>
     </div>
     <footer>
-      <span>Perspective 5.3 · lazy-loaded WebAssembly</span>
-      <span>Entity-bounded table · keyed updates</span>
+      <span>{{ snapshot.context.accountName }}</span>
+      <span>Sequence {{ snapshot.sequence.toLocaleString() }}</span>
     </footer>
   </section>
 </template>
@@ -223,7 +246,7 @@ onBeforeUnmount(async () => {
 
 .perspective-explorer h2 {
   margin: 0 0 3px;
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.2;
   letter-spacing: -0.02em;
 }

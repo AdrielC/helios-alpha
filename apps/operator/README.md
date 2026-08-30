@@ -1,12 +1,11 @@
-# Helios Control
+# Helios OMS
 
-Helios Control is the standalone operations application for Helios Alpha. It is not part of the
+Helios OMS is the standalone operations application for Helios Alpha. It is not part of the
 documentation site and it never holds broker credentials. The read model and protected command
 service remain separate ports.
 
-The default application uses a deterministic synthetic source so the interface can be developed
-without implying that market or space-weather observations are live. Every screen keeps the mode,
-capital gate, and data classification visible.
+The default application uses a deterministic synthetic source. It is labeled `shadow` and never
+claims live market data or execution authority.
 
 Production demo: [helios-control-kappa.vercel.app](https://helios-control-kappa.vercel.app/)
 
@@ -38,8 +37,8 @@ The deployment writes `public/runtime-config.js` without rebuilding the applicat
 
 ```js
 window.__HELIOS_OPERATIONS__ = {
-  snapshotUrl: "/api/operations/v1/snapshot",
-  streamUrl: "/api/operations/v1/events",
+  snapshotUrl: "/api/operations/v2/snapshot",
+  streamUrl: "/api/operations/v2/events",
   commandSessionUrl: "/api/commands/v1/session",
   commandUrl: "/api/commands/v1/commands",
 };
@@ -50,17 +49,21 @@ an SSE channel whose `snapshot` events contain complete, versioned operations sn
 payloads are validated before replacing the last known state. Initial load failure shows no demo
 data. Later stream failure preserves the last validated observation only after marking it stale.
 
-The read model owns:
+The schema-version 2 read model owns:
 
+- organization, workspace, and account identity;
+- alerts with severity, lifecycle state, category, and related entity;
+- generic time-series metrics and reference lines;
+- typed activity rows emitted by the OMS projection;
 - candidate signals, posterior state, blockers, lineage, and decision cuts;
 - held positions and broker marks;
 - active orders and reconciliation state;
 - source watermarks, lag, and health;
 - exposure, capacity, incident, kill-switch, and capital-admission state.
 
-Mutation belongs to a separate authenticated command service. Do not extend the operations port
-with mutation methods. Without both command URLs the UI stays visibly unbound and every control is
-disabled.
+Mutation belongs to a separate authenticated command service. Do not add mutation methods to the
+operations port. Without both command URLs, control stays read-only and the missing channel appears
+as an alert.
 
 The command session endpoint returns a short-lived operator identity, expiry, and CSRF token. The
 browser keeps that token in memory only. Each command request carries same-origin credentials,
@@ -87,5 +90,5 @@ deployment should provide at least:
 - a health endpoint that proves both the static release and read-model service are current.
 
 Perspective 5.3 is an analytical workbench, not the initial dashboard. Its JavaScript and WebAssembly
-load only after the operator opens Data Explorer. CI rejects an initial bundle above its budget or
+load only after the operator opens Explore. CI rejects an initial bundle above its budget or
 an eager Perspective payload.

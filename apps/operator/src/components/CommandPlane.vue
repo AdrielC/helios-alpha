@@ -41,6 +41,11 @@ const canCommand = computed(
 const canEmergencyCommand = computed(
   () => commandAuthority.value.state === "authenticated" && !commandBusy.value,
 );
+const authorityLabel = computed(() => {
+  if (commandAuthority.value.state === "authenticated") return commandAuthority.value.operator ?? "Command ready";
+  if (commandAuthority.value.state === "expired") return "Session expired";
+  return "Read only";
+});
 
 async function connectCommandPort(): Promise<void> {
   commandPort = createCommandPort();
@@ -105,14 +110,13 @@ onMounted(() => void connectCommandPort());
     <section class="control-plane" aria-labelledby="control-plane-heading">
       <header>
         <div>
-          <h1 id="control-plane-heading">Strategy control plane</h1>
-          <p>Read state comes from the operations stream. Every mutation crosses a separate authenticated boundary.</p>
+          <h1 id="control-plane-heading">Strategy control</h1>
         </div>
         <div class="command-authority" :data-state="commandAuthority.state">
           <span aria-hidden="true"></span>
           <div>
-            <strong>{{ commandAuthority.state }}</strong>
-            <small>{{ commandAuthority.operator || commandAuthority.detail }}</small>
+            <strong>{{ authorityLabel }}</strong>
+            <small>Command channel</small>
           </div>
         </div>
       </header>
@@ -139,9 +143,9 @@ onMounted(() => void connectCommandPort());
         </article>
       </div>
 
-      <span class="scroll-cue" aria-hidden="true">Scroll for all processing stages →</span>
+      <span class="scroll-cue" aria-hidden="true">Scroll stages →</span>
       <div class="stage-scroll" tabindex="0" aria-label="Processing stages. Scroll horizontally for the full path.">
-        <ol class="stage-path">
+        <ol class="stage-path" :style="{ '--stage-count': snapshot.stages.length }">
           <li v-for="stage in snapshot.stages" :key="stage.id" :data-state="stage.state">
             <div class="stage-node">
               <span>{{ stage.kind }}</span>
@@ -151,7 +155,7 @@ onMounted(() => void connectCommandPort());
               <p>{{ stage.detail }}</p>
             </div>
             <button
-              :disabled="!canCommand || stage.kind === 'source'"
+              :disabled="!canCommand || !stage.canPauseBefore"
               @click="prepareCommand(
                 'pause_before_stage',
                 stage.id,
@@ -159,7 +163,7 @@ onMounted(() => void connectCommandPort());
                 `PAUSE BEFORE ${stage.id.toUpperCase()}`,
               )"
             >
-              Hold before
+              Hold
             </button>
           </li>
         </ol>
@@ -202,9 +206,9 @@ onMounted(() => void connectCommandPort());
 
       <form v-if="commandDraft" class="command-review" @submit.prevent="issueCommand">
         <div>
-          <span>Protected command review</span>
+          <span>Command review</span>
           <h2>{{ commandDraft.label }}</h2>
-          <p>The service rejects this command if snapshot sequence {{ snapshot.sequence.toLocaleString() }} is no longer current.</p>
+          <p>Expected sequence {{ snapshot.sequence.toLocaleString() }}</p>
         </div>
         <label>
           Operational reason
@@ -221,7 +225,7 @@ onMounted(() => void connectCommandPort());
             type="submit"
             :disabled="commandBusy || commandReason.trim().length < 12 || commandConfirmation !== commandDraft.confirmationPhrase"
           >
-            {{ commandBusy ? "Submitting command" : "Issue protected command" }}
+            {{ commandBusy ? "Submitting" : "Issue command" }}
           </button>
         </div>
       </form>
@@ -235,7 +239,7 @@ onMounted(() => void connectCommandPort());
       <footer class="emergency-strip">
         <div>
           <strong>Emergency stop</strong>
-          <span>Stops new order admission. Position disposal remains an explicit follow-up action.</span>
+          <span>Stops new order admission. Positions remain open.</span>
         </div>
         <button
           :disabled="!canEmergencyCommand || snapshot.risk.killSwitchActive"
@@ -261,9 +265,8 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible { outline: 2px solid var(--atlas-oxide); outline-offset: -2px; }
 .control-plane { border-right: 1px solid var(--atlas-rule); border-bottom: 1px solid var(--atlas-rule); border-left: 1px solid var(--atlas-rule); }
-.control-plane > header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; min-height: 88px; padding: 18px 22px; border-bottom: 1px solid var(--atlas-rule); }
+.control-plane > header { display: flex; justify-content: space-between; gap: 24px; align-items: center; min-height: 72px; padding: 14px 18px; border-bottom: 1px solid var(--atlas-rule); }
 h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: -.02em; }
-header p { max-width: 72ch; margin: 5px 0 0; color: var(--atlas-muted); font-size: 13px; line-height: 1.45; }
 .command-authority { display: flex; gap: 9px; align-items: center; min-width: 230px; padding: 8px 10px; border: 1px solid var(--atlas-rule); }
 .command-authority > span { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--atlas-axis); }
 .command-authority[data-state="authenticated"] > span { background: var(--atlas-green); }
@@ -271,7 +274,7 @@ header p { max-width: 72ch; margin: 5px 0 0; color: var(--atlas-muted); font-siz
 .command-authority div { display: grid; gap: 2px; min-width: 0; }
 .command-authority strong { font: 9px var(--vp-font-family-mono); letter-spacing: .04em; text-transform: uppercase; }
 .command-authority small { overflow: hidden; max-width: 320px; color: var(--atlas-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.strategy-register { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); border-bottom: 1px solid var(--atlas-rule); }
+.strategy-register { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); border-bottom: 1px solid var(--atlas-rule); }
 .strategy-register article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; min-width: 0; padding: 14px 16px; border-right: 1px solid var(--atlas-rule); }
 .strategy-register article:last-child { border-right: 0; }
 .strategy-register article > div { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 9px; align-items: baseline; min-width: 0; }
@@ -287,7 +290,7 @@ button:disabled { color: var(--atlas-axis); border-color: var(--atlas-rule-soft)
 .strategy-register button { align-self: start; padding: 6px 8px; }
 .scroll-cue { display: none; }
 .stage-scroll { overflow-x: auto; scrollbar-color: var(--atlas-blue) var(--atlas-blue-soft); }
-.stage-path { display: grid; grid-template-columns: repeat(6, minmax(190px, 1fr)); min-width: 1180px; margin: 0; padding: 0; list-style: none; }
+.stage-path { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr); min-width: max(100%, calc(var(--stage-count, 1) * 190px)); margin: 0; padding: 0; list-style: none; }
 .stage-path li { position: relative; display: grid; grid-template-rows: 1fr auto; min-width: 0; border-right: 1px solid var(--atlas-rule); }
 .stage-path li:last-child { border-right: 0; }
 .stage-path li:not(:last-child)::after { position: absolute; z-index: 2; top: 36px; right: -5px; width: 9px; height: 9px; border: 1px solid var(--atlas-blue); background: var(--atlas-ground); content: ""; transform: rotate(45deg); }
