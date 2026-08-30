@@ -83,7 +83,7 @@ assert_equal() {
   local -r actual=$1
   local -r expected=$2
   if [[ "$actual" != "$expected" ]]; then
-    echo "Expected repeated idempotent invocation to return the original receipt" >&2
+    echo "Expected repeated idempotent invocation to return the original result" >&2
     diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") >&2 || true
     return 1
   fi
@@ -94,10 +94,30 @@ readonly open_key='v1/11:ci-proof-v1/17:normalized-events/0/17/40-40'
 readonly likelihood_key='v1/11:ci-proof-v1/17:normalized-events/0/17/41-41'
 readonly open_batch='SourceBatch { records: [SourceRecord { offset: 40, mutation: SourceMutation::Open(Open { key: "solar-flare", evidence: EvidenceEnvelope { sequence: 0, effective_at: 9, available_at: 10, payload: EventShockEvidence::Trigger(Trigger { prior_ppm: 1000, deadline_available_at: 100 }) } }) }] }'
 readonly likelihood_batch='SourceBatch { records: [SourceRecord { offset: 41, mutation: SourceMutation::Evidence(Evidence { key: "solar-flare", evidence: EvidenceEnvelope { sequence: 1, effective_at: 19, available_at: 20, payload: EventShockEvidence::LikelihoodAssessment(LikelihoodAssessment { observation_positive: true, sensitivity_ppm: 950000, false_positive_ppm: 1000, deadline_available_at: 200 }) } }) }] }'
+readonly oms_agent_id='OmsAccountAgent("ci-paper-account")'
+readonly oms_submit_key='oms-ci-paper-account-submit-1'
+readonly oms_submit='SubmitOrderInput { command_id: "oms-submit-1", intent: OrderIntentInput { client_order_id: "oms-order-1", proposal_id: "proposal-1", strategy_id: "strategy-1", symbol: "SPY", venue: "XNAS", currency: "USD", side: SideInput::Buy, quantity_micros: 2000000, limit_price_micros: 50000000, execution_mode: ExecutionModeInput::Paper, trading_day: 20260830, authorized_notional_micros: 100000000, risk_policy_version: "risk-v1", authorized_at_ns: 1 }, time_in_force: TimeInForceInput::Day, at_ns: 10 }'
+readonly oms_ack='VenueAcknowledgementInput { command_id: "oms-ack-1", client_order_id: "oms-order-1", broker_order_id: "oms-venue-order-1", at_ns: 11 }'
+readonly oms_fill='FillInput { command_id: "oms-fill-1", client_order_id: "oms-order-1", broker_order_id: Some("oms-venue-order-1"), execution_id: "oms-execution-1", venue_occurred_at: Some("20260830-15:42:00.000"), quantity_micros: 500000, price_micros: 49500000, at_ns: 12 }'
+readonly oms_order_id='"oms-order-1"'
 
 start_server
 
 golem --environment test --config-dir "$config_dir" --yes deploy
+
+oms_first_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$oms_submit_key" "$oms_agent_id" submit "$oms_submit")"
+assert_contains "$oms_first_receipt" 'version: 1'
+assert_contains "$oms_first_receipt" 'event_count: 1'
+
+oms_duplicate_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$oms_submit_key" "$oms_agent_id" submit "$oms_submit")"
+assert_equal "$oms_duplicate_receipt" "$oms_first_receipt"
+
+golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" acknowledge "$oms_ack" >/dev/null
+golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" record_fill "$oms_fill" >/dev/null
+
+oms_before_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" order "$oms_order_id")"
+assert_contains "$oms_before_crash" 'state: OrderStateOutput::PartiallyFilled'
+assert_contains "$oms_before_crash" 'filled_notional_micros: 24750000'
 
 first_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$open_key" "$agent_id" process_batch "$open_batch")"
 assert_contains "$first_receipt" 'next_offset: 41'
@@ -107,9 +127,13 @@ duplicate_receipt="$(golem --environment test --config-dir "$config_dir" --forma
 assert_equal "$duplicate_receipt" "$first_receipt"
 
 golem --environment test --config-dir "$config_dir" agent simulate-crash "$agent_id"
+golem --environment test --config-dir "$config_dir" agent simulate-crash "$oms_agent_id"
 after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$agent_id" status)"
 assert_contains "$after_crash" 'next_offset: 41'
 assert_contains "$after_crash" 'next_deadline_available_at: Some(100)'
+
+oms_after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" order "$oms_order_id")"
+assert_contains "$oms_after_crash" 'state: OrderStateOutput::PartiallyFilled'
 
 stop_server
 start_server
@@ -117,6 +141,11 @@ start_server
 after_restart="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$agent_id" status)"
 assert_contains "$after_restart" 'next_offset: 41'
 assert_contains "$after_restart" 'active_hypotheses: 1'
+
+oms_after_restart="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" order "$oms_order_id")"
+assert_contains "$oms_after_restart" 'state: OrderStateOutput::PartiallyFilled'
+oms_events="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" events_after 0 16)"
+assert_contains "$oms_events" 'next_cursor: 3'
 
 replayed_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$open_key" "$agent_id" process_batch "$open_batch")"
 assert_equal "$replayed_receipt" "$first_receipt"
@@ -129,4 +158,4 @@ final_status="$(golem --environment test --config-dir "$config_dir" --format tex
 assert_contains "$final_status" 'next_offset: 42'
 assert_contains "$final_status" 'next_deadline_available_at: Some(200)'
 
-echo "Golem durability smoke passed: duplicate suppression, simulated crash, full server restart, and contiguous resume."
+echo "Golem durability smoke passed: hypothesis and OMS duplicate suppression, simulated crash, full server restart, event cursor, and contiguous resume."

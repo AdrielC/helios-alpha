@@ -22,6 +22,8 @@ other event shocks without putting space-weather or trading vocabulary in the co
 [Inspect capital admission](https://adrielc.github.io/helios-alpha/operations/capital-admission) ·
 [Choose the first data and broker path](https://adrielc.github.io/helios-alpha/operations/market-data-path) ·
 [Inspect the Robinhood boundary](https://adrielc.github.io/helios-alpha/operations/robinhood) ·
+[Operate the OMS](https://adrielc.github.io/helios-alpha/operations/oms) ·
+[Choose the messaging plane](https://adrielc.github.io/helios-alpha/concepts/messaging-planes) ·
 [Review the Golem Cloud architecture](https://adrielc.github.io/helios-alpha/operations/golem-cloud)
 
 > **Status:** research infrastructure with an executable, fail-closed capital-control reference.
@@ -171,6 +173,7 @@ still has to map that contract to its own serializable transaction.
 | `helio_stats` | Stable moments, compensated sums, scaled norms, log probabilities, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
 | `helio_event` | An event-shock proving ground and simulated strategy vertical | Broker authorization |
 | `helio_execution` | Fixed-point orders, pre-trade risk, cost and capacity, broker reconciliation, incidents, operational readiness, capital admission | Research signal meaning, broker credentials, production evidence |
+| `helio_oms` | Versioned order lifecycle, exact fills, replay-safe commands, event cursors, FIX 4.4 mapping, external OMS contract | FIX sockets and credentials, venue certification, transport authority |
 | `helio_robinhood` | Official Robinhood Crypto signing, limit orders, lifecycle polling, cancellation, and decimal normalization | Credentials, rate scheduling, paper trading, equities and options, broker certification |
 | `helio_backtest` | Fixed clocks, fingerprints, guarded Kalman research, replay harnesses | Live execution guarantees |
 | `helios_signald` | Optional ZMQ integration | Kernel abstractions |
@@ -208,9 +211,9 @@ Run the capital-control crash and fault matrix:
 
 ```bash
 cd rust
-cargo test -p helio_scan -p helio_time -p helio_execution -p helio_robinhood
+cargo test -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_robinhood
 cargo test -p helio_robinhood --all-features
-cargo clippy -p helio_execution -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
+cargo clippy -p helio_execution -p helio_oms -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
 ```
 
 The end-to-end paper test loses both a commit acknowledgement and a broker acknowledgement, then
@@ -235,9 +238,10 @@ golem build --yes
 bash tests/golem_local_smoke.sh
 ```
 
-The smoke test deploys to an isolated local Golem server, repeats one invocation key, simulates an
-agent crash, restarts the full server, and verifies contiguous resume. CI pins the Golem CLI binary
-and checks its SHA-256 digest before running the same proof. Read the
+The smoke test deploys both durable agent types to an isolated local Golem server. It proves
+hypothesis offset resume plus OMS command de-duplication, exact partial-fill state, simulated agent
+crashes, full server restart, and event-cursor resume. CI pins the Golem CLI binary and checks its
+SHA-256 digest before running the same proof. Read the
 [Golem deployment guide](https://adrielc.github.io/helios-alpha/operations/golem-cloud) for the
 implemented boundary and the remaining cloud, certified-broker, deployment, and shadow evidence.
 

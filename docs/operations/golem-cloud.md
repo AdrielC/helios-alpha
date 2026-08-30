@@ -38,7 +38,7 @@ Primary references: [Golem concepts](https://learn.golem.cloud/v1.5/concepts),
 
 ## Implemented boundary
 
-The repository has two deliberately separate layers:
+The repository has two deliberately separate layers and two durable agent types:
 
 - `helio_golem` is a portable adapter kernel. It owns source-offset validation, bounded atomic
   batches, deterministic invocation keys, and validated shard snapshots. It has no Golem SDK,
@@ -46,8 +46,11 @@ The repository has two deliberately separate layers:
 - `golem/` is the deployable application. It supplies Golem `Schema` wire types and a concrete
   event-shock reference model that moves from trigger prior, through a Bayesian likelihood update,
   to a market assessment and research candidate.
+- `OmsAccountAgent(account_id)` owns the standalone OMS state for one account. It exports typed
+  submit, fill, cancel, replace, reconciliation, order-query, and bounded event-cursor methods over
+  the portable `helio_oms` aggregate.
 
-The agent exposes exactly three operations:
+The hypothesis shard agent exposes exactly three domain operations:
 
 ```text
 HypothesisShardAgent(fingerprint, source, partition, shard, initial_offset)
@@ -90,6 +93,11 @@ and proves all of the following:
 The local operation log contained one `process_batch` invocation for the repeated key and a
 575-byte snapshot. CI repeats the proof on Linux with Golem v1.5.9, verifies the downloaded CLI's
 SHA-256 digest, and builds the metadata-enriched WASM component with `golem build`.
+
+The same smoke deploy extracts `OmsAccountAgent` from the real WASM interface. It submits an order
+twice under one invocation key, acknowledges and partially fills it, simulates an agent crash,
+restarts the complete Golem server, and verifies the exact fill notional and event cursor after
+recovery. This is local integration evidence, not production capital admission.
 
 This follows Golem's own open-source worker-executor test pattern: invoke with one idempotency key,
 restart the executor, repeat the key, and assert the effect happened once. See the pinned

@@ -1,4 +1,4 @@
-# Execution and local signal broadcast
+# Execution and signal transport
 
 This repository is primarily research. `helios_signald` broadcasts observations and candidates. It
 does not authorize orders. The separate `helio_execution` crate owns the typed risk, cost, broker,
@@ -11,7 +11,7 @@ operations, and capital-admission boundary.
 3. **Explicit causality** — every signal carries `emitted_at_utc` and optional `causal_ts_utc` (what instant the model treated as “now”).
 4. **Kill switch & idempotency** — execution layer dedupes on `signal_id`; global disable outside the research stack.
 
-## Recommended topology
+## Operational topology
 
 ```
 ┌─────────────────────┐     PUB (tcp ipc inproc)     ┌──────────────────────┐
@@ -32,13 +32,17 @@ operations, and capital-admission boundary.
 - **Tier B — market data**: later, **shared memory** or **nanomsg/iceoryx** for bar/tick firehose; ZMQ is fine for moderate intraday aggregates.
 - **Tier C — orders**: **only** behind a dedicated adapter (IBKR, FIX, etc.) that subscribes to **approved** `OrderIntent` messages (separate topic or queue), never directly from research code.
 
-## Why ZMQ here
+## ZeroMQ compatibility boundary
 
 - **PUB/SUB** matches “broadcast signal, many listeners.”
 - **PUSH/PULL** if you need strict load-balanced workers later.
 - **inproc://** for same-process Python+Rust via FFI is rare; prefer **tcp://127.0.0.1:port** between processes.
 
-Alternatives you can swap without changing the JSON body: **Redis pub/sub**, **NATS**, **MQTT** (local broker). The **Pydantic schema** in `helios_alpha.signals.schema` stays the contract.
+ZeroMQ remains the local research bridge implemented today. It has no durable-delivery or replay
+claim. The operational decision is [Golem for authoritative workflow state, NATS JetStream for
+durable service events, and Zenoh only when distributed high-rate telemetry requires it](concepts/messaging-planes).
+
+FIX is a venue protocol behind the OMS. It is not the internal message bus.
 
 ## Python → Rust contract
 

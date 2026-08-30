@@ -472,7 +472,7 @@ const tapeRows = computed(() => [
             </section>
 
             <section id="orders-ledger" class="ledger-panel orders-panel" aria-labelledby="orders-heading">
-              <header><div><h2 id="orders-heading">Active orders</h2><p>Order intent compared with venue state through reconciliation keys.</p></div><span>{{ snapshot.orders.length }} active</span></header>
+              <header><div><h2 id="orders-heading">Active orders</h2><p>Authoritative OMS state compared with venue truth through stable order and execution identities.</p></div><span>{{ snapshot.orders.length }} active</span></header>
               <div class="order-layout">
                 <div class="order-list" role="list">
                   <button v-for="order in snapshot.orders" :key="order.clientOrderId" :class="{ selected: order.clientOrderId === selectedOrder.clientOrderId }" @click="inspectedOrderId = order.clientOrderId">
@@ -480,7 +480,7 @@ const tapeRows = computed(() => [
                   </button>
                 </div>
                 <dl v-if="selectedOrder" class="order-detail">
-                  <div><dt>Venue</dt><dd>{{ selectedOrder.venue }}</dd></div><div><dt>Quantity</dt><dd>{{ quantity(selectedOrder.quantityMicros) }}</dd></div><div><dt>Filled</dt><dd>{{ quantity(selectedOrder.filledQuantityMicros) }}</dd></div><div><dt>Limit</dt><dd>{{ money(selectedOrder.limitPriceMicros) }}</dd></div><div><dt>Average</dt><dd>{{ selectedOrder.averagePriceMicros ? money(selectedOrder.averagePriceMicros) : "Not filled" }}</dd></div><div><dt>Reconciliation</dt><dd class="verified">{{ selectedOrder.reconciliation }}</dd></div>
+                  <div><dt>Venue</dt><dd>{{ selectedOrder.venue }}</dd></div><div><dt>Quantity</dt><dd>{{ quantity(selectedOrder.quantityMicros) }}</dd></div><div><dt>Filled</dt><dd>{{ quantity(selectedOrder.filledQuantityMicros) }}</dd></div><div><dt>Limit</dt><dd>{{ money(selectedOrder.limitPriceMicros) }}</dd></div><div><dt>Average</dt><dd>{{ selectedOrder.averagePriceMicros ? money(selectedOrder.averagePriceMicros) : "Not filled" }}</dd></div><div><dt>Reconciliation</dt><dd class="verified">{{ selectedOrder.reconciliation }}</dd></div><div v-if="selectedOrder.omsVersion !== undefined"><dt>OMS version</dt><dd>{{ selectedOrder.omsVersion }}</dd></div><div v-if="selectedOrder.brokerOrderId"><dt>Venue order</dt><dd><code>{{ shortId(selectedOrder.brokerOrderId) }}</code></dd></div><div v-if="selectedOrder.timeInForce"><dt>Time in force</dt><dd>{{ selectedOrder.timeInForce.replaceAll('_', ' ') }}</dd></div><div v-if="selectedOrder.uncertaintyReason"><dt>Uncertainty</dt><dd class="negative">{{ selectedOrder.uncertaintyReason }}</dd></div>
                 </dl>
                 <p v-else class="operator-empty">No active orders in this snapshot.</p>
               </div>

@@ -10,6 +10,7 @@
 | `helio_window` | Operations | Reorder, bucket reduction, rolling and session state | Strategy vocabulary |
 | `helio_event` | Proving ground | Event-shock model, filters, signal and simulated execution | Broker authorization |
 | `helio_execution` | Capital controls | Fixed-point orders, risk reservations, costs and capacity, broker reconciliation, operational readiness, incidents, capital admission | Signal research, credentials, production evidence |
+| `helio_oms` | Order management | Event-sourced order lifecycle, exact fill accounting, command replay, event cursor, FIX 4.4 mapping, external OMS conformance | FIX session sockets, credentials, venue certification, event transport |
 | `helio_robinhood` | Venue adapter | Official Crypto API signing, limit-order mapping, bounded reconciliation, lifecycle normalization, cancellation, native HTTP transport | Credentials, paper simulation, rate scheduling, equities and options, broker certification |
 | `helio_backtest` | Harness | Clocks, fingerprints, guarded Kalman research, terminal UI | Live execution guarantees |
 | `helio_backtest_wasm` | Browser adapter | Browser-hosted backtest interface | Core numerical semantics |
@@ -31,8 +32,8 @@ helio_scan        helio_time
      │    helio_event  helio_golem
      │
      └──── helio_execution
-                ↑
-         helio_robinhood
+                ↑  ↑
+         helio_robinhood  helio_oms
                            ↑
               helios_hypothesis_shard
 ```
