@@ -1,16 +1,38 @@
-# Compose a strategy
+# Build a restartable 10-minute event signal
 
-The substrate should not know that a value is a price, that a threshold means buy, or that an event came from a market. Those are injected decisions. The reusable core owns ordering, state transitions, control boundaries, and recovery.
+This walkthrough turns one research contract into a typed Rust pipeline. The example is deliberately domain-neutral: a value enters a 10-minute bucket, stable online moments summarize the bucket, and research-owned policy may turn the closed summary into a candidate signal.
 
-## Start with the event contract
+The reusable substrate owns causality, ordering, state, and recovery. It does not know what a price is, what `2.0σ` means, or whether an output should become an order.
 
-Give an observation its event-time coordinate and implement the bucket-time and watermark-time traits:
+## 1. State the research contract
+
+For this example:
+
+| Contract field | Decision |
+|---|---|
+| Observation | A timestamped floating-point value |
+| Event coordinate | Unix seconds in `event_time` |
+| Availability gate | The observation must be available by the decision cut |
+| Disorder budget | At most 4,096 pending observations |
+| Feature | Count, mean, and variance per 10-minute bucket |
+| Emission boundary | The watermark passes the bucket end |
+| Strategy output | A candidate signal owned by research policy |
+| Recovery identity | Snapshot version, pipeline fingerprint, source offset, and watermark |
+
+This contract is part of the strategy. Changing the bucket grid, disorder capacity, projection, merge order, or decision rule creates a different computation and should change its fingerprint.
+
+## 2. Give the observation both clocks
+
+`event_time` determines ordering and bucket membership. `available_at` determines whether the observation was knowable at the decision cut.
+
+The value that reaches `OrderedBucketPipeline` implements the event-time traits:
 
 ```rust
-use helio_window::{BucketTimed, WatermarkTime};
+use serde::{Deserialize, Serialize};
 use helio_time::SecondWallBucket;
+use helio_window::{BucketTimed, WatermarkTime};
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 struct Observation {
     event_time: i64,
     value: f64,
@@ -29,9 +51,29 @@ impl BucketTimed<SecondWallBucket> for Observation {
 }
 ```
 
-## Inject the reduction policy
+Wrap ingress values in `helio_time::Timed<Observation>` when availability differs from event time. `AvailabilityGateScan` passes only values whose `available_at` is less than or equal to the configured cut:
 
-`F64MomentsReducer` projects an observation into a floating-point value. `OrderedBucketPipeline` composes bounded event-time reorder with generic bucket reduction.
+```rust
+use helio_scan::{Scan, VecEmitter};
+use helio_time::{AvailabilityGateScan, AvailableAt, Timed};
+
+let decision_cut = AvailableAt(1_706_704_782);
+let gate = AvailabilityGateScan::<Observation>::new(Some(decision_cut));
+let mut gate_state = gate.init();
+let mut eligible = VecEmitter::new();
+
+gate.step(
+    &mut gate_state,
+    Timed::new(observation, AvailableAt(published_at)),
+    &mut eligible,
+);
+```
+
+At the ingress boundary, pass only the eligible inner observations into the ordered bucket pipeline. Keep the source offset attached to the same admitted record so a checkpoint can resume from an exact position.
+
+## 3. Inject the 10-minute reduction
+
+`F64MomentsReducer` receives a projection function. `OrderedBucketPipeline` combines a bounded event-time reorder stage with generic bucket reduction.
 
 ```rust
 use helio_time::SecondWallBucket;
@@ -48,11 +90,13 @@ let pipeline = OrderedBucketPipeline::try_new(
 )?;
 ```
 
-The reducer is compile-time dependency injection. Its mutable state belongs to the pipeline state and therefore participates in snapshots. Its configuration remains an ordinary Rust value.
+The projection is compile-time dependency injection. Its mutable accumulator belongs to pipeline state, so it participates in snapshots. Its configuration remains an ordinary Rust value, and the hot path does not require virtual dispatch.
 
-## Drive event time explicitly
+The moments reducer tracks `n`, mean, and `M2`. It uses Welford updates for individual observations and Chan-style merges for partitions. A fixed merge tree is required when bitwise replay matters because floating-point addition is order-sensitive.
 
-Input alone cannot prove that a bucket is complete. A watermark can:
+## 4. Advance event time explicitly
+
+Receiving an input does not prove that its bucket is complete. A watermark does.
 
 ```rust
 use helio_scan::{FlushReason, FlushableScan, Scan, VecEmitter};
@@ -68,30 +112,52 @@ pipeline.flush(
 );
 ```
 
-Late arrivals, overflow, invalid watermarks, bucket closes, and reducer errors remain typed outputs. Do not turn these into log lines and silently continue.
+For bucket `[09:30, 09:40)`, the summary is safe to finalize only when the watermark reaches the close boundary under the configured semantics. Until then, the bucket remains owned state.
 
-## Add signal logic at the edge
+The pipeline emits typed `OrderedBucketOutput` values. Ready data flows into the reducer. Late arrivals, overflow, sequence exhaustion, invalid watermarks, bucket closes, and reducer failures remain explicit outcomes. A caller must handle them instead of converting them into log-only side effects.
 
-Treat a signal as another scan that consumes bucket summaries. Compose it with `Scan::then` when the types line up, or write a small adapter scan when policy needs context.
+## 5. Put signal policy after the closed summary
 
-The important separation is:
+A strategy rule consumes the closed bucket summary and emits zero or more candidate signals. It can be another `Scan`, composed with `Scan::then` when the types line up, or a small adapter that preserves the typed control outcomes.
 
-```text
-generic substrate        research-owned policy
----------------------    -----------------------------
-order and watermark  ->  event definition
-bucket reduction     ->  feature projection
-online state         ->  calibration and threshold
-snapshot and offset  ->  strategy identity/fingerprint
-```
+Keep the ownership boundary explicit:
 
-## Prove equivalence before trusting throughput
+| Generic substrate owns | Research policy owns |
+|---|---|
+| Availability and ordering contracts | Event definition and inclusion criteria |
+| Watermark and bucket closure | Feature projection and calibration window |
+| Online state and typed failures | Threshold, direction, horizon, and controls |
+| Snapshot and restore mechanics | Strategy identity and decision semantics |
 
-For every strategy composition, test the same input through:
+A candidate signal is not an authorized trade. Capital allocation, broker routing, portfolio constraints, and kill switches sit beyond this pipeline.
 
-1. One-item incremental stepping.
-2. Opaque batch adapters.
-3. Checkpoint, restore, and resume from the recorded offset.
-4. End-of-input and watermark flushes.
+## 6. Make recovery part of the result
 
-The output sequence should match exactly for the same ordering and merge tree. Floating-point partitioning and merge order belong in the pipeline fingerprint.
+A usable checkpoint binds four things:
+
+1. The versioned operator snapshot.
+2. The source offset represented by that snapshot.
+3. The latest accepted watermark or equivalent control frontier.
+4. A fingerprint of every configuration choice that changes results.
+
+On restart, validate the snapshot and fingerprint before resuming after the recorded offset. Commit downstream effects before advancing the durable source position, or use an atomic protocol that coordinates both.
+
+See [Restart a pipeline](./restart-a-pipeline) for the full commit order and compatibility contract.
+
+## 7. Require equivalence before trusting throughput
+
+Run the same ordered input through all of these paths:
+
+1. One observation at a time.
+2. The opaque batch adapters.
+3. Checkpoint, restore, and resume after the recorded offset.
+4. Watermark and end-of-input flushes.
+5. Partitioned moments merged with the declared fixed tree.
+
+For the same input order and merge tree, the output sequence should match exactly. Include late, overflow, empty-bucket, invalid-watermark, corrupt-snapshot, and incompatible-fingerprint cases.
+
+## What this walkthrough proves
+
+It proves that the mechanics can be represented as bounded, typed, replayable state transitions. It does not prove that the event definition predicts returns, survives costs, generalizes out of sample, or can safely route live orders.
+
+Next, apply the [rare-event evidence standard](../research/evidence-standard) and audit the [production boundary](../operations/production-readiness).

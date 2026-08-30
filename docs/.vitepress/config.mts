@@ -18,7 +18,7 @@ export default defineConfig({
       {
         property: "og:description",
         content:
-          "Compose causality-aware, restartable event pipelines in Rust.",
+          "Turn event hypotheses into causal, inspectable, restartable Rust pipelines.",
       },
     ],
   ],
@@ -28,7 +28,7 @@ export default defineConfig({
     search: { provider: "local" },
     nav: [
       { text: "Atlas", link: "/" },
-      { text: "Start", link: "/guide/quickstart" },
+      { text: "Walkthrough", link: "/guide/quickstart" },
       { text: "Concepts", link: "/concepts/scan-algebra" },
       { text: "Research", link: "/research/rare-events" },
       { text: "Operations", link: "/operations/production-readiness" },
@@ -39,11 +39,11 @@ export default defineConfig({
     ],
     sidebar: [
       {
-        text: "Start here",
+        text: "Researcher walkthrough",
         items: [
-          { text: "Quickstart", link: "/guide/quickstart" },
+          { text: "Start with a question", link: "/guide/quickstart" },
           {
-            text: "Compose a strategy",
+            text: "Build a 10-minute signal",
             link: "/guide/compose-a-strategy",
           },
           {
@@ -101,10 +101,10 @@ export default defineConfig({
   },
   transformHtml(code) {
     const contract = `<!--
-THESIS: Strategy composition is inspectable evidence, not generic feature-card documentation.
+THESIS: A quant researcher can turn one causal event contract into an inspectable and restartable signal pipeline.
 OWN-WORLD: Cool-white atlas sheets, ink and cobalt rules, oxide event marks, evidence green, ruled plates, registration crosses, flat depth, Archivo and Recursive type.
-STORY: A researcher traces one event through ordering, buckets, online statistics, signal logic, and a checkpoint, then opens the guide to reproduce it.
-FIRST VIEWPORT: A slim nav and specification band lead to a six-stage rail; an aligned-time plot owns two-thirds below while annotations and restart state occupy the final third; the composition guide is the primary action.
+STORY: A researcher states what was knowable, traces one observation through six state owners, then follows the same contract into executable Rust and replay proof.
+FIRST VIEWPORT: A slim nav and research contract lead to a controllable six-stage trace; an aligned-time plot owns two-thirds below while annotations and restart state occupy the final third; the 10-minute walkthrough is the primary action.
 FORM: Annotated Event Atlas, first in the grounded candidate list, seed ed3c4d6d.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->`;

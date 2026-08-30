@@ -21,50 +21,50 @@ const stages: Stage[] = [
   {
     key: "source",
     index: "01",
-    label: "Source",
+    label: "Admit",
     method: "step(event)",
-    detail: "Accept typed observations with event and availability time.",
-    state: "cursor: 184,512",
+    detail: "Admit only observations available by the decision cut, with the matching source offset.",
+    state: "available_at ≤ 09:39:42Z · offset 184,512",
   },
   {
     key: "reorder",
     index: "02",
     label: "Reorder",
     method: "watermark(t)",
-    detail: "Bound pending input and emit explicit late or overflow outcomes.",
-    state: "pending: 7 / 4,096",
+    detail: "Buffer bounded disorder, release by watermark, and surface late or overflow inputs.",
+    state: "pending 7 / 4,096 · watermark 09:39:42Z",
   },
   {
     key: "bucket",
     index: "03",
     label: "10m bucket",
     method: "reduce(value)",
-    detail: "Inject a reducer and close only when the watermark makes it safe.",
-    state: "open: [09:30, 09:40)",
+    detail: "Assign the event to [09:30, 09:40) and finalize only after the watermark passes 09:40.",
+    state: "open [09:30, 09:40) · n 511",
   },
   {
     key: "moments",
     index: "04",
     label: "Moments",
     method: "try_push(x)",
-    detail: "Update Welford state and merge partitions with a fixed Chan tree.",
-    state: "n: 512 · μ: 0.18 · σ: 1.07",
+    detail: "Update n, mean, and M2 without retaining the full series; merge partitions in a fixed order.",
+    state: "n 512 · μ 0.18 · σ 1.07",
   },
   {
     key: "signal",
     index: "05",
-    label: "Signal",
+    label: "Decide",
     method: "emit(output)",
-    detail: "Apply research-owned logic without teaching the substrate about trades.",
-    state: "status: candidate",
+    detail: "Apply research-owned logic to the closed summary. Emit a candidate, never an authorized order.",
+    state: "candidate true · authority none",
   },
   {
     key: "checkpoint",
     index: "06",
     label: "Checkpoint",
     method: "write(offset)",
-    detail: "Persist versioned state, watermark, fingerprint, and source position.",
-    state: "snapshot: compatible",
+    detail: "Persist operator state with its source offset, watermark, version, and pipeline fingerprint.",
+    state: "snapshot v1 · fingerprint compatible",
   },
 ];
 
@@ -252,33 +252,33 @@ onBeforeUnmount(() => {
   <main class="atlas" aria-labelledby="atlas-title">
     <section class="atlas-intro atlas-plate" aria-labelledby="atlas-title">
       <div class="atlas-intro-copy">
-        <h1 id="atlas-title">Compose the event path.</h1>
-        <p class="plate-meta">Annotated event atlas · research substrate</p>
+        <h1 id="atlas-title">Turn an event hypothesis into a replayable signal.</h1>
+        <p class="plate-meta">Annotated event atlas · 10-minute study</p>
         <p>
-          Express ordering, time, statistics, signals, and restart boundaries as
-          one typed stream computation.
+          Trace one observation through causal admission, bounded ordering, a
+          closed bucket, online moments, research-owned logic, and a checkpoint.
         </p>
         <a class="atlas-primary" href="./guide/compose-a-strategy">
-          Open the composition guide <span aria-hidden="true">→</span>
+          Walk through the strategy <span aria-hidden="true">→</span>
         </a>
       </div>
 
       <dl class="atlas-spec" aria-label="System specification">
         <div>
-          <dt>Kernel</dt>
-          <dd>helio_scan</dd>
+          <dt>Input</dt>
+          <dd>typed observation</dd>
         </div>
         <div>
-          <dt>Order</dt>
+          <dt>Clock</dt>
           <dd>event time</dd>
         </div>
         <div>
-          <dt>State</dt>
-          <dd>versioned</dd>
+          <dt>Recovery</dt>
+          <dd>offset + snapshot</dd>
         </div>
         <div>
           <dt>Claim</dt>
-          <dd>mechanics, not alpha</dd>
+          <dd>mechanics only</dd>
         </div>
       </dl>
       <span class="registration registration-east" aria-hidden="true"></span>
@@ -287,11 +287,11 @@ onBeforeUnmount(() => {
     <section class="pipeline atlas-plate" aria-labelledby="pipeline-title">
       <div class="section-heading">
         <div>
-          <h2 id="pipeline-title">One event. Six explicit state transitions.</h2>
-          <p class="plate-meta">Typed composition</p>
+          <h2 id="pipeline-title">One observation. Six explicit state owners.</h2>
+          <p class="plate-meta">Causal trace · synthetic values</p>
         </div>
         <p class="section-note">
-          Select a stage to inspect the state it owns.
+          Run the trace, advance one stage, or select an operator to inspect it.
         </p>
       </div>
 
@@ -361,13 +361,13 @@ onBeforeUnmount(() => {
               <path v-if="isPlaying" d="M5 3v10M11 3v10" />
               <path v-else d="m5 3 8 5-8 5z" />
             </svg>
-            {{ isPlaying ? "Pause" : "Play" }}
+            {{ isPlaying ? "Pause trace" : "Play trace" }}
           </button>
           <button type="button" class="pipeline-control" @click="stepReplay">
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="m3 3 7 5-7 5zM12 3v10" />
             </svg>
-            Step
+            Advance one stage
           </button>
           <button type="button" class="pipeline-control" @click="restartFromCheckpoint">
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -379,7 +379,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="stage-readout" :aria-live="isPlaying ? 'off' : 'polite'">
-        <span class="readout-label">Selected · {{ activeStage.index }}</span>
+        <span class="readout-label">Inspecting · {{ activeStage.index }}</span>
         <strong>{{ activeStage.label }}</strong>
         <p>{{ activeStage.detail }}</p>
         <code>{{ activeStage.state }}</code>
@@ -395,8 +395,8 @@ onBeforeUnmount(() => {
       <div class="plot-panel">
         <div class="plot-header">
           <div>
-            <h2 id="evidence-title">Response around a rare event</h2>
-            <p class="plate-meta">Aligned time · synthetic demonstration</p>
+            <h2 id="evidence-title">Synthetic event study aligned at t = 0</h2>
+            <p class="plate-meta">Illustrative response · not estimated alpha</p>
           </div>
           <dl class="plot-legend" aria-label="Plot legend">
             <div><dt class="legend-line"></dt><dd>Mean response</dd></div>
@@ -539,8 +539,8 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="evidence-strip" aria-label="Evidence status">
-      <strong>Synthetic data</strong>
-      <span>The plot explains mechanics. It is not a backtest result.</span>
+      <strong>Illustrative series</strong>
+      <span>The plot explains alignment and state. It is not an empirical result.</span>
       <span class="evidence-boundary">
         Mechanics <b>tested</b> · Alpha <b>unproven</b>
       </span>
@@ -549,38 +549,45 @@ onBeforeUnmount(() => {
     <section class="atlas-section premise" aria-labelledby="premise-title">
       <div class="section-number" aria-hidden="true">01</div>
       <div class="section-copy">
-        <h2 id="premise-title">A strategy is a state machine with evidence obligations.</h2>
-        <p class="plate-meta">Operating premise</p>
+        <h2 id="premise-title">Write down what the backtest is allowed to know.</h2>
+        <p class="plate-meta">Research contract</p>
       </div>
-      <div class="premise-text">
-        <p>
-          Bucketing, rolling statistics, causal filters, and signals all share one
-          shape: receive input, update owned state, emit zero or more outputs.
-          Helios makes that shape explicit, composable, and restartable.
-        </p>
-        <p>
-          Market vocabulary belongs at the edge. The kernel knows inputs, outputs,
-          state, controls, and snapshots. Researchers decide what an event means.
-        </p>
-      </div>
+      <dl class="research-contract" aria-label="Example research contract">
+        <div>
+          <dt>Event</dt>
+          <dd>A timestamped observation with a documented detection rule.</dd>
+        </div>
+        <div>
+          <dt>Available at</dt>
+          <dd>The first instant the strategy could actually have observed it.</dd>
+        </div>
+        <div>
+          <dt>Decision</dt>
+          <dd>A candidate emitted only from a watermark-closed summary.</dd>
+        </div>
+        <div>
+          <dt>Falsifier</dt>
+          <dd>Pre-registered controls, costs, and out-of-sample failure criteria.</dd>
+        </div>
+      </dl>
       <span class="registration registration-east registration-center" aria-hidden="true"></span>
     </section>
 
     <section class="composition-section atlas-section" aria-labelledby="composition-title">
       <div class="section-number" aria-hidden="true">02</div>
       <div class="section-copy">
-        <h2 id="composition-title">Inject policy. Preserve structure.</h2>
-        <p class="plate-meta">Compile-time composition</p>
+        <h2 id="composition-title">Compose only the state the question requires.</h2>
+        <p class="plate-meta">Static policy injection</p>
         <p>
-          Reducers, projections, calendars, and signal decisions are ordinary Rust
-          values. The hot path stays statically dispatched and allocation-aware.
+          The reducer and signal rule are ordinary Rust values. Ordering, flushing,
+          and snapshots stay generic, statically dispatched, and allocation-aware.
         </p>
-        <a href="./concepts/scan-algebra">Read the scan algebra →</a>
+        <a href="./guide/compose-a-strategy">Build the 10-minute pipeline →</a>
       </div>
       <div class="code-plate" aria-label="Rust composition example">
         <div class="code-plate-bar">
           <span>pipeline.rs</span>
-          <span>domain-free substrate</span>
+          <span>injected reducer · explicit watermark</span>
         </div>
         <pre><code><span class="code-keyword">let</span> pipeline = OrderedBucketPipeline::try_new(
     <span class="code-number">4_096</span>,
@@ -599,29 +606,29 @@ pipeline.flush(
     <section class="crate-section atlas-section" aria-labelledby="crate-title">
       <div class="section-number" aria-hidden="true">03</div>
       <div class="section-copy">
-        <h2 id="crate-title">Small boundaries, one composition model.</h2>
-        <p class="plate-meta">Crate map</p>
+        <h2 id="crate-title">Follow the evidence in research order.</h2>
+        <p class="plate-meta">Four-part walkthrough</p>
       </div>
       <div class="crate-list">
-        <a href="./concepts/scan-algebra">
-          <span>helio_scan</span>
-          <strong>State machine algebra</strong>
-          <p>Step, flush, emit, compose, snapshot, restore.</p>
+        <a href="./research/rare-events">
+          <span>Step 01 · define</span>
+          <strong>Specify the event and its evidence</strong>
+          <p>Separate event time, availability, alignment, exposure, and the falsifier.</p>
         </a>
         <a href="./concepts/event-time">
-          <span>helio_time + helio_window</span>
-          <strong>Meaning and machinery</strong>
-          <p>Explicit time semantics, bounded order, buckets, and windows.</p>
+          <span>Step 02 · constrain</span>
+          <strong>Make time semantics causal</strong>
+          <p>Gate availability, bound disorder, advance watermarks, and close buckets.</p>
         </a>
-        <a href="./concepts/online-statistics">
-          <span>helio_stats</span>
-          <strong>Stable online state</strong>
-          <p>Moments, covariance, rolling removal, and Hawkes intensity.</p>
+        <a href="./guide/compose-a-strategy">
+          <span>Step 03 · compose</span>
+          <strong>Build the typed operator chain</strong>
+          <p>Inject the projection, accumulate stable moments, and emit a candidate.</p>
         </a>
-        <a href="./research/rare-events">
-          <span>helio_event</span>
-          <strong>Rare-event proving ground</strong>
-          <p>Causal events, lead-time gates, replay, and simulated execution.</p>
+        <a href="./guide/restart-a-pipeline">
+          <span>Step 04 · prove</span>
+          <strong>Replay, restore, and compare</strong>
+          <p>Require identical output across incremental, batch, and checkpointed runs.</p>
         </a>
       </div>
     </section>
@@ -629,12 +636,12 @@ pipeline.flush(
     <section class="boundary-section atlas-section" aria-labelledby="boundary-title">
       <div class="section-number" aria-hidden="true">04</div>
       <div class="section-copy">
-        <h2 id="boundary-title">Productionizable mechanism. Not yet a production trading system.</h2>
-        <p class="plate-meta">Production boundary</p>
+        <h2 id="boundary-title">Know exactly what this system does not authorize.</h2>
+        <p class="plate-meta">Capital boundary</p>
       </div>
       <div class="boundary-columns">
         <div>
-          <h3>Implemented and testable</h3>
+          <h3>Mechanics you can test now</h3>
           <ul>
             <li>Deterministic replay and checkpoint-resume equivalence</li>
             <li>Bounded ordering with typed failure outcomes</li>
@@ -643,7 +650,7 @@ pipeline.flush(
           </ul>
         </div>
         <div>
-          <h3>Required before capital</h3>
+          <h3>Evidence required before capital</h3>
           <ul>
             <li>Atomic source, checkpoint, and sink coordination</li>
             <li>Venue-grade calendars, broker integration, and risk limits</li>

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-29T23:42:20Z",
+  "generatedAt": "2026-08-30T01:17:10Z",
   "title": "Design System: Helios Alpha",
   "extensions": {
     "colorMeta": {
@@ -120,8 +120,11 @@
     "shadows": [],
     "motion": [
       { "name": "state-fast", "value": "160ms ease", "purpose": "Color, background, and small transform feedback." },
-      { "name": "event-traverse", "value": "4.8s cubic-bezier(0.35, 0, 0.2, 1) 600ms 1 both", "purpose": "One oxide event pulse traverses a composed pipeline after entry." },
-      { "name": "reduced-motion", "value": "0.01ms 1", "purpose": "Removes traversal while preserving a static selected state." }
+      { "name": "stage-traverse", "value": "460ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Moves the oxide event pulse to the next explicit state owner." },
+      { "name": "trace-interval", "value": "1350ms", "purpose": "Advances one stage while the synthetic replay is visible and playing." },
+      { "name": "connector-register", "value": "360ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Registers a completed stage connector." },
+      { "name": "plot-register", "value": "720ms to 760ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Reveals the synthetic confidence band and response after the signal stage." },
+      { "name": "reduced-motion", "value": "0.01ms 1", "purpose": "Pauses autoplay and removes traversal while preserving a static selected state." }
     ],
     "breakpoints": [
       { "name": "compact", "value": "1100px" },
@@ -142,7 +145,7 @@
       "kind": "button",
       "refersTo": "primary-action",
       "description": "The transparent, underlined primary action used to move from evidence into a guide.",
-      "html": "<a class=\"ds-primary-action\" href=\"#\">Open the composition guide <span aria-hidden=\"true\">→</span></a>",
+      "html": "<a class=\"ds-primary-action\" href=\"#\">Walk through the strategy <span aria-hidden=\"true\">→</span></a>",
       "css": ".ds-primary-action { display: inline-flex; gap: 16px; align-items: center; min-height: 20px; padding: 0 0 1px; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 11px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 650; letter-spacing: 0.05em; text-decoration: none; text-transform: uppercase; background: transparent; border-bottom: 1px solid currentColor; border-radius: 1px; transition: color 160ms ease; } .ds-primary-action:hover, .ds-primary-action:focus-visible { color: var(--atlas-oxide, #b8535c); } .ds-primary-action:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 4px; }"
     },
     {
@@ -150,7 +153,7 @@
       "kind": "custom",
       "refersTo": "specification-fact",
       "description": "Compact runtime facts aligned in a ruled strip beside a thesis.",
-      "html": "<dl class=\"ds-spec-band\"><div><dt>Kernel</dt><dd>helio_scan</dd></div><div><dt>Order</dt><dd>event time</dd></div><div><dt>State</dt><dd>versioned</dd></div><div><dt>Claim</dt><dd>mechanics, not alpha</dd></div></dl>",
+      "html": "<dl class=\"ds-spec-band\"><div><dt>Input</dt><dd>typed observation</dd></div><div><dt>Clock</dt><dd>event time</dd></div><div><dt>Recovery</dt><dd>offset + snapshot</dd></div><div><dt>Claim</dt><dd>mechanics only</dd></div></dl>",
       "css": ".ds-spec-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-spec-band > div { min-width: 0; padding: 10px 20px; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-spec-band > div:first-child { border-left: 0; } .ds-spec-band dt { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; } .ds-spec-band dd { margin: 8px 0 0; overflow: hidden; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 13px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 580; text-overflow: ellipsis; white-space: nowrap; }"
     },
     {
@@ -159,7 +162,23 @@
       "refersTo": "stage-node-active",
       "description": "An inspectable typed stage with explicit index, node, method, and selected state.",
       "html": "<button class=\"ds-pipeline-stage ds-is-active\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-stage-index\">04</span><span class=\"ds-stage-node\"><svg viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M3 16.5h14M3.5 16V3.5\"/><polyline points=\"5,13 8,10 10.5,12 14.5,6 17,8\"/></svg></span><span class=\"ds-stage-label\">Moments</span><span class=\"ds-stage-method\">try_push(x)</span></button>",
-      "css": ".ds-pipeline-stage { display: grid; grid-template-rows: 10px 36px auto auto; justify-items: start; min-width: 122px; padding: 0 18px 4px 0; color: var(--atlas-ink, #14223d); text-align: left; cursor: pointer; background: transparent; border: 0; } .ds-stage-index, .ds-stage-method { font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-variation-settings: \"MONO\" 1, \"CASL\" 0; text-transform: uppercase; } .ds-stage-index { color: #7f8897; font-size: 9px; } .ds-stage-node { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 2px; color: var(--atlas-blue, #0b4cb6); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-blue, #0b4cb6); border-radius: 50%; transition: color 160ms ease, background 160ms ease, transform 160ms ease; } .ds-stage-node svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.45; } .ds-stage-label { margin-top: 3px; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; } .ds-stage-method { margin-top: 3px; color: var(--atlas-muted, #5d687b); font-size: 9px; } .ds-pipeline-stage:hover .ds-stage-node, .ds-pipeline-stage:focus-visible .ds-stage-node, .ds-pipeline-stage.ds-is-active .ds-stage-node { color: #fff; background: var(--atlas-blue, #0b4cb6); transform: translateY(-2px); } .ds-pipeline-stage.ds-is-active .ds-stage-label { color: var(--atlas-blue, #0b4cb6); } .ds-pipeline-stage:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 5px; }"
+      "css": ".ds-pipeline-stage { display: grid; grid-template-rows: 10px 36px auto auto; justify-items: start; min-width: 122px; padding: 0 18px 4px 0; color: var(--atlas-ink, #14223d); text-align: left; cursor: pointer; background: transparent; border: 0; } .ds-stage-index, .ds-stage-method { font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-variation-settings: \"MONO\" 1, \"CASL\" 0; text-transform: uppercase; } .ds-stage-index { color: #7f8897; font-size: 9px; } .ds-stage-node { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 2px; color: var(--atlas-blue, #0b4cb6); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-blue, #0b4cb6); border-radius: 50%; transition: color 160ms ease, background 160ms ease, transform 460ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-stage-node svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.45; } .ds-stage-label { margin-top: 3px; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; } .ds-stage-method { margin-top: 3px; color: var(--atlas-muted, #5d687b); font-size: 9px; } .ds-pipeline-stage:hover .ds-stage-node, .ds-pipeline-stage:focus-visible .ds-stage-node, .ds-pipeline-stage.ds-is-active .ds-stage-node { color: #fff; background: var(--atlas-blue, #0b4cb6); transform: translateY(-2px); } .ds-pipeline-stage.ds-is-active .ds-stage-label { color: var(--atlas-blue, #0b4cb6); } .ds-pipeline-stage:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 5px; }"
+    },
+    {
+      "name": "Replay Controls",
+      "kind": "button",
+      "refersTo": "replay-control",
+      "description": "Explicit controls for playing, advancing, and restoring the synthetic operator trace.",
+      "html": "<div class=\"ds-replay-controls\" aria-label=\"Synthetic trace controls\"><button type=\"button\">Pause trace</button><button type=\"button\">Advance one stage</button><button type=\"button\">Restore checkpoint</button></div>",
+      "css": ".ds-replay-controls { display: flex; color: var(--atlas-blue, #0b4cb6); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-replay-controls button { min-height: 36px; padding: 0 13px; color: inherit; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; background: transparent; border: 0; border-right: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-replay-controls button:hover, .ds-replay-controls button:focus-visible { color: var(--atlas-oxide, #b8535c); background: var(--atlas-blue-soft, #eef2f6); } .ds-replay-controls button:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: -4px; }"
+    },
+    {
+      "name": "Research Contract Ledger",
+      "kind": "custom",
+      "refersTo": "research-contract-row",
+      "description": "Four ruled constraints state the event, availability boundary, decision boundary, and falsifier before implementation.",
+      "html": "<dl class=\"ds-research-contract\"><div><dt>Event</dt><dd>A timestamped observation with a documented detection rule.</dd></div><div><dt>Available at</dt><dd>The first instant the strategy could actually have observed it.</dd></div><div><dt>Decision</dt><dd>A candidate emitted only from a watermark-closed summary.</dd></div><div><dt>Falsifier</dt><dd>Pre-registered controls, costs, and out-of-sample failure criteria.</dd></div></dl>",
+      "css": ".ds-research-contract { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); margin: 0; color: var(--atlas-ink, #14223d); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-research-contract > div { min-height: 150px; padding: 30px 54px; border-bottom: 1px solid var(--atlas-rule, #cdcdcf); border-left: 1px solid var(--atlas-rule, #cdcdcf); } .ds-research-contract dt { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; } .ds-research-contract dd { max-width: 34ch; margin: 12px 0 0; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 18px; line-height: 1.42; }"
     },
     {
       "name": "Annotation Ledger",
@@ -190,13 +209,13 @@
       "kind": "custom",
       "refersTo": "evidence-status",
       "description": "A ruled disclosure that separates synthetic demonstration from verified mechanics and unproven alpha.",
-      "html": "<section class=\"ds-evidence-strip\" aria-label=\"Evidence status\"><strong>Synthetic data</strong><span>The plot explains mechanics. It is not a backtest result.</span><span>Mechanics <b>tested</b> · Alpha <i>unproven</i></span></section>",
+      "html": "<section class=\"ds-evidence-strip\" aria-label=\"Evidence status\"><strong>Illustrative series</strong><span>The plot explains alignment and state. It is not an empirical result.</span><span>Mechanics <b>tested</b> · Alpha <i>unproven</i></span></section>",
       "css": ".ds-evidence-strip { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; gap: 22px; align-items: center; min-height: 44px; padding: 7px 42px; color: var(--atlas-muted, #5d687b); background: var(--atlas-ground, #f9f9f9); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid var(--atlas-rule, #cdcdcf); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-evidence-strip strong { color: var(--atlas-blue, #0b4cb6); } .ds-evidence-strip b { color: #527d14; font-style: normal; } .ds-evidence-strip i { color: var(--atlas-oxide, #b8535c); font-style: normal; font-weight: 700; }"
     }
   ],
   "narrative": {
     "northStar": "The Annotated Event Atlas",
-    "overview": "Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.\n\nThe world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.",
+    "overview": "Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.\n\nThe world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.\n\nThe primary reader is a quantitatively literate researcher. Pages follow the causal computation first: what is observed, when it is knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.",
     "keyCharacteristics": [
       "Continuous cool-white atlas sheets divided by one-pixel rules.",
       "Dense but readable evidence, aligned to a shared temporal or structural axis.",
@@ -209,21 +228,24 @@
       { "name": "The Two-Hand Rule", "body": "Archivo explains the system. Recursive identifies, measures, and executes it.", "section": "typography" },
       { "name": "The Shared Axis Rule", "body": "Related evidence must align to the same ruled grid, temporal axis, or state boundary. Do not scatter facts into independent cards.", "section": "layout" },
       { "name": "The Flat Evidence Rule", "body": "If a region needs hierarchy, change its rule, tone, or alignment before considering any shadow. Shipping surfaces remain shadow-free.", "section": "elevation" },
-      { "name": "The Instrument Shape Rule", "body": "Corners stay square or nearly square. Circles identify nodes and measured points, never decorative badges.", "section": "shapes" }
+      { "name": "The Instrument Shape Rule", "body": "Corners stay square or nearly square. Circles identify nodes and measured points, never decorative badges.", "section": "shapes" },
+      { "name": "The Research Language Rule", "body": "Call an open bucket state, a closed summary evidence, a strategy output a candidate signal, and an authorized execution an order. Never collapse these boundaries.", "section": "typography" }
     ],
     "dos": [
       "Do align state, annotation, and plot evidence to shared rules or axes.",
       "Do keep synthetic demonstrations visibly labeled and distinguish tested mechanics from unproven alpha.",
       "Do use cobalt for actions and selected paths, oxide for event or caution, and green only for verified state.",
       "Do preserve keyboard focus, semantic controls, and a static reduced-motion state.",
-      "Do use authored SVG for diagrams and plots so labels and evidence remain inspectable."
+      "Do use authored SVG for diagrams and plots so labels and evidence remain inspectable.",
+      "Do lead a researcher from causal contract to operator state, replay proof, and capital boundary."
     ],
     "donts": [
       "Don't use generic SaaS feature cards, floating panels, gradients, or drop shadows.",
       "Don't introduce dark trading-terminal styling, candlestick shorthand, or speculative profit cues.",
       "Don't round structural containers or turn pipeline nodes into decorative badges.",
       "Don't scatter evidence into unrelated tiles when a ruled ledger or shared axis can reveal the relationship.",
-      "Don't ship rasterized interface text. Any future shipping raster must carry prompt and provenance metadata."
+      "Don't ship rasterized interface text. Any future shipping raster must carry prompt and provenance metadata.",
+      "Don't call a candidate signal a trade, an open bucket a result, or tested mechanics proven alpha."
     ]
   }
 }

@@ -24,7 +24,7 @@ typography:
     fontFamily: "Archivo Variable, sans-serif"
     fontSize: "clamp(28px, 3vw, 44px)"
     lineHeight: 1.04
-    letterSpacing: "-0.045em"
+    letterSpacing: "-0.04em"
   thesis:
     fontFamily: "Archivo Variable, sans-serif"
     fontSize: "clamp(21px, 1.8vw, 28px)"
@@ -105,6 +105,17 @@ components:
     textColor: "{colors.inverse}"
     rounded: "{rounded.circle}"
     size: "30px"
+  replay-control:
+    backgroundColor: "transparent"
+    textColor: "{colors.action-cobalt}"
+    typography: "{typography.label}"
+    rounded: "{rounded.square}"
+    padding: "0 13px"
+  research-contract-row:
+    backgroundColor: "transparent"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.square}"
+    padding: "30px 54px"
   specification-fact:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
@@ -139,6 +150,8 @@ components:
 Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.
 
 The world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.
+
+The primary reader is a quantitatively literate researcher who understands returns, variance, event studies, and backtests but should not need prior knowledge of Helios crate boundaries. Every page should first answer what is observed, when it becomes knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.
 
 **Key Characteristics:**
 
@@ -200,6 +213,12 @@ The palette reads like technical ink on a cool research sheet, with color assign
 
 **The Two-Hand Rule.** Archivo explains the system. Recursive identifies, measures, and executes it.
 
+### Research Language
+
+Copy follows the causal computation, not the package graph. Prefer concrete terms such as `available_at`, decision cut, open bucket, closed summary, candidate signal, source offset, and compatible snapshot. Use "strategy" only for research-owned policy plus its evidence contract. Use "signal" for an emitted research candidate. Never use "trade" or "order" for an output that has not crossed an execution and risk boundary.
+
+Controls name the action they perform: "Play trace," "Advance one stage," and "Restore checkpoint." Evidence labels state whether values are synthetic, mechanically tested, empirically estimated, or unproven.
+
 ## Layout
 
 The atlas uses one continuous bounded sheet, up to 1800px wide, with major regions joined edge to edge. One-pixel rules establish the grid. Desktop compositions can use a two-thirds evidence surface with a one-third annotation or state ledger, but the reusable rule is alignment around shared evidence, not a fixed homepage template.
@@ -250,7 +269,19 @@ Major surfaces and code plates are square. Interactive text links and search she
 - **Structure:** An index, 30px circular node, uppercase stage label, method label, and explicit connector.
 - **Default:** Cobalt outline node on the atlas ground.
 - **Hover / Focus / Selected:** The node fills cobalt and moves up 2px. Focus receives a two-pixel oxide outline with a 5px offset; the selected label also turns cobalt.
-- **Motion:** A single oxide pulse may traverse the composed path after entry. Reduced-motion users receive the selected state without traversal.
+- **Motion:** One oxide pulse advances through the six state owners every 1.35 seconds while the trace is playing. Node changes use a 460ms exponential ease-out; connector registration uses 360ms. The loop pauses when the atlas is offscreen or the page is hidden. Reduced-motion users receive a static paused state.
+
+### Replay Controls
+
+- **Actions:** Play or pause the trace, advance exactly one stage, and restore from the synthetic checkpoint.
+- **State:** The status line reports replay pass, selected position, and restore validation. Labels remain explicit on desktop and mobile.
+- **Layout:** Controls share the pipeline rules. On mobile, play and advance occupy the first row while restore spans the second row.
+
+### Research Contract Ledger
+
+- **Structure:** Four ruled facts define the event, availability boundary, decision boundary, and falsifier.
+- **Copy:** Each row is a complete research constraint, not a product benefit or crate description.
+- **Layout:** Two columns on wide screens and one ordered ledger below 1100px.
 
 ### Plots and Evidence Graphics
 
@@ -273,6 +304,7 @@ Major surfaces and code plates are square. Interactive text links and search she
 - Do use cobalt for actions and selected paths, oxide for event or caution, and green only for verified state.
 - Do preserve keyboard focus, semantic controls, and a static reduced-motion state.
 - Do use authored SVG for diagrams and plots so labels and evidence remain inspectable.
+- Do lead a researcher from causal contract to operator state, replay proof, and capital boundary.
 
 ### Don't:
 
@@ -281,3 +313,4 @@ Major surfaces and code plates are square. Interactive text links and search she
 - Don't round structural containers or turn pipeline nodes into decorative badges.
 - Don't scatter evidence into unrelated tiles when a ruled ledger or shared axis can reveal the relationship.
 - Don't ship rasterized interface text. Any future shipping raster must carry prompt and provenance metadata.
+- Don't call a candidate signal a trade, an open bucket a result, or tested mechanics proven alpha.
