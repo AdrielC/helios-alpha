@@ -79,8 +79,9 @@ helios-pipeline \
 ## Follow the walkthrough
 
 1. [Compose the 10-minute event signal](./compose-a-strategy).
-2. [Understand event time, availability, and watermarks](../concepts/event-time).
-3. [Inspect the scan algebra](../concepts/scan-algebra).
-4. [Prove checkpoint and replay behavior](./restart-a-pipeline).
-5. [Apply the rare-event evidence standard](../research/evidence-standard).
-6. [Audit the production boundary](../operations/production-readiness).
+2. [Bound agentic causal inference](./agentic-causal-trading) when semantic evidence is part of the strategy.
+3. [Understand event time, availability, and watermarks](../concepts/event-time).
+4. [Inspect the scan algebra](../concepts/scan-algebra).
+5. [Prove checkpoint and replay behavior](./restart-a-pipeline).
+6. [Apply the rare-event evidence standard](../research/evidence-standard).
+7. [Audit the production boundary](../operations/production-readiness).

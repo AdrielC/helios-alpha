@@ -194,4 +194,5 @@ The motivating space-weather chain is executable in
 `rust/crates/helio_hypothesis/examples/space_weather.rs` and verified by
 `rust/crates/helio_hypothesis/tests/space_weather_reference.rs`. Read the
 [space-weather reference guide](../guide/space-weather-reference) for its causal and production
-boundaries.
+boundaries. If external semantic inference supplies evidence, apply the
+[agentic causal trading boundary](../guide/agentic-causal-trading) before connecting a model or tool.

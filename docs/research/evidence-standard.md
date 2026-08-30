@@ -29,6 +29,17 @@ Record these beside every event study:
 
 Synthetic data is appropriate for documentation, invariant tests, and throughput benchmarks. Label it at the point of use. Do not present a synthetic response curve as market evidence.
 
+## External semantic inference
+
+If a language model or other external inference system contributes evidence, retain its provider and
+model identity, prompt and schema hashes, ordered source hashes, complete tool trace, request
+parameters, raw response hash, validated typed result, and actual response availability time.
+
+Exact replay consumes that recorded artifact. Regenerating it with another model, prompt, tool, or
+provider configuration is a different experiment. Historical evaluation must also address the risk
+that a current model already knows the later outcome. See
+[Agentic causal trading](../guide/agentic-causal-trading) for the inference and capital boundary.
+
 ## Negative results
 
 A negative or inconclusive event study is still useful. It constrains the mechanism, the response window, or the feasible trading hypothesis. The generic streaming substrate remains useful even when a particular event family has no alpha.
