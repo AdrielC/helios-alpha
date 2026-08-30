@@ -18,6 +18,12 @@ pub use bayes::*;
 pub use hawkes::*;
 pub use scans::*;
 
+/// Largest integer count that every `f64` operation can represent exactly.
+///
+/// The online recurrences divide and weight by the count as an `f64`. They fail closed before a
+/// larger `u64` count could silently round to a different integer.
+pub const MAX_EXACT_F64_COUNT: u64 = 1_u64 << f64::MANTISSA_DIGITS;
+
 /// Invalid input or an impossible state transition in an online statistic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum StatsError {
@@ -25,6 +31,8 @@ pub enum StatsError {
     NonFiniteInput,
     #[error("online statistic sample count overflowed u64")]
     CountOverflow,
+    #[error("online statistic sample count exceeds exact f64 integer precision")]
+    CountPrecisionExhausted,
     #[error("cannot remove a sample from an empty online statistic")]
     EmptyRemoval,
     #[error("online statistic arithmetic produced a non-finite state")]
@@ -96,6 +104,9 @@ impl OnlineMoments {
 
     /// Validate invariants after deserializing state from external storage.
     pub fn validate(&self) -> Result<(), StatsError> {
+        if self.count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         if !self.mean.is_finite() || !self.m2.is_finite() || self.m2 < 0.0 {
             return Err(StatsError::InvalidSnapshot);
         }
@@ -109,6 +120,9 @@ impl OnlineMoments {
     pub fn try_push(&mut self, value: f64) -> Result<(), StatsError> {
         require_finite(value)?;
         let next_count = self.count.checked_add(1).ok_or(StatsError::CountOverflow)?;
+        if next_count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         let delta = value - self.mean;
         let next_mean = self.mean + delta / next_count as f64;
         let delta2 = value - next_mean;
@@ -128,6 +142,9 @@ impl OnlineMoments {
     /// buffer or use a merge tree of immutable blocks.
     pub fn try_remove(&mut self, value: f64) -> Result<(), StatsError> {
         require_finite(value)?;
+        if self.count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         match self.count {
             0 => Err(StatsError::EmptyRemoval),
             1 => {
@@ -152,6 +169,8 @@ impl OnlineMoments {
 
     /// Merge another independent partial state using the Chan-Golub-LeVeque recurrence.
     pub fn try_merge(&mut self, other: &Self) -> Result<(), StatsError> {
+        self.validate()?;
+        other.validate()?;
         if other.is_empty() {
             return Ok(());
         }
@@ -164,6 +183,9 @@ impl OnlineMoments {
             .count
             .checked_add(other.count)
             .ok_or(StatsError::CountOverflow)?;
+        if count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         let delta = other.mean - self.mean;
         let left_weight = self.count as f64;
         let right_weight = other.count as f64;
@@ -258,6 +280,9 @@ impl OnlineCovariance {
         require_finite(x)?;
         require_finite(y)?;
         let next_count = self.count.checked_add(1).ok_or(StatsError::CountOverflow)?;
+        if next_count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         let dx = x - self.mean_x;
         let dy = y - self.mean_y;
         let next_mean_x = self.mean_x + dx / next_count as f64;
@@ -283,6 +308,8 @@ impl OnlineCovariance {
     }
 
     pub fn try_merge(&mut self, other: &Self) -> Result<(), StatsError> {
+        self.validate()?;
+        other.validate()?;
         if other.count == 0 {
             return Ok(());
         }
@@ -294,6 +321,9 @@ impl OnlineCovariance {
             .count
             .checked_add(other.count)
             .ok_or(StatsError::CountOverflow)?;
+        if count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         let dx = other.mean_x - self.mean_x;
         let dy = other.mean_y - self.mean_y;
         let left_weight = self.count as f64;
@@ -351,6 +381,9 @@ impl OnlineCovariance {
 
     /// Validate invariants after deserializing state from external storage.
     pub fn validate(&self) -> Result<(), StatsError> {
+        if self.count > MAX_EXACT_F64_COUNT {
+            return Err(StatsError::CountPrecisionExhausted);
+        }
         let fields = [
             self.mean_x,
             self.mean_y,
@@ -498,6 +531,35 @@ mod tests {
             Err(StatsError::NumericalOverflow)
         );
         assert_eq!(covariance, before);
+    }
+
+    #[test]
+    fn rejects_counts_that_f64_cannot_represent_exactly() {
+        let mut moments = OnlineMoments {
+            count: MAX_EXACT_F64_COUNT,
+            mean: 1.0,
+            m2: 0.0,
+        };
+        let before = moments;
+        assert_eq!(
+            moments.try_push(1.0),
+            Err(StatsError::CountPrecisionExhausted)
+        );
+        assert_eq!(moments, before);
+
+        let invalid = OnlineMoments {
+            count: MAX_EXACT_F64_COUNT + 1,
+            mean: 1.0,
+            m2: 0.0,
+        };
+        assert_eq!(invalid.validate(), Err(StatsError::CountPrecisionExhausted));
+
+        let mut empty = OnlineMoments::new();
+        assert_eq!(
+            empty.try_merge(&invalid),
+            Err(StatsError::CountPrecisionExhausted)
+        );
+        assert_eq!(empty, OnlineMoments::new());
     }
 
     #[test]

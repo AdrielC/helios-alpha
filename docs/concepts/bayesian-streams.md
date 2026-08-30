@@ -56,25 +56,30 @@ The state can update one observation at a time or merge deterministic partitions
 Ordinary Thompson sampling consumes mutable random state. That makes a restart depend on how many draws happened before the checkpoint. Helios instead derives every stream from a complete key:
 
 ```text
-strategy key + decision ID + arm ID + sampler version
+32-byte strategy fingerprint + decision ID + arm ID + sampler version
 ```
 
-The current sampler is ChaCha8, version 1. The seed derivation and distribution versions are replay semantics. A future change must increment the sampler version and invalidate incompatible fingerprints.
+The current sampler is ChaCha8, version 2. SHA-256 derives its seed from the complete identity above, including every bit of the strategy fingerprint. The seed derivation and distribution versions are replay semantics. A future change must increment the sampler version and invalidate incompatible fingerprints.
 
 ```rust
-use helio_stats::{ScalarPosterior, ThompsonKey};
+use helio_stats::{ScalarPosterior, StrategyFingerprint, ThompsonKey};
 
-let key = ThompsonKey::new(strategy_key, decision_id, arm_id);
+let fingerprint = StrategyFingerprint::from_bytes(pipeline_sha256);
+let key = ThompsonKey::new(fingerprint, decision_id, arm_id);
 let first = posterior.try_draw(key)?;
 let replay = posterior.try_draw(key)?;
 assert_eq!(first, replay);
 ```
 
-Do not persist ambient thread RNG state. Persist the decision identity and posterior version that produced the choice.
+`StrategyFingerprint::try_from_hex` accepts the canonical 64-character digest emitted by the
+backtest harness, so the same identity can cross the research and streaming layers without
+truncation.
+
+Do not truncate the pipeline digest or persist ambient thread RNG state. Persist the decision identity and posterior version that produced the choice.
 
 ## Constraints run first
 
-`try_select_thompson` takes an injected feasibility function and an `Emit` sink. It rejects candidates before drawing, allocates no candidate collection, and keeps input order on exact ties.
+`try_select_thompson` takes an injected feasibility function and an `Emit` sink. It rejects candidates before drawing, allocates no candidate collection, and keeps input order on exact ties. Arm IDs must be unique within each decision; the allocation-free selector does not scan ahead to detect duplicates.
 
 This separation matters. The posterior answers what the model currently believes. The gate answers whether a candidate is permitted into the research choice set. Neither authorizes an order.
 

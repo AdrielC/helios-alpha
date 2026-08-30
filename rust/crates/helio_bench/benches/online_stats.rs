@@ -3,7 +3,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use helio_stats::{
     merge_moments_balanced, GammaPoisson, NormalInverseGamma, OnlineCovariance, OnlineMoments,
-    ScalarPosterior, ThompsonKey,
+    ScalarPosterior, StrategyFingerprint, ThompsonKey,
 };
 
 const N: usize = 65_536;
@@ -98,7 +98,11 @@ fn bayesian_updates(c: &mut Criterion) {
             decision = decision.wrapping_add(1);
             black_box(
                 posterior
-                    .try_draw(ThompsonKey::new(7, black_box(decision), 11))
+                    .try_draw(ThompsonKey::new(
+                        StrategyFingerprint::from_bytes([7; 32]),
+                        black_box(decision),
+                        11,
+                    ))
                     .unwrap(),
             )
         });

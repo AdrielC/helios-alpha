@@ -1,151 +1,248 @@
-# helios-alpha
+# Helios Alpha
 
-**helios-alpha** is a research codebase for **event-shock trading strategies**: a shock is observed or forecast, you respect when it becomes **actionable** (causal availability), align to **sessions**, and evaluate **treatment vs control** style outcomes with clear limits on what the data supports.
+**Composable, replayable stream research for event-driven strategies.**
 
-Two layers work together:
+Helios Alpha is a Rust-first substrate and research lab for quant researchers who need to turn
+late, bursty, or rare events into causal features and inspectable decisions. It gives you generic
+state machines for ordering, windows, online statistics, Bayesian updates, checkpointing, and
+replay. Trading policy is composed on top. It is not baked into the kernel.
 
-1. **Empirical work (Python)** — End-to-end research: ingest data, build features, align to **exchange sessions**, enforce a **causal cut** (`as_of_date`), and run event-study style backtests. The tree includes **space-weather** sources as one example dataset; the same patterns apply to other forecastable shocks.
+[Explore the Event Atlas](https://adrielc.github.io/helios-alpha/) ·
+[Build a 10-minute signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy) ·
+[Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
+[Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness)
 
-2. **Execution substrate (Rust)** — A **layered, deterministic scan engine** for streams where you must respect **causality**, optional **checkpoints**, **replay**, and **windowed** state. The **`helio_event`** crate provides a domain-agnostic **event-shock vertical** (lead times, signals, simulated execution); shock taxonomy lives in your ingest or in optional string **`tags`**, not in the scan types.
+> **Status:** research infrastructure. The stream mechanics are tested for deterministic replay.
+> The repository does not claim profitable alpha and does not authorize or route live orders.
 
----
+## What you can compose
 
-## Architecture at a glance
-
-### Python: research and data plane
-
-The **`helios_alpha`** package runs the end-to-end **research pipeline**: pull public space-weather and market data, build composite indices (e.g. Solar Shock Index), align to **exchange sessions**, enforce a **causal cut** (`as_of_date`), and compare event windows to controls. Configuration is **Hydra**; time handling is **pendulum** with an explicit **Clock** (frozen vs system). See **What lives here** below for ingest sources and artifacts.
-
-### Rust: scan kernel and time semantics
-
-Under `rust/` lives a **Cargo workspace** of small crates with strict boundaries (see [docs/HELIO_RUST_WORKSPACE.md](docs/HELIO_RUST_WORKSPACE.md) and [docs/HELIO_SCAN.md](docs/HELIO_SCAN.md)):
-
-| Crate | Responsibility |
-|-------|------------------|
-| **`helio_scan`** | **Domain-free algebra**: `Scan` / `FlushableScan` / `SnapshottingScan`, combinators, checkpoints, **opaque batching by default** (`ScanBatchExt`), **opt-in** `BatchOptimizedScan`, **runners** (`run_iter`, `run_batch`, `run_receiver`, optional async `run_stream`) — transports stay *outside* the core traits. |
-| **`helio_stats`** | **Domain-free online statistics**: mergeable moments/covariance, Gamma-Poisson arrivals, Normal-Inverse-Gamma effects, keyed constrained Thompson decisions, deterministic balanced reduction, and restartable Hawkes intensity. |
-| **`helio_time`** | **Semantics only**: `Frequency`, `Bounds`, `BucketSpec`, `WindowSpec`, `Timed<T>`, `AvailableAt`, availability gates — *what* a window means in domain language, **not** automatic eviction of every variant. |
-| **`helio_window`** | **Operational machinery**: ring buffers, aggregators, rolling/session/horizon scans — **today many rolling paths are sample-count-driven**; rich `WindowSpec` can describe more than the ring buffer enforces until time-keyed expiry is implemented (see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md)). |
-| **`helio_event`** | **Event-shock strategies** on the scan stack: causal **event-study** harnesses *and* a domain-agnostic **event-shock vertical** (`EventShock`, lead-time filters, signal generation, replay). Intended to **stress-test** the stack; may split later if it grows. |
-| **`helio_bench`** | **Criterion** benchmarks (not a default workspace member); pinned Criterion for toolchain compatibility — see crate README for the **intentional pin** and future **regression budgets**. |
-| **`helios_signald`** | Optional **ZMQ** bridge toward live signals (needs system **libzmq** and a C++ toolchain to build). |
-
-**Design invariants** worth preserving: **one step at a time** in the kernel; **batching as adapters** unless a lawful optimized batch exists; **semantic time** in `helio_time` vs **rolling operations** in `helio_window`; **replay and snapshot tests** in `helio_event` to lock determinism.
-
-The Bayesian path is documented in [Bayesian streams](docs/concepts/bayesian-streams.md) and [Bayesian event portfolios](docs/research/bayesian-event-portfolios.md). It produces replayable research candidates under injected constraints. It does not provide order authority or evidence of profitable alpha.
-
-### How the two sides connect
-
-- **Research** produces Parquet features and event-study outputs in Python.
-- **Rust** is where you build **causality-correct**, **replayable** streaming logic (backtest iterator vs live channel) without polluting the scan traits with domain or transport.
-- **Live path**: JSON over ZMQ — [docs/EXECUTION_AND_SIGNALS.md](docs/EXECUTION_AND_SIGNALS.md) and `rust/crates/helios_signald/`.
-
----
-
-## What lives here (Python pipeline)
-
-- **Ingest**: NASA DONKI (flares, CMEs), NOAA SWPC (1-minute Kp, GOES integral protons), **Kyoto Dst (ISWA mirror)** and optional **OMNI hourly CDF**, Yahoo Finance daily prices (`yfinance`).
-- **Features**: Solar Shock Index (SSI) from human priors in `config/thresholds.yaml` — tweak weights, do not worship them.
-- **Backtest**: Event-study style comparison of top-decile SSI flare days vs spaced-out control days, with a bootstrap on the mean difference.
-- **Time**: **`pendulum`** everywhere we parse, construct, or shift instants; stdlib **`date`** only at Polars/pandas/yfinance edges. **`Clock`** (`FrozenClock` vs `SystemClock`); only `SystemClock` calls `pendulum.now("UTC")`. See [docs/PENDULUM_AND_PANDAS.md](docs/PENDULUM_AND_PANDAS.md).
-- **Sessions**: **`exchange_calendars`** (XNYS) + pandas **`CustomBusinessDay` / `CustomBusinessHour`** — see [docs/TRADING_CALENDAR.md](docs/TRADING_CALENDAR.md).
-- **Causal cut**: `pipeline.as_of_date` threads through ingest windows and the event study (default: `end_date`).
-- **Config**: **Hydra** compose (`src/helios_alpha/conf/`) — all pipeline args are overrides.
-
-**Data catalog**: [DATA_SOURCES.md](DATA_SOURCES.md).
-
-**Licensed market data:** [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) — default pick **Polygon.io**; `pipeline.market.provider=polygon` + `HELIOS_POLYGON_API_KEY`.
-
-**Symbols:** [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md) (`config/instruments.yaml`, `config/assets.yaml`).
-
-**Live path (signals → Rust)**: `pip install -e ".[execution]"` for `pyzmq`. Orders stay behind a separate risk/broker process.
-
-Parquet outputs are gitignored; regenerate locally.
-
----
-
-## Quickstart
-
-### pip
-
-```bash
-cd /path/to/helios-alpha
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-
-# Optional: export HELIOS_NASA_API_KEY=... (defaults to DEMO_KEY)
-helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
-
-# Causal cut: only data through as_of_date (defaults to end_date if omitted)
-helios-pipeline pipeline.start_date=2020-01-01 pipeline.end_date=2024-12-31 pipeline.as_of_date=2023-06-30
+```text
+event source
+    │
+    ▼
+availability gate ──► bounded event-time reorder ──► watermark-closed buckets
+                                                            │
+                                                            ▼
+                                              mergeable online statistics
+                                                            │
+                                      ┌─────────────────────┴─────────────────────┐
+                                      ▼                                           ▼
+                              deterministic rule                     Bayesian posterior
+                                                                                  │
+                                                                                  ▼
+                                                               constraints, then keyed draw
+                                                                                  │
+                                                                                  ▼
+                                                                       research candidate
 ```
 
-### Rust workspace
+The same primitives can express a 10-minute bucketed difference, a rolling variance, a clustered
+arrival intensity, or a constrained portfolio of event-response horizons. Prices, sensors, filings,
+news, and space-weather observations are all ordinary inputs when they satisfy the same timing and
+likelihood contracts.
+
+## The execution model
+
+Helios uses Rust types and values as dependency injection:
+
+- A `Scan` owns one typed state transition and emits zero or more values into an injected `Emit`
+  sink. The hot path does not require a `Vec` allocation.
+- Projectors, reducers, gates, clocks, and stores are explicit constructor arguments or generic
+  parameters. There is no reflection-based container and no hidden service locator.
+- `FlushableScan` separates watermarks, session close, shutdown, and end-of-input from domain data.
+- `SnapshottingScan` separates runtime state from a stable persistence contract.
+- Iterator, batch, async stream, channel, and ZMQ adapters stay outside the core algebra.
+
+Static dispatch is the default. Dynamic dispatch remains an application choice at a plugin boundary,
+not a tax paid by every observation.
+
+## A 10-minute stream in Rust
+
+This pipeline reorders up to 4,096 observations, closes fixed 10-minute buckets on watermarks, and
+computes count, mean, and variance without retaining the full bucket:
+
+```rust
+use helio_time::SecondWallBucket;
+use helio_window::{F64MomentsReducer, OrderedBucketPipeline};
+
+fn value(input: &Observation) -> f64 {
+    input.value
+}
+
+let pipeline = OrderedBucketPipeline::try_new(
+    4_096,
+    SecondWallBucket::ten_minutes(),
+    F64MomentsReducer::new(value as fn(&Observation) -> f64),
+)?;
+```
+
+`F64MomentsReducer` uses Welford updates. Independent partitions combine with the
+Chan-Golub-LeVeque recurrence, so variance is stable without `Σx² - (Σx)²/n`. Fix the partition and
+merge tree when bitwise replay matters because floating-point addition is order-sensitive.
+
+The full walkthrough covers availability, watermarks, typed late-data outcomes, and checkpoint
+commit order: [Build a restartable 10-minute event signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy).
+
+## Replayable Bayesian decisions
+
+`helio_stats` includes constant-space Gamma-Poisson arrival models, mergeable
+Normal-Inverse-Gamma effect models, and a constrained Thompson selector. Every draw is derived from
+a full strategy fingerprint and decision identity:
+
+```rust
+use helio_stats::{ScalarPosterior, StrategyFingerprint, ThompsonKey};
+
+let fingerprint = StrategyFingerprint::from_bytes(pipeline_sha256);
+let key = ThompsonKey::new(fingerprint, decision_id, arm_id);
+
+let first = posterior.try_draw(key)?;
+let replay = posterior.try_draw(key)?;
+assert_eq!(first, replay);
+```
+
+If the fingerprint comes from `helio_backtest`, decode its canonical report field once with
+`StrategyFingerprint::try_from_hex(&report.fingerprint_hex)?` before entering the decision loop.
+
+Sampler version 2 hashes all 256 bits of the pipeline fingerprint with the decision ID, arm ID, and
+version before initializing ChaCha8. Restarts do not depend on mutable thread-local RNG history.
+Hard constraints run before any draw, and every rejection, sample, and selection can be emitted to
+an injected audit sink.
+
+The posterior does not define utility, constraints, delayed-feedback attribution, or order authority.
+Those remain visible research decisions.
+
+## Restart means state plus position
+
+A valid recovery point binds:
+
+1. A versioned operator snapshot.
+2. The exact source offset represented by that snapshot.
+3. The accepted watermark or equivalent event-time frontier.
+4. A fingerprint of code, configuration, schemas, partitioning, and statistical parameters.
+
+Restore validates external state before it returns to the hot path. Corrupt statistics, invalid
+watermarks, incompatible fingerprints, over-capacity reorder queues, and non-representable counts
+fail closed. Exactly-once effects still require an idempotent output identity or a transaction that
+coordinates source progress, state, and downstream writes.
+
+## Workspace map
+
+| Crate | Owns | Deliberately does not own |
+|---|---|---|
+| `helio_scan` | State machines, composition, emit sinks, controls, persistence seams | Markets, transports, business policy |
+| `helio_time` | Frequencies, interval bounds, bucket grids, causal availability | Buffers and eviction machinery |
+| `helio_window` | Bounded reorder, bucket reduction, rolling and session state | Signal meaning |
+| `helio_stats` | Moments, covariance, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
+| `helio_event` | An event-shock proving ground and simulated strategy vertical | Broker authorization |
+| `helio_backtest` | Fixed clocks, fingerprints, Kalman research, replay harnesses | Live execution guarantees |
+| `helios_signald` | Optional ZMQ integration | Kernel abstractions |
+| `helio_bench` | Criterion workloads and baselines | Runtime dependencies |
+
+Dependencies point from applications toward the small substrate crates. The substrate has no
+trading vocabulary. See the [complete crate map](https://adrielc.github.io/helios-alpha/reference/crates).
+
+## Quick start
+
+### Test the Rust substrate
 
 ```bash
 cd rust
 cargo test
-# Benchmarks (optional):
-cargo bench -p helio_bench --no-run
 ```
 
-### uv (reproducible)
+Run the focused statistical suite and benchmarks:
 
 ```bash
-uv sync
-uv run helios-pipeline pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31 pipeline.as_of_date=2024-01-31
+cd rust
+cargo test -p helio_stats
+cargo bench -p helio_bench --bench online_stats -- --noplot
 ```
 
-### Frozen clock (no implicit “now” in library code)
+`helios_signald` additionally needs `libzmq` and a C++ toolchain.
+
+### Run the docs locally
 
 ```bash
-helios-pipeline pipeline.clock.kind=frozen pipeline.clock.frozen_iso=2024-06-01T12:00:00+00:00 \
-  pipeline.start_date=2024-01-01 pipeline.end_date=2024-01-31
+npm ci
+npm run docs:dev
 ```
 
-### Optional forecasting (Prophet)
+GitHub Actions builds and publishes the VitePress site from `main`:
+[adrielc.github.io/helios-alpha](https://adrielc.github.io/helios-alpha/).
+
+### Run the example research vertical
+
+The Python package is an empirical example built around public space-weather events and market
+data. It demonstrates causal cuts, exchange-session alignment, feature generation, and event-study
+artifacts. It is one vertical, not the identity of the Rust substrate.
 
 ```bash
-pip install -e ".[forecasting]"
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
+helios-pipeline \
+  pipeline.start_date=2024-01-01 \
+  pipeline.end_date=2024-01-31 \
+  pipeline.as_of_date=2024-01-31
 ```
 
-Bridges: `helios_alpha/forecasting/prophet_bridge.py`, `kats_bridge.py` (Kats: separate venv — dependency conflict with modern `statsmodels`).
+Use `uv sync` and `uv run helios-pipeline ...` for a lockfile-driven environment. Live API tests
+are marked separately with `pytest -m integration`.
 
-### Tests
+## Performance contract
 
-```bash
-pytest
-pytest -m integration   # live API smoke tests
-```
+The design removes common accidental costs, but it does not substitute architecture claims for a
+benchmark:
 
-CI (GitHub Actions): **ruff** + **pytest** (unit always; integration job is best-effort), **Rust** `cargo test` and `cargo build --release -p helios_signald` from `rust/` with `libzmq3-dev` + `g++`.
+- Online moment, covariance, conjugate Bayesian, and Hawkes updates are constant-space.
+- The core emit path does not require per-observation heap allocation.
+- Reorder and rolling state are explicitly bounded.
+- Batch acceleration is opt-in and must prove equivalence with one-at-a-time execution.
+- Statistical state rejects non-finite arithmetic and counts beyond exact `f64` integer precision.
+- Criterion workloads cover online updates, deterministic merges, checkpoint cadence, and windows.
 
-Artifacts:
+One release-mode Criterion quick pass on an Apple M3 Pro measured:
 
-- `data/raw/solar/flares.parquet`, `cmes.parquet`, `solar/protons_ge10.parquet`, `geomagnetic/kp_daily.parquet`, `geomagnetic/dst_daily.parquet`, `market/daily_prices.parquet`
-- `data/processed/events/flare_cme_events.parquet` (merged + SSI)
-- `data/processed/backtest/event_study_*.parquet`
+| Workload | Reference result |
+|---|---:|
+| Welford moment update | 107 million observations/s |
+| Normal-Inverse-Gamma update | 108 million observations/s |
+| SHA-256-keyed Gamma-Poisson draw | 431 ns, or 2.32 million draws/s |
 
----
+These are local microbenchmarks, not portable promises. Reproduce them with the benchmark command
+above and retain history on the hardware that will run the strategy.
 
-## Honest limitations
+Measure the complete strategy with its real payloads, sinks, checkpoint cadence, and disorder
+distribution. Latency from a microbenchmark is not end-to-end capacity.
 
-- **OMNI CDF** may be unreachable from some networks; use `pipeline.dst.source=kyoto_iswa` (default).
-- **Kp “forecast” in SSI** is proxied by **prior UTC calendar day max Kp** (no lookahead relative to the flare timestamp).
-- **CME Earth arrival** often missing in ENLIL; `earth_directed_strict` = model-listed Earth or WSA flags; `earth_directed_inclusive` adds halo/heuristic; **SSI uses strict** for the Earth-directed term.
-- **Rust `WindowSpec`** can describe frequencies that **ring-buffer scans do not yet enforce** as wall-clock eviction; see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md).
+## Research standard
 
----
+For every event strategy, write down:
 
-## Notebooks
+- what happened and when it became knowable
+- what starts the clock and which watermark closes the feature
+- the exposure, control construction, feedback delay, and transaction-cost model
+- the prior or estimator, falsifier, holdout, and multiple-testing policy
+- the exact fingerprint and source offsets required to replay the result
 
-See `notebooks/` after you have run the pipeline once.
+Rare events make leakage, dependence, regime changes, and selection bias more dangerous, not less.
+The [evidence standard](https://adrielc.github.io/helios-alpha/research/evidence-standard) and
+[Bayesian event portfolio](https://adrielc.github.io/helios-alpha/research/bayesian-event-portfolios)
+notes separate implemented mechanics from claims that still need data.
 
----
+## Honest boundaries
 
-## Thesis chain
+- Rich `WindowSpec` semantics exceed what every sample-count ring currently enforces. Use the
+  time-keyed window paths when wall-clock expiry is required.
+- A checkpoint write alone does not make signals, broker orders, and source offsets one transaction.
+- Conjugate independent-arm posteriors are online primitives, not a replacement for hierarchical
+  modeling across correlated horizons.
+- The Python event study is a worked research vertical. Its source availability and empirical
+  assumptions must be revalidated for each run.
+- Live capital allocation, risk limits, kill switches, broker state reconciliation, and order routing
+  belong in a separate execution authority.
 
-Forecastable shock (observation + lead time) → impact window → market repricing (vol, sectors, delay).  
-The Rust stack encodes **event → availability → signal** under strict causality so you can swap shock sources without changing the scan kernel.
-
-If simple event studies are inconclusive, the empirical layer still limits what you can claim — the substrate remains useful for other stream-driven research.
+Start with the [Event Atlas](https://adrielc.github.io/helios-alpha/), then follow one typed value from
+availability through replay before attaching a strategy rule.

@@ -366,9 +366,9 @@ onBeforeUnmount(() => {
           <b>{{ activePhase + 1 }} / {{ phases.length }}</b>
         </div>
         <dl>
-          <div><dt>Strategy key</dt><dd>9bd3…5a70</dd></div>
+          <div><dt>Strategy fingerprint</dt><dd>9bd3…5a70</dd></div>
           <div><dt>Decision ID</dt><dd>{{ decisionId }}</dd></div>
-          <div><dt>Sampler</dt><dd>ChaCha8 · v1</dd></div>
+          <div><dt>Sampler</dt><dd>ChaCha8 · v2</dd></div>
           <div><dt>Selected</dt><dd class="selected-value">{{ selectedLane }}</dd></div>
           <div><dt>Authority</dt><dd>research candidate</dd></div>
         </dl>

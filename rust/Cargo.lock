@@ -731,11 +731,13 @@ name = "helio_stats"
 version = "0.1.0"
 dependencies = [
  "helio_scan",
+ "hex",
  "rand_chacha",
  "rand_core",
  "rand_distr",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror",
 ]
 

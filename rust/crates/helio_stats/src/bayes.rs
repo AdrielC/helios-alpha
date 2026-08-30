@@ -9,15 +9,16 @@ use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
 use rand_distr::{Distribution, Gamma, Normal};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-use crate::{OnlineMoments, StatsError};
+use crate::{OnlineMoments, StatsError, MAX_EXACT_F64_COUNT};
 
 /// Version of the keyed random stream used by [`ScalarPosterior::try_draw`].
 ///
 /// Changing the seed derivation, random generator, or distribution implementation is a replay
 /// compatibility break and requires a new version.
-pub const THOMPSON_SAMPLER_VERSION: u32 = 1;
+pub const THOMPSON_SAMPLER_VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum BayesError {
@@ -33,6 +34,8 @@ pub enum BayesError {
     EventsWithoutExposure,
     #[error("Bayesian observation count overflowed u64")]
     CountOverflow,
+    #[error("Bayesian observation count exceeds exact f64 integer precision")]
+    CountPrecisionExhausted,
     #[error("Bayesian arithmetic produced a non-finite state")]
     NumericalOverflow,
     #[error("Bayesian snapshot contains invalid state")]
@@ -41,6 +44,8 @@ pub enum BayesError {
     UnsupportedSamplerVersion { found: u32, expected: u32 },
     #[error("posterior distribution could not be constructed")]
     InvalidPosterior,
+    #[error("strategy fingerprint must be exactly 32 bytes encoded as 64 hexadecimal digits")]
+    InvalidStrategyFingerprint,
 }
 
 fn checked_positive(value: f64) -> Result<f64, BayesError> {
@@ -95,7 +100,11 @@ impl GammaPoisson {
         if !alpha.is_finite() || !beta.is_finite() {
             return Err(BayesError::NumericalOverflow);
         }
-        Ok(GammaPoissonPosterior { alpha, beta })
+        let posterior = GammaPoissonPosterior { alpha, beta };
+        if !posterior.mean_rate().is_finite() || !posterior.variance_rate().is_finite() {
+            return Err(BayesError::NumericalOverflow);
+        }
+        Ok(posterior)
     }
 }
 
@@ -123,6 +132,9 @@ impl GammaPoissonState {
     }
 
     pub fn validate(&self) -> Result<(), BayesError> {
+        if self.event_count > MAX_EXACT_F64_COUNT {
+            return Err(BayesError::CountPrecisionExhausted);
+        }
         if !self.exposure.is_finite() || self.exposure < 0.0 {
             return Err(BayesError::InvalidSnapshot);
         }
@@ -144,6 +156,9 @@ impl GammaPoissonState {
             .event_count
             .checked_add(count)
             .ok_or(BayesError::CountOverflow)?;
+        if next_count > MAX_EXACT_F64_COUNT {
+            return Err(BayesError::CountPrecisionExhausted);
+        }
         let next_exposure = self.exposure + exposure;
         if !next_exposure.is_finite() {
             return Err(BayesError::NumericalOverflow);
@@ -258,12 +273,19 @@ impl NormalInverseGamma {
         {
             return Err(BayesError::NumericalOverflow);
         }
-        Ok(NormalInverseGammaPosterior {
+        let posterior = NormalInverseGammaPosterior {
             mu,
             lambda,
             alpha,
             beta,
-        })
+        };
+        if posterior
+            .expected_variance()
+            .is_some_and(|value| !value.is_finite())
+        {
+            return Err(BayesError::NumericalOverflow);
+        }
+        Ok(posterior)
     }
 }
 
@@ -289,9 +311,7 @@ impl NormalInverseGammaState {
     }
 
     pub fn validate(&self) -> Result<(), BayesError> {
-        self.moments
-            .validate()
-            .map_err(|_| BayesError::InvalidSnapshot)
+        self.moments.validate().map_err(map_stats_error)
     }
 
     pub fn try_observe(&mut self, value: f64) -> Result<(), BayesError> {
@@ -311,6 +331,7 @@ fn map_stats_error(error: StatsError) -> BayesError {
     match error {
         StatsError::NonFiniteInput => BayesError::NonFiniteObservation,
         StatsError::CountOverflow => BayesError::CountOverflow,
+        StatsError::CountPrecisionExhausted => BayesError::CountPrecisionExhausted,
         StatsError::InvalidSnapshot => BayesError::InvalidSnapshot,
         StatsError::NumericalOverflow | StatsError::NumericalInstability => {
             BayesError::NumericalOverflow
@@ -353,19 +374,49 @@ impl NormalInverseGammaPosterior {
     }
 }
 
+/// Full strategy identity used to derive replayable posterior draws.
+///
+/// Pass a stable 32-byte digest of every code, model, data, and configuration choice that changes
+/// a decision. Truncating that digest weakens the replay identity and is intentionally unsupported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct StrategyFingerprint([u8; 32]);
+
+impl StrategyFingerprint {
+    pub const fn from_bytes(bytes: [u8; 32]) -> Self {
+        Self(bytes)
+    }
+
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+
+    /// Decode the canonical 64-character hexadecimal form used by pipeline reports.
+    pub fn try_from_hex(value: &str) -> Result<Self, BayesError> {
+        let mut bytes = [0_u8; 32];
+        hex::decode_to_slice(value, &mut bytes)
+            .map_err(|_| BayesError::InvalidStrategyFingerprint)?;
+        Ok(Self(bytes))
+    }
+}
+
 /// Complete identity of one replayable posterior draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ThompsonKey {
-    pub strategy_key: u64,
+    pub strategy_fingerprint: StrategyFingerprint,
     pub decision_id: u64,
     pub arm_id: u64,
     pub sampler_version: u32,
 }
 
 impl ThompsonKey {
-    pub const fn new(strategy_key: u64, decision_id: u64, arm_id: u64) -> Self {
+    pub const fn new(
+        strategy_fingerprint: StrategyFingerprint,
+        decision_id: u64,
+        arm_id: u64,
+    ) -> Self {
         Self {
-            strategy_key,
+            strategy_fingerprint,
             decision_id,
             arm_id,
             sampler_version: THOMPSON_SAMPLER_VERSION,
@@ -379,19 +430,14 @@ impl ThompsonKey {
                 expected: THOMPSON_SAMPLER_VERSION,
             });
         }
-        let mut seed = splitmix64(self.strategy_key);
-        seed = splitmix64(seed ^ self.decision_id);
-        seed = splitmix64(seed ^ self.arm_id);
-        seed = splitmix64(seed ^ u64::from(self.sampler_version));
-        Ok(ChaCha8Rng::seed_from_u64(seed))
+        let mut digest = Sha256::new();
+        digest.update(b"helio_stats/thompson/v2\0");
+        digest.update(self.strategy_fingerprint.as_bytes());
+        digest.update(self.decision_id.to_le_bytes());
+        digest.update(self.arm_id.to_le_bytes());
+        digest.update(self.sampler_version.to_le_bytes());
+        Ok(ChaCha8Rng::from_seed(digest.finalize().into()))
     }
-}
-
-const fn splitmix64(mut value: u64) -> u64 {
-    value = value.wrapping_add(0x9e37_79b9_7f4a_7c15);
-    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
 }
 
 /// A posterior that can generate one deterministic scalar utility draw.
@@ -485,9 +531,11 @@ pub struct ThompsonDecision<Id> {
 /// Select the largest posterior utility draw among eligible candidates.
 ///
 /// Eligibility is evaluated before sampling. The function allocates no collection and keeps the
-/// first candidate on exact ties, so candidate order is part of the replay contract.
+/// first candidate on exact ties, so candidate order is part of the replay contract. Arm IDs must
+/// be unique within a decision. The allocation-free selector does not scan ahead to enforce that
+/// invariant.
 pub fn try_select_thompson<I, Id, Posterior, Gate, Sink>(
-    strategy_key: u64,
+    strategy_fingerprint: StrategyFingerprint,
     decision_id: u64,
     candidates: I,
     mut gate: Gate,
@@ -516,7 +564,7 @@ where
             Eligibility::Eligible => {
                 eligible = eligible.checked_add(1).ok_or(BayesError::CountOverflow)?;
                 let utility = candidate.posterior.try_draw(ThompsonKey::new(
-                    strategy_key,
+                    strategy_fingerprint,
                     decision_id,
                     candidate.arm_id,
                 ))?;
@@ -570,6 +618,10 @@ mod tests {
         }
     }
 
+    const fn fingerprint(byte: u8) -> StrategyFingerprint {
+        StrategyFingerprint::from_bytes([byte; 32])
+    }
+
     #[test]
     fn gamma_poisson_updates_and_merges_sufficient_statistics() {
         let model = GammaPoisson::try_new(2.0, 4.0).unwrap();
@@ -600,6 +652,35 @@ mod tests {
             Err(BayesError::EventsWithoutExposure)
         );
         assert_eq!(state, before);
+    }
+
+    #[test]
+    fn gamma_poisson_rejects_inexact_event_counts_atomically() {
+        let mut state = GammaPoissonState {
+            event_count: MAX_EXACT_F64_COUNT,
+            exposure: 1.0,
+        };
+        let before = state;
+        assert_eq!(
+            state.try_observe(1, 1.0),
+            Err(BayesError::CountPrecisionExhausted)
+        );
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn posterior_construction_rejects_nonrepresentable_summaries() {
+        let rate = GammaPoisson::try_new(1.0, f64::MIN_POSITIVE).unwrap();
+        assert_eq!(
+            rate.try_posterior(&rate.init()),
+            Err(BayesError::NumericalOverflow)
+        );
+
+        let effect = NormalInverseGamma::try_new(0.0, 1.0, 1.5, f64::MAX).unwrap();
+        assert_eq!(
+            effect.try_posterior(&effect.init()),
+            Err(BayesError::NumericalOverflow)
+        );
     }
 
     #[test]
@@ -647,15 +728,55 @@ mod tests {
             state.try_observe(value).unwrap();
         }
         let posterior = model.try_posterior(&state).unwrap();
-        let key = ThompsonKey::new(91, 7, 3);
+        let key = ThompsonKey::new(fingerprint(91), 7, 3);
         assert_eq!(
             posterior.try_draw(key).unwrap(),
             posterior.try_draw(key).unwrap()
         );
         assert_ne!(
             posterior.try_draw(key).unwrap(),
-            posterior.try_draw(ThompsonKey::new(91, 8, 3)).unwrap()
+            posterior
+                .try_draw(ThompsonKey::new(fingerprint(91), 8, 3))
+                .unwrap()
         );
+    }
+
+    #[test]
+    fn every_fingerprint_byte_is_part_of_the_draw_identity() {
+        let posterior = GammaPoissonPosterior {
+            alpha: 2.0,
+            beta: 3.0,
+        };
+        let first = StrategyFingerprint::from_bytes([0; 32]);
+        let mut changed = [0; 32];
+        changed[31] = 1;
+        let changed = StrategyFingerprint::from_bytes(changed);
+        assert_ne!(
+            posterior.try_draw(ThompsonKey::new(first, 2, 3)).unwrap(),
+            posterior.try_draw(ThompsonKey::new(changed, 2, 3)).unwrap()
+        );
+    }
+
+    #[test]
+    fn strategy_fingerprint_decodes_canonical_hex() {
+        let value = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+        let fingerprint = StrategyFingerprint::try_from_hex(value).unwrap();
+        assert_eq!(fingerprint.as_bytes()[0], 0);
+        assert_eq!(fingerprint.as_bytes()[31], 31);
+        assert_eq!(
+            StrategyFingerprint::try_from_hex("too-short"),
+            Err(BayesError::InvalidStrategyFingerprint)
+        );
+    }
+
+    #[test]
+    fn sampler_v2_seed_derivation_has_a_golden_stream() {
+        use rand_core::RngCore;
+
+        let mut rng = ThompsonKey::new(fingerprint(0x5a), 17, 23)
+            .try_rng()
+            .unwrap();
+        assert_eq!(rng.next_u64(), 0x7dfd_d830_d9d7_9817);
     }
 
     #[test]
@@ -664,13 +785,13 @@ mod tests {
             alpha: 2.0,
             beta: 3.0,
         };
-        let mut key = ThompsonKey::new(1, 2, 3);
+        let mut key = ThompsonKey::new(fingerprint(1), 2, 3);
         key.sampler_version = THOMPSON_SAMPLER_VERSION + 1;
         assert_eq!(
             posterior.try_draw(key),
             Err(BayesError::UnsupportedSamplerVersion {
-                found: 2,
-                expected: 1,
+                found: THOMPSON_SAMPLER_VERSION + 1,
+                expected: THOMPSON_SAMPLER_VERSION,
             })
         );
     }
@@ -704,7 +825,7 @@ mod tests {
         let run = || {
             let mut trace = VecEmitter::new();
             let decision = try_select_thompson(
-                44,
+                fingerprint(44),
                 19,
                 candidates(),
                 |candidate| {
@@ -739,7 +860,7 @@ mod tests {
     fn no_eligible_arm_is_an_explicit_empty_decision() {
         let mut trace = VecEmitter::new();
         let decision = try_select_thompson(
-            1,
+            fingerprint(1),
             2,
             [ThompsonCandidate {
                 id: "blocked",
@@ -766,7 +887,7 @@ mod tests {
     fn exact_draw_ties_keep_candidate_order() {
         let mut trace = VecEmitter::new();
         let decision = try_select_thompson(
-            1,
+            fingerprint(1),
             2,
             [
                 ThompsonCandidate {

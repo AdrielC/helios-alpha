@@ -47,7 +47,7 @@ Each state contains count, mean, and `M2`. A worker can update a partition and m
 ```rust
 use helio_scan::VecEmitter;
 use helio_stats::{
-    Eligibility, ThompsonCandidate, try_select_thompson,
+    Eligibility, StrategyFingerprint, ThompsonCandidate, try_select_thompson,
 };
 
 let posterior = [
@@ -62,9 +62,10 @@ let candidates = [
     ThompsonCandidate { id: "1h", arm_id: 3, posterior: &posterior[2] },
 ];
 
+let fingerprint = StrategyFingerprint::from_bytes(pipeline_sha256);
 let mut trace = VecEmitter::new();
 let decision = try_select_thompson(
-    strategy_key,
+    fingerprint,
     decision_id,
     candidates,
     |candidate| match candidate.id {
@@ -99,7 +100,7 @@ Persist these fields together:
 - source offset and watermark
 - each posterior sufficient statistic
 - model prior and version in the pipeline fingerprint
-- strategy key, decision ID, arm IDs, and sampler version
+- full 32-byte strategy fingerprint, decision ID, unique arm IDs, and sampler version
 - candidate ordering and constraint codes
 - pending delayed outcomes
 
