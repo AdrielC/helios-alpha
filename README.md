@@ -16,6 +16,7 @@ other event shocks without putting space-weather or trading vocabulary in the co
 [Explore the Event Atlas](https://adrielc.github.io/helios-alpha/) ·
 [Open Helios Control](https://helios-control-kappa.vercel.app/) ·
 [Build a keyed hypothesis machine](https://adrielc.github.io/helios-alpha/concepts/hypothesis-machines) ·
+[Bound agentic causal inference](https://adrielc.github.io/helios-alpha/guide/agentic-causal-trading) ·
 [Build a 10-minute signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy) ·
 [Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
 [Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness) ·

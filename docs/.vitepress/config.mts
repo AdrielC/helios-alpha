@@ -47,6 +47,10 @@ export default defineConfig({
             link: "/guide/space-weather-reference",
           },
           {
+            text: "Add agentic causal inference",
+            link: "/guide/agentic-causal-trading",
+          },
+          {
             text: "Build a 10-minute signal",
             link: "/guide/compose-a-strategy",
           },
