@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/helio_scan",
     "crates/helio_stats",
+    "crates/helio_hypothesis",
     "crates/helio_time",
     "crates/helio_window",
     "crates/helio_event",
@@ -14,6 +15,7 @@ members = [
 default-members = [
     "crates/helio_scan",
     "crates/helio_stats",
+    "crates/helio_hypothesis",
     "crates/helio_time",
     "crates/helio_window",
     "crates/helio_event",

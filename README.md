@@ -4,13 +4,16 @@
 
 Helios Alpha is a Rust-first substrate and research lab for quant researchers who need to turn
 late, bursty, or rare events into causal features and inspectable decisions. It gives you generic
-state machines for ordering, windows, online statistics, Bayesian updates, checkpointing, and
-replay. Trading policy is composed on top. It is not baked into the kernel.
+state machines for ordering, windows, online statistics, Bayesian updates, keyed conditional
+hypotheses, checkpointing, and replay. Trading policy is composed on top. It is not baked into the
+kernel.
 
 [Explore the Event Atlas](https://adrielc.github.io/helios-alpha/) ·
+[Build a keyed hypothesis machine](https://adrielc.github.io/helios-alpha/concepts/hypothesis-machines) ·
 [Build a 10-minute signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy) ·
 [Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
-[Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness)
+[Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness) ·
+[Review the Golem Cloud architecture](https://adrielc.github.io/helios-alpha/operations/golem-cloud)
 
 > **Status:** research infrastructure. The stream mechanics are tested for deterministic replay.
 > The repository does not claim profitable alpha and does not authorize or route live orders.
@@ -56,6 +59,20 @@ Helios uses Rust types and values as dependency injection:
 
 Static dispatch is the default. Dynamic dispatch remains an application choice at a plugin boundary,
 not a tax paid by every observation.
+
+## Conditional hypotheses that survive restarts
+
+`helio_hypothesis` manages independent conditional inference chains keyed by incident, cluster, or
+research identity. An injected model supplies state, evidence, outputs, and validation. The runtime
+supplies exact sequences, revisions, deterministic availability-time deadlines, atomic effects,
+bounded state, supersession, retraction, completion, and fallible snapshot restore.
+
+For async applications, a typed `HypothesisService` is the Rust equivalent of a narrow ZIO service.
+The preferred shared implementation is a bounded actor whose worker exclusively owns the mutable
+engine. A deliberate `Arc<tokio::sync::Mutex<_>>` adapter exists for application contexts that need
+it, but the lock never spans external I/O. Read
+[Keyed hypothesis machines](https://adrielc.github.io/helios-alpha/concepts/hypothesis-machines)
+for the lifecycle and durable commit boundary.
 
 ## A 10-minute stream in Rust
 
@@ -131,6 +148,7 @@ coordinates source progress, state, and downstream writes.
 | Crate | Owns | Deliberately does not own |
 |---|---|---|
 | `helio_scan` | State machines, composition, emit sinks, controls, persistence seams | Markets, transports, business policy |
+| `helio_hypothesis` | Keyed conditional lifecycle, deadlines, atomic model effects, snapshots, typed actor service | Domain meaning, durable transactions, execution authority |
 | `helio_time` | Frequencies, interval bounds, bucket grids, causal availability | Buffers and eviction machinery |
 | `helio_window` | Bounded reorder, bucket reduction, rolling and session state | Signal meaning |
 | `helio_stats` | Moments, covariance, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
@@ -202,6 +220,7 @@ benchmark:
 - Batch acceleration is opt-in and must prove equivalence with one-at-a-time execution.
 - Statistical state rejects non-finite arithmetic and counts beyond exact `f64` integer precision.
 - Criterion workloads cover online updates, deterministic merges, checkpoint cadence, and windows.
+- Keyed hypothesis benchmarks cover one hot key, 1,024 interleaved keys, and 4,096 deadline fires.
 
 One release-mode Criterion quick pass on an Apple M3 Pro measured:
 
@@ -210,6 +229,9 @@ One release-mode Criterion quick pass on an Apple M3 Pro measured:
 | Welford moment update | 107 million observations/s |
 | Normal-Inverse-Gamma update | 108 million observations/s |
 | SHA-256-keyed Gamma-Poisson draw | 431 ns, or 2.32 million draws/s |
+| Keyed hypothesis update, one active key | about 46 ns, or 21.8 million updates/s |
+| Keyed hypothesis update, 1,024 active keys | about 66 ns, or 15.1 million updates/s |
+| Deadline fire and completion, 4,096-key frontier | about 334 ns each, or 3.00 million fires/s |
 
 These are local microbenchmarks, not portable promises. Reproduce them with the benchmark command
 above and retain history on the hardware that will run the strategy.

@@ -3,6 +3,7 @@
 | Crate | Layer | Owns | Does not own |
 |---|---|---|---|
 | `helio_scan` | Kernel | State machines, emit sinks, controls, composition, persistence seams | Markets, bars, sessions, transports |
+| `helio_hypothesis` | Conditional runtime | Keyed lifecycle, typed model transitions, deadlines, supersession, bounded state, snapshots, actor service | Domain models, durable transactions, execution authority |
 | `helio_stats` | Statistics | Moments, covariance, Bayesian sufficient statistics, keyed Thompson decisions, Hawkes state | Hierarchical fitting, objectives, constraints, alpha claims |
 | `helio_time` | Semantics | Frequencies, interval bounds, bucket grids, availability | Operational buffers |
 | `helio_window` | Operations | Reorder, bucket reduction, rolling and session state | Strategy vocabulary |
@@ -20,6 +21,8 @@ helio_scan        helio_time
      └──── helio_stats
      ↑                ↑
      └──── helio_window
+     ↑
+     └──── helio_hypothesis
                ↑
           helio_event
 ```

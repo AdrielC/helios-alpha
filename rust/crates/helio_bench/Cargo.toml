@@ -12,6 +12,7 @@ publish = false
 # Cargo/Rust than some CI images. Revisit when CI minimum toolchain moves; see README.md.
 criterion = "=0.4.0"
 helio_event = { path = "../helio_event" }
+helio_hypothesis = { path = "../helio_hypothesis" }
 helio_scan = { path = "../helio_scan" }
 helio_stats = { path = "../helio_stats" }
 helio_time = { path = "../helio_time" }
@@ -51,4 +52,8 @@ harness = false
 
 [[bench]]
 name = "online_stats"
+harness = false
+
+[[bench]]
+name = "hypothesis_machine"
 harness = false

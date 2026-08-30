@@ -60,6 +60,10 @@ export default defineConfig({
         text: "Core concepts",
         items: [
           { text: "Scan algebra", link: "/concepts/scan-algebra" },
+          {
+            text: "Hypothesis machines",
+            link: "/concepts/hypothesis-machines",
+          },
           { text: "Event time", link: "/concepts/event-time" },
           {
             text: "Online statistics",
@@ -89,6 +93,10 @@ export default defineConfig({
           {
             text: "Production readiness",
             link: "/operations/production-readiness",
+          },
+          {
+            text: "Golem Cloud architecture",
+            link: "/operations/golem-cloud",
           },
           { text: "Crate map", link: "/reference/crates" },
           { text: "Benchmarks", link: "/reference/benchmarks" },

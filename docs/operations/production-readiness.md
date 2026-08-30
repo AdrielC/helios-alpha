@@ -7,6 +7,8 @@ The core is productionizable in the sense that its contracts are explicit, bound
 | Area | Current state |
 |---|---|
 | Scan composition | Static, typed, allocation-aware hot path |
+| Conditional inference | Keyed, bounded, atomic hypothesis runtime with deterministic deadlines and validated restore |
+| Service ownership | Single-owner engine or bounded Tokio actor; explicit mutex adapter for integration |
 | Event ordering | Capacity-bounded with typed late and overflow outcomes |
 | Online statistics | Stable updates, deterministic merge utility, validated snapshots |
 | Restart | Versioned checkpoint, fingerprint, offset, watermark, fallible restore |
@@ -19,6 +21,19 @@ The core is productionizable in the sense that its contracts are explicit, bound
 ### Transactional processing
 
 Choose a source, checkpoint store, and sink protocol. Prove crash behavior at every boundary. Use shared transactions where available or stable idempotency identities where they are not.
+
+For hypothesis services, `process_and_snapshot` prevents in-process callers from interleaving
+between a transition and its snapshot. It is not a storage transaction. Persist the source
+position, snapshot, and output outbox together before acknowledging the source. A source driver
+with strict delivery requirements should own its `HypothesisEngine` directly.
+
+### Service scope and backpressure
+
+Partition keyed state so each engine has one owner. Inject the service as a typed constructor
+dependency. When multiple Tokio tasks need access, use the bounded actor handle and monitor mailbox
+depth, response latency, worker termination, active-key capacity, timer capacity, and rejection
+counts. Use the `Arc<Mutex<_>>` adapter only at an integration boundary, and never perform network,
+disk, broker, or model I/O while holding its lock.
 
 ### Risk isolation
 
@@ -49,3 +64,6 @@ Do not enable capital until the system can answer, from durable evidence:
 3. Which state was restored after the last failure?
 4. Which risk control authorized the order?
 5. Which market and cost assumptions supported the expected return?
+
+For the proposed durable hosting architecture and staged proof plan, read
+[Golem Cloud deployment architecture](./golem-cloud).

@@ -1,0 +1,20 @@
+[package]
+name = "helio_hypothesis"
+version = "0.1.0"
+edition = "2021"
+description = "Bounded, restartable keyed hypothesis machines for causal evidence streams"
+
+[features]
+default = []
+service = ["dep:tokio"]
+
+[dependencies]
+helio_scan = { path = "../helio_scan" }
+helio_time = { path = "../helio_time" }
+serde = { version = "1", features = ["derive"] }
+smallvec = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt", "sync"], optional = true }
+
+[dev-dependencies]
+serde_json = "1"

@@ -1,6 +1,6 @@
 # helio_bench
 
-Criterion benchmarks for **`helio_scan`**, **`helio_window`**, and **`helio_event`**. Not a default workspace member: build explicitly so normal `cargo test` stays lean.
+Criterion benchmarks for **`helio_scan`**, **`helio_window`**, **`helio_hypothesis`**, and **`helio_event`**. Not a default workspace member: build explicitly so normal `cargo test` stays lean.
 
 ## Run
 
@@ -29,6 +29,7 @@ cargo bench -p helio_bench --no-run
 | `time_keyed_windows.rs` | time-keyed + session-keyed rolling vs sample-count baseline |
 | `checkpoint_cadence.rs` | vertical replay with snapshot/restore every 1 / 64 / 256 / 1024 steps |
 | `online_stats.rs` | Welford and covariance updates, balanced merges, Bayesian updates, and keyed posterior draws |
+| `hypothesis_machine.rs` | single-key and 1,024-key lifecycle updates plus a 4,096-deadline frontier |
 
 Documented medians and **manual triage thresholds** (not CI-enforced yet): repo root `docs/EVENT_SHOCK_BENCHMARKS.md`.
 

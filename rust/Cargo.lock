@@ -699,6 +699,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "helio_event",
+ "helio_hypothesis",
  "helio_scan",
  "helio_stats",
  "helio_time",
@@ -715,6 +716,19 @@ dependencies = [
  "helio_window",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "helio_hypothesis"
+version = "0.1.0"
+dependencies = [
+ "helio_scan",
+ "helio_time",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

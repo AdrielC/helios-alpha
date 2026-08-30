@@ -17,6 +17,10 @@ The following figures are development-machine observations from the August 2026 
 | Online covariance update | about 131 to 137 million pairs/s |
 | Normal-Inverse-Gamma update | about 105 million samples/s |
 | Keyed Gamma-Poisson posterior draw | about 221 ns per draw, or 4.5 million draws/s |
+| Keyed hypothesis update, one active key | about 46 ns, or 21.8 million updates/s |
+| Keyed hypothesis update, 1,024 active keys | about 66 ns, or 15.1 million updates/s |
+| Frontier advance, 4,096 future timers and none due | about 2.9 ns per advance |
+| Deadline fire and completion, 4,096 active keys | about 334 ns each, or 3.00 million fires/s |
 | Rolling moments | about 49 to 51 million samples/s |
 | Allocation-free `Then` composition | about 1.87 billion items/s |
 | Event vertical fixture | about 5.3 ms per workload |
@@ -34,5 +38,13 @@ Record:
 - Whether the workload includes serialization, storage, or transport.
 
 Microbenchmarks prove local mechanical cost. They do not prove end-to-end trading latency or capacity.
+
+The hypothesis figures came from a Criterion `--quick` release run on an Apple M3 Pro with Rust
+1.94. The idle-frontier result isolates the in-place fast path and excludes source, sink, snapshot,
+transport, and state teardown costs. Reproduce the suite with:
+
+```bash
+cargo bench -p helio_bench --bench hypothesis_machine -- --noplot
+```
 
 See [Event-shock benchmarks](../EVENT_SHOCK_BENCHMARKS) for the vertical workload and current manual thresholds.
