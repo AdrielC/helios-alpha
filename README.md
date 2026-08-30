@@ -14,6 +14,7 @@ runtime emits a research candidate and stops before order authority. The same ma
 other event shocks without putting space-weather or trading vocabulary in the core crates.
 
 [Explore the Event Atlas](https://adrielc.github.io/helios-alpha/) ·
+[Open Helios Control](https://helios-control-kappa.vercel.app/) ·
 [Build a keyed hypothesis machine](https://adrielc.github.io/helios-alpha/concepts/hypothesis-machines) ·
 [Build a 10-minute signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy) ·
 [Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
@@ -245,6 +246,21 @@ implemented boundary and the remaining cloud, certified-broker, deployment, and 
 npm ci
 npm run docs:dev
 ```
+
+Helios Control is a separate application in `apps/operator`. It shows candidate signals, active
+orders, held positions, risk state, and source freshness from a deterministic demo port. Configure
+`window.__HELIOS_OPERATIONS__` with a same-origin snapshot URL and optional SSE URL to replace that
+fixture. Perspective 5.3 loads only when the operator opens Data Explorer, keeping the initial
+overview independent of its WebAssembly payload and keeping the console out of the docs build.
+
+```bash
+npm run operator:dev
+npm run operator:build
+npm run operator:check-performance
+```
+
+Read the [Helios Control deployment boundary](apps/operator/README.md) before connecting an
+operations service.
 
 GitHub Actions builds and publishes the VitePress site from `main`:
 [adrielc.github.io/helios-alpha](https://adrielc.github.io/helios-alpha/).

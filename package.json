@@ -2,18 +2,30 @@
   "name": "helios-alpha-docs",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/operator"
+  ],
   "scripts": {
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "operator:dev": "npm --workspace @helios-alpha/operator run dev",
+    "operator:typecheck": "npm --workspace @helios-alpha/operator run typecheck",
+    "operator:build": "npm --workspace @helios-alpha/operator run build",
+    "operator:check-performance": "npm --workspace @helios-alpha/operator run check:performance",
+    "operator:preview": "npm --workspace @helios-alpha/operator run preview"
   },
   "devDependencies": {
     "@fontsource-variable/archivo": "5.3.0",
     "@fontsource-variable/recursive": "5.3.0",
+    "@types/react": "18.3.31",
+    "typescript": "5.9.3",
     "vitepress": "1.6.4",
     "vue": "3.5.20"
   },
   "overrides": {
-    "vite": "6.4.3"
+    "vitepress": {
+      "vite": "6.4.3"
+    }
   }
 }

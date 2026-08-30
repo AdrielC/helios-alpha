@@ -1,381 +1,315 @@
 ---
-name: Helios Alpha
-description: A dark annotated event atlas for inspectable, restartable research systems.
+name: Helios Control
+description: A standalone obsidian event atlas for inspecting operational truth without command authority.
 colors:
-  atlas-ground: "#08111f"
-  surface-alt: "#0b1626"
-  surface-soft: "#101d30"
-  ink: "#eaf1ff"
-  muted-ink: "#afbdd1"
-  axis-muted: "#718199"
-  action-cobalt: "#78b7ff"
-  action-cobalt-deep: "#a6ceff"
-  action-cobalt-dark: "#d4e7ff"
-  confidence-wash: "#122c4d"
-  event-oxide: "#ff818d"
-  evidence-green: "#b7df6c"
-  evidence-green-ink: "#c9ed87"
-  rule: "#2b3a50"
-  rule-soft: "#1b2a3e"
-  inverse: "#07101d"
-  code-text: "#eaf1ff"
-  code-muted: "#93a5bf"
+  shell-black: "#060a0f"
+  obsidian-ground: "#080d13"
+  tape-black: "#05090d"
+  surface-alt: "#0b1219"
+  surface-strong: "#101a22"
+  primary-ink: "#eef3f0"
+  muted-ink: "#a6b0b8"
+  axis-ink: "#64717c"
+  polar-cyan: "#70c7df"
+  polar-cyan-soft: "#10252c"
+  coral-blocker: "#ff846e"
+  ion-lime: "#b9e74b"
+  ion-lime-ink: "#cff873"
+  rule: "#25323b"
+  rule-soft: "#18232b"
 typography:
-  statement:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "clamp(28px, 3vw, 44px)"
-    lineHeight: 1.04
-    letterSpacing: "-0.04em"
-  thesis:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "clamp(21px, 1.8vw, 28px)"
-    lineHeight: 1.08
-    letterSpacing: "-0.035em"
+  unavailable-display:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
+    fontSize: "clamp(28px, 5vw, 58px)"
+    lineHeight: 0.98
+    letterSpacing: "-0.045em"
   section-title:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "18px"
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
+    fontSize: "20px"
     lineHeight: 1.2
     letterSpacing: "-0.02em"
-  observatory-statement:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "clamp(34px, 3.25vw, 54px)"
-    lineHeight: 0.98
-    letterSpacing: "-0.04em"
-  mobile-statement:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "34px"
-    lineHeight: 0.98
-    letterSpacing: "-0.04em"
-  supporting:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "14px"
-    lineHeight: 1.55
-  lane-title:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "17px"
-    fontWeight: 720
-    lineHeight: 1.2
-  body:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "15px"
-    fontWeight: 400
-    lineHeight: 1.62
-  reading-body:
-    fontFamily: "Archivo Variable, sans-serif"
+  app-title:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
     fontSize: "16px"
-    fontWeight: 400
-    lineHeight: 1.75
-  section-index:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "22px"
-    fontWeight: 650
-  mobile-section-title:
-    fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "32px"
-    lineHeight: 1.04
-  nav-title:
-    fontFamily: "Recursive Variable, monospace"
-    fontSize: "15px"
-    fontWeight: 650
-    letterSpacing: "0.13em"
-    fontVariation: '"MONO" 1, "CASL" 0, "wght" 650'
-  data:
-    fontFamily: "Recursive Variable, monospace"
+    fontWeight: 660
+    letterSpacing: "-0.015em"
+  body:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
     fontSize: "13px"
-    fontWeight: 580
+    lineHeight: 1.45
+  metric:
+    fontFamily: "Recursive Variable, ui-monospace, monospace"
+    fontSize: "21px"
+    letterSpacing: "-0.035em"
+    fontVariation: '"MONO" 1, "CASL" 0'
+  data:
+    fontFamily: "Recursive Variable, ui-monospace, monospace"
+    fontSize: "11px"
     fontVariation: '"MONO" 1, "CASL" 0'
   label:
-    fontFamily: "Recursive Variable, monospace"
-    fontSize: "11px"
-    fontWeight: 650
-    letterSpacing: "0.06em"
-    fontVariation: '"MONO" 1, "CASL" 0'
-  compact-label:
-    fontFamily: "Recursive Variable, monospace"
+    fontFamily: "Recursive Variable, ui-monospace, monospace"
     fontSize: "10px"
+    letterSpacing: "0.05em"
     fontVariation: '"MONO" 1, "CASL" 0'
   micro-label:
-    fontFamily: "Recursive Variable, monospace"
-    fontSize: "9px"
-    fontVariation: '"MONO" 1, "CASL" 0'
-  code:
-    fontFamily: "Recursive Variable, monospace"
-    fontSize: "clamp(12px, 1.1vw, 15px)"
-    lineHeight: 1.72
+    fontFamily: "Recursive Variable, ui-monospace, monospace"
+    fontSize: "8px"
+    letterSpacing: "0.04em"
     fontVariation: '"MONO" 1, "CASL" 0'
 rounded:
   square: "0px"
   hairline: "1px"
   circle: "50%"
 spacing:
-  micro: "4px"
-  compact: "8px"
-  small: "12px"
-  plate: "20px"
-  section: "38px"
-  atlas-gutter: "42px"
-motion:
-  posterior-phase: "560ms cubic-bezier(0.16, 1, 0.3, 1)"
-  posterior-observe: "380ms to 650ms staggered ease-out"
-  posterior-register: "720ms cubic-bezier(0.16, 1, 0.3, 1)"
+  hairline-gap: "3px"
+  compact: "6px"
+  small: "8px"
+  control: "10px"
+  cell: "14px"
+  panel: "18px"
+  shell: "22px"
 components:
-  nav-title:
-    textColor: "{colors.ink}"
-    typography: "{typography.nav-title}"
+  app-shell:
+    backgroundColor: "{colors.obsidian-ground}"
+    textColor: "{colors.primary-ink}"
     rounded: "{rounded.square}"
-  nav-link:
-    textColor: "{colors.ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.square}"
-    padding: "0 12px"
-  primary-action:
+  command-tab:
     backgroundColor: "transparent"
-    textColor: "{colors.action-cobalt}"
-    typography: "{typography.label}"
-    rounded: "{rounded.hairline}"
-    padding: "0 0 1px"
-  primary-action-hover:
-    backgroundColor: "transparent"
-    textColor: "{colors.event-oxide}"
-    typography: "{typography.label}"
-    rounded: "{rounded.hairline}"
-    padding: "0 0 1px"
-  stage-node:
-    backgroundColor: "{colors.atlas-ground}"
-    textColor: "{colors.action-cobalt}"
-    rounded: "{rounded.circle}"
-    size: "30px"
-  stage-node-active:
-    backgroundColor: "{colors.action-cobalt}"
-    textColor: "{colors.inverse}"
-    rounded: "{rounded.circle}"
-    size: "30px"
-  replay-control:
-    backgroundColor: "transparent"
-    textColor: "{colors.action-cobalt}"
-    typography: "{typography.label}"
-    rounded: "{rounded.square}"
-    padding: "0 13px"
-  posterior-frequency-lane:
-    backgroundColor: "{colors.atlas-ground}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.square}"
-    padding: "10px 14px"
-  posterior-selected-lane:
-    backgroundColor: "{colors.surface-soft}"
-    textColor: "{colors.evidence-green-ink}"
-    rounded: "{rounded.square}"
-    padding: "10px 14px"
-  research-contract-row:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.square}"
-    padding: "30px 54px"
-  specification-fact:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    typography: "{typography.data}"
-    rounded: "{rounded.square}"
-    padding: "10px 20px"
-  ruled-plate:
-    backgroundColor: "{colors.atlas-ground}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.square}"
-    padding: "20px"
-  evidence-status:
-    backgroundColor: "{colors.atlas-ground}"
     textColor: "{colors.muted-ink}"
     typography: "{typography.label}"
     rounded: "{rounded.square}"
-    padding: "7px 42px"
-  code-plate:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.code-text}"
-    typography: "{typography.code}"
+    padding: "0 20px"
+    height: "70px"
+  command-tab-active:
+    backgroundColor: "{colors.surface-strong}"
+    textColor: "{colors.polar-cyan}"
+    typography: "{typography.label}"
     rounded: "{rounded.square}"
-    padding: "24px 26px"
+    padding: "0 20px"
+    height: "70px"
+  truth-chip:
+    backgroundColor: "transparent"
+    textColor: "{colors.polar-cyan}"
+    typography: "{typography.label}"
+    rounded: "{rounded.square}"
+    padding: "5px 8px"
+    height: "30px"
+  truth-chip-blocked:
+    backgroundColor: "transparent"
+    textColor: "{colors.coral-blocker}"
+    typography: "{typography.label}"
+    rounded: "{rounded.square}"
+    padding: "5px 8px"
+    height: "30px"
+  truth-chip-verified:
+    backgroundColor: "transparent"
+    textColor: "{colors.ion-lime-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.square}"
+    padding: "5px 8px"
+    height: "30px"
+  stale-boundary:
+    backgroundColor: "{colors.surface-alt}"
+    textColor: "{colors.coral-blocker}"
+    typography: "{typography.label}"
+    rounded: "{rounded.square}"
+    padding: "0 22px"
+    height: "44px"
+  ruled-table:
+    backgroundColor: "{colors.obsidian-ground}"
+    textColor: "{colors.muted-ink}"
+    typography: "{typography.data}"
+    rounded: "{rounded.square}"
+  unavailable-panel:
+    backgroundColor: "{colors.tape-black}"
+    textColor: "{colors.primary-ink}"
+    rounded: "{rounded.square}"
+    padding: "32px"
 ---
 
-# Design System: Helios Alpha
+# Design System: Helios Control
 
 ## Overview
 
 **Creative North Star: "The Annotated Event Atlas"**
 
-Helios Alpha presents computation like a midnight scientific atlas: a continuous deep-navy sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing. Light mode preserves the same atlas grammar as an optional reading surface; dark mode is the default.
+Helios Control is a standalone operations instrument, not a documentation page and not a trading command center. It renders operational truth on an obsidian field with ruled ledgers, compact state labels, and explicit causal paths. Every surface helps an operator establish what data is present, when it was observed, what state the system owns, and which boundary prevents action.
 
-The world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.
+The atlas language survives from Helios Alpha, but the app expression is darker, denser, and more operational. Polar cyan traces computation and active inspection, coral exposes blockers and stale state, and ion-lime marks healthy, observed, reconciled, or authorized facts. The interface never converts research evidence into capital authority by implication.
 
-The Posterior Observatory extends that world into uncertainty. Related frequency lanes share one ruled frame, posterior densities register from left to right, oxide needles mark keyed samples, and the selected eligible lane receives the only green field. The sequence is explanatory: observe, pool, constrain, draw, select.
-
-The primary reader is a quantitatively literate researcher who understands returns, variance, event studies, and backtests but should not need prior knowledge of Helios crate boundaries. Every page should first answer what is observed, when it becomes knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.
+The first load is deliberately lightweight. A purpose-built Vue overview renders one validated snapshot through shallow state. Perspective 5.3, its JavaScript, its cacheable WebAssembly assets, and its isolated worker arrive only after the operator opens Data Explorer. The analytical workbench extends the overview; it does not own the initial shell.
 
 **Key Characteristics:**
 
-- Continuous deep-navy atlas sheets divided by one-pixel rules.
-- Dense but readable evidence, aligned to a shared temporal or structural axis.
-- Archivo for explanation and Recursive for labels, metrics, and code.
-- Cobalt paths, oxide event marks, and scarce evidence green.
-- Flat depth, near-square controls, registration crosses, and authored SVG diagrams.
+- Obsidian full-screen app shell with no documentation chrome.
+- Persistent mode, capital, data-class, connection, and sequence truth.
+- Dense Recursive tables and ledgers joined by one-pixel rules.
+- Polar-cyan computation, coral blockers, and scarce ion-lime verification.
+- Fail-closed initial state and visibly stale last-known-good state.
+- Local, keyboard-focusable horizontal scrolling with visible cues.
+- Read-only snapshot boundary with lazy Perspective analysis.
 
 ## Colors
 
-The palette reads like technical ink on a cool research sheet, with color assigned by semantic evidence role rather than decoration.
+The palette behaves like luminous instrumentation on obsidian glass. Accent color always communicates state or causality.
 
 ### Primary
 
-- **Action Cobalt:** Carries links, active paths, selected states, plot lines, and navigation emphasis.
-- **Deep Cobalt:** Supports darker brand states where the default action color needs more weight.
-- **Cobalt Ink:** Provides the darkest member of the action family for constrained UI contexts.
+- **Polar Cyan:** Active view, computation path, selected rows, inspection links, and connecting state.
+- **Polar Cyan Soft:** Selected-row and active-navigation field without creating elevation.
 
 ### Secondary
 
-- **Event Oxide:** Marks event time, focus outlines, warnings, unproven state, and the rare interactive color shift. It is not a general accent.
+- **Coral Blocker:** Capital closed, blocked signals, stale snapshots, degraded sources, errors, negative values, and focus outlines.
 
 ### Tertiary
 
-- **Evidence Green:** Marks verified or compatible state only. Use the darker green ink when colored text must meet contrast requirements.
+- **Ion-Lime:** Healthy sources, observed data, authorized capital, reconciled facts, confirmed executions, positive values, and ready analytical state.
+- **Ion-Lime Ink:** Higher-contrast text form of the verification color.
 
 ### Neutral
 
-- **Atlas Ground:** The continuous midnight page sheet and default stage-node interior.
-- **Alternate and Soft Surfaces:** Quiet tonal changes for sidebars, boundaries, and confidence regions without creating elevation.
-- **Main Ink:** Headlines, body copy, axes, and the dark code plate.
-- **Muted Ink:** Supporting explanations, secondary labels, and chart context.
-- **Rule and Soft Rule:** Structural dividers, grids, ledgers, and local row separation.
-- **Code Text and Code Muted:** High-legibility text roles on the inverted code plate.
-- **Inverse:** Text and marks placed on filled cobalt or oxide states.
+- **Shell Black:** Browser-level page ground and selection inverse.
+- **Obsidian Ground:** Primary application field.
+- **Tape Black:** Deep event-tape, unavailable, and Perspective-stage field.
+- **Alternate and Strong Surfaces:** Navigation, table header, and selected-region tone shifts.
+- **Primary Ink:** Headings and high-priority values.
+- **Muted Ink:** Explanations and ordinary row content.
+- **Axis Ink:** Pending, disabled, stale-source, and secondary measurement labels.
+- **Rule and Soft Rule:** Shell divisions, table cells, row groups, and measurement grids.
 
-**The Evidence Color Rule.** Cobalt means action or active computation, oxide means event or caution, and green means verified evidence. Never use these colors as interchangeable decoration.
+**The Truth Color Rule.** Cyan means active computation or inspection. Coral means blocked, stale, degraded, failed, or negative. Lime means healthy, observed, reconciled, authorized, ready, or positive. Never use these accents interchangeably.
+
+**The Persistent Truth Rule.** Mode, capital gate, and data class remain visible together in the command bar. Color supports their text labels but never replaces them.
 
 ## Typography
 
-**Display Font:** Archivo Variable (with sans-serif fallback)
+**Display Font:** Archivo Variable (with system-ui and sans-serif fallbacks)
 
-**Body Font:** Archivo Variable (with sans-serif fallback)
+**Body Font:** Archivo Variable (with system-ui and sans-serif fallbacks)
 
-**Label/Mono Font:** Recursive Variable (with monospace fallback)
+**Label/Mono Font:** Recursive Variable (with ui-monospace and monospace fallbacks)
 
-**Character:** Archivo gives explanations and large statements an editorial, research-grade voice. Recursive provides the compact instrument panel for method names, state values, navigation, metadata, and code.
+**Character:** Archivo supplies direct explanations and incident-scale unavailable messaging. Recursive turns identifiers, timestamps, quantities, statuses, table headings, and controls into a compact operational instrument with tabular rhythm.
 
 ### Hierarchy
 
-- **Statement** (44px maximum, 1.04 line height): Large section claims on wide screens, with tight tracking and compact measure.
-- **Thesis** (28px maximum, 1.08 line height): The homepage proposition and other concise introductory claims.
-- **Section Title** (18px, 1.2 line height): Plate headings and plot titles.
-- **Body** (15px, 1.62 line height): Explanations and operational boundaries, generally held to a readable text measure.
-- **Data** (13px, Recursive mono axis): Runtime facts, checkpoint values, and concise quantitative readouts.
-- **Label** (11px, Recursive mono axis, uppercase): Navigation, metadata, methods, legends, and state labels. Smaller 8px to 10px labels are reserved for dense charts and ledgers.
-- **Code** (12px to 15px, 1.72 line height): Rust examples and other executable material.
+- **Unavailable Display** (28px to 58px, 0.98 line height): The only oversized statement, used when no validated snapshot exists.
+- **Section Title** (20px, 1.2 line height): Event tape, ledgers, source health, and explorer headings.
+- **App Title** (16px, weight 660): Helios Control identity in the persistent command bar.
+- **Body** (13px, 1.45 line height): Operational explanations and boundary detail.
+- **Metric** (21px, Recursive mono axis): Portfolio facts and compact high-priority numeric state.
+- **Data** (11px, Recursive mono axis): Dense tables, identifiers, timestamps, quantities, and event-tape rows.
+- **Label** (10px, uppercase Recursive mono axis): Tabs, truth chips, status controls, and ledger labels.
+- **Micro Label** (8px, uppercase Recursive mono axis): Table headers, signal state, and tightly constrained annotations.
 
-**The Two-Hand Rule.** Archivo explains the system. Recursive identifies, measures, and executes it.
-
-### Research Language
-
-Copy follows the causal computation, not the package graph. Prefer concrete terms such as `available_at`, decision cut, open bucket, closed summary, candidate signal, source offset, and compatible snapshot. Use "strategy" only for research-owned policy plus its evidence contract. Use "signal" for an emitted research candidate. Never use "trade" or "order" for an output that has not crossed an execution and risk boundary.
-
-Controls name the action they perform: "Play trace," "Advance one stage," and "Restore checkpoint." Evidence labels state whether values are synthetic, mechanically tested, empirically estimated, or unproven.
+**The Operational Mono Rule.** If a value changes, identifies, reconciles, timestamps, measures, or gates operation, set it in Recursive with tabular numerals where applicable.
 
 ## Layout
 
-The atlas uses one continuous bounded sheet, up to 1800px wide, with major regions joined edge to edge. One-pixel rules establish the grid. Desktop compositions can use a two-thirds evidence surface with a one-third annotation or state ledger, but the reusable rule is alignment around shared evidence, not a fixed homepage template.
+Helios Control owns the viewport. A 70px sticky command bar holds identity, Overview and Data Explorer views, three truth chips, and stream control. A 44px boundary line immediately states read-only or stale state. The main atlas is capped at 1920px, with a 220px operations index and a fluid workspace joined by one-pixel rules.
 
-Spacing is compact near data and generous around arguments. Plate interiors use 20px to 42px gutters, while long-form sections use approximately 38px vertical padding. Registration crosses may mark major joins or boundaries, but never float as unrelated decoration.
+The workspace favors horizontal ledgers over card grids. Five portfolio facts form one ruled strip. The event path holds a minimum 960px six-column causal tape, then pairs the signal list with its inspector. Positions and active orders share a ledger row; confirmed executions use a full-width table; source health closes the overview.
 
-At 1100px, multi-column regions simplify, the pipeline rail may form three columns, and evidence panels stack. At 760px, the rail becomes a vertical sequence, specification facts use two columns, and plot overflow stays inside its own panel so the page never scrolls horizontally. Time plots and posterior lanes may pan locally when their shared axis needs more width; a visible swipe instruction names that behavior. Controls remain keyboard reachable and their labels remain legible.
+At 1180px the summary becomes locally scrollable, signal and ledger pairs stack, and source health moves to two columns. At 820px the navigation rail disappears, the command bar stops sticking, tape and lineage regions scroll locally, and source health becomes one column. At 520px mode, capital, and data truth occupy an equal three-column row above the full-width feed control.
 
-**The Shared Axis Rule.** Related evidence must align to the same ruled grid, temporal axis, or state boundary. Do not scatter facts into independent cards.
+The body always hides global horizontal overflow. Summary strips, the event tape, lineage, positions, executions, and other wide tables own their overflow. Each interactive scroll region receives `tabindex="0"`, a descriptive accessibility label, and a visible 2px coral focus outline. Narrow layouts show explicit right-arrow copy such as "Scroll for reorder, reduce, and effect."
+
+**The Local Scroll Rule.** Preserve the width that makes an operations table useful, then contain its overflow inside a named, keyboard-focusable region. Never solve density by shrinking text below the established scale or by giving the page a horizontal scrollbar.
 
 ## Elevation & Depth
 
-The system is flat. It uses no drop shadows and no floating card stack. Depth comes from tonal paper changes, dark inverted code plates, one-pixel borders, line weight, and selective filled states. The event pulse has a single one-pixel outline to remain visible against the path, not to simulate elevation.
+The app is flat and shadow-free. Depth comes from adjacent obsidian tones, one-pixel rules, table header fields, selection washes, and the deepest tape-black analytical stages. The command bar may use an 18px backdrop blur to remain legible while sticky, but it does not cast a shadow.
 
-**The Flat Evidence Rule.** If a region needs hierarchy, change its rule, tone, or alignment before considering any shadow. Shipping surfaces remain shadow-free.
+**The Ruled Depth Rule.** Use rules, tone, and state fill to establish hierarchy. Do not float operational facts in cards or imply priority with shadow.
 
 ## Shapes
 
-Major surfaces and code plates are square. Interactive text links and search shells may use a 1px radius, which reads as near-square rather than softened. Circular geometry is reserved for pipeline nodes, data points, status dots, and registration mechanics. Rules are one pixel, plot and path strokes are generally two to three pixels, and selected-state underlines are two pixels.
+Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. Stream control alone may use a nearly square 1px radius. Circles are restricted to seven-pixel connection and health indicators. The Helios mark is a 21px ruled square containing a two-by-two ion-lime matrix.
 
-**The Instrument Shape Rule.** Corners stay square or nearly square. Circles identify nodes and measured points, never decorative badges.
+**The Instrument Shape Rule.** Square geometry holds information. Small circles report status. Neither form is decorative.
 
 ## Components
 
-### Primary Actions
+### Standalone App Shell
 
-- **Shape:** An inline text action with a one-pixel cobalt underline and a near-square 1px radius.
-- **Default:** Cobalt Recursive label text on a transparent ground, usually paired with a right arrow.
-- **Hover / Focus:** Text and underline shift to oxide over 160ms. Keyboard focus remains visibly distinct.
-- **Secondary:** Uses the same form and hierarchy. Placement and copy, not a filled button, establish secondary priority.
+- **Structure:** Full-viewport obsidian ground, 70px command bar, 44px truth boundary, 220px index, and fluid ruled workspace.
+- **Identity:** The Helios mark and app name appear without VitePress navigation, sidebars, or document controls.
+- **Boundary:** The shell exposes read state only. Mutation belongs to a separate authenticated command service.
 
-### Navigation
+### Command Bar and Truth Chips
 
-- **Style:** A slim ruled bar. The product title uses 15px Recursive with wide uppercase tracking; links use compact uppercase Recursive labels.
-- **State:** Hover and active links turn cobalt. The active destination receives a two-pixel cobalt underline aligned to the bottom rule.
-- **Mobile:** Preserve the rule structure and native menu behavior supplied by the documentation shell.
+- **Views:** Overview loads by default. Data Explorer is disabled until a valid snapshot exists and carries a visible WASM label.
+- **Persistent State:** Mode supports demo, shadow, paper, live, or pending. Capital supports closed, authorized, or unknown. Data class supports synthetic, observed, or pending.
+- **States:** Ordinary or synthetic truth is cyan. Pending and unknown are axis gray. Capital closed is coral. Live mode, capital authorized, and observed data are ion-lime.
+- **Connection Control:** Pause, resume, retry, reconnecting, connecting, and snapshot-only states remain text-labeled with a seven-pixel status dot.
 
-### Ruled Plates and Ledgers
+### Read-Only and Stale Boundary
 
-- **Corner Style:** Square.
-- **Background:** Atlas ground or a quiet alternate surface.
-- **Depth:** No shadow. One-pixel rule boundaries and aligned rows provide structure.
-- **Internal Padding:** Compact ledger rows use 5px to 12px; major plate interiors use 20px to 42px.
-- **State:** Verified values use evidence-green ink. Unproven or cautionary values use oxide.
+- **Normal:** States that signals have no order authority and includes the current capital-gate reason.
+- **Stale:** Adds a coral-tinted ground, names the snapshot stale, and reports the last successful observation time.
+- **Sequence:** The validated snapshot sequence remains visible at the opposite edge.
 
-### Pipeline Stage Selector
+### Fail-Closed Unavailable State
 
-- **Structure:** An index, 30px circular node, uppercase stage label, method label, and explicit connector.
-- **Default:** Cobalt outline node on the atlas ground.
-- **Hover / Focus / Selected:** The node fills cobalt and moves up 2px. Focus receives a two-pixel oxide outline with a 5px offset; the selected label also turns cobalt.
-- **Motion:** One oxide pulse advances through the six state owners every 1.35 seconds while the trace is playing. Node changes use a 460ms exponential ease-out; connector registration uses 360ms. The loop pauses when the atlas is offscreen or the page is hidden. Reduced-motion users receive a static paused state.
+- **Initial Load:** No validated snapshot means no operational tables and no substituted demo fixture.
+- **Message:** Distinguishes an in-progress first connection from a failed source and reports the last successful observation honestly.
+- **Recovery:** A coral retry control appears only after error. It cannot authorize capital or issue trading commands.
 
-### Replay Controls
+### Operations Summary
 
-- **Actions:** Play or pause the trace, advance exactly one stage, and restore from the synthetic checkpoint.
-- **State:** The status line reports replay pass, selected position, and restore validation. Labels remain explicit on desktop and mobile.
-- **Layout:** Controls share the pipeline rules. On mobile, play and advance occupy the first row while restore spans the second row.
+- **Structure:** Five ruled facts for gross exposure, reserved capacity, unrealized result, daily orders, and worst source lag.
+- **Typography:** 21px Recursive values, 8px uppercase keys, and 11px explanations.
+- **Responsive:** The strip keeps 190px cells below 1180px and 160px cells below 520px, with local scrolling and visible instruction.
 
-### Posterior Observatory
+### Event Path and Signal Inspector
 
-- **Structure:** Five explicit phases sit above three aligned frequency lanes and one decision ledger. Each lane contains observations, a posterior density, a credible interval, a feasibility result, and a keyed draw only when eligible.
-- **Sequence:** Observe reveals admitted outcomes. Pool resolves the posterior field. Constrain removes infeasible lanes before sampling. Draw drops one oxide sample needle for each eligible lane. Select gives evidence green only to the largest eligible draw.
-- **Language:** Values are always labeled synthetic. A posterior sample is described as a decision input, never a guarantee. The final output is a research candidate with no order authority.
-- **Motion:** The active phase field traverses with a 560ms exponential ease-out. Density registration uses clip and blur over 720ms. Animation pauses offscreen, pauses while the page is hidden, and resolves to the final static state for reduced-motion users.
-- **Mobile:** The phase rail and density lanes pan inside their own ruled frames. The page itself never gains horizontal overflow, and a visible instruction tells the researcher to swipe.
+- **Tape:** Six explicit columns retain sequence, event time, input, reorder owner, reducer owner, and signal or effect.
+- **Motion:** The newest event dot crosses the tape every 1.6 seconds while streaming. Reduced-motion users receive no traversal.
+- **Selection:** Signal rows expose observing, eligible, and blocked state before instrument, hypothesis, and posterior value.
+- **Inspector:** Trigger, availability, decision cut, proposed effect, blocker, trace, and lineage stay joined in one ruled evidence region.
 
-### Research Contract Ledger
+### Dense Operations Tables
 
-- **Structure:** Four ruled facts define the event, availability boundary, decision boundary, and falsifier.
-- **Copy:** Each row is a complete research constraint, not a product benefit or crate description.
-- **Layout:** Two columns on wide screens and one ordered ledger below 1100px.
+- **Positions:** Eight columns keep account marks separate from research estimates.
+- **Executions:** Ten columns preserve executed time, strategy, venue, liquidity, price, execution identity, and order identity.
+- **Rows:** 42px rows use 11px content, 8px uppercase headers, tabular numerals, no wrapping, and one-pixel cell rules.
+- **Orders:** A selectable order list remains linked to a two-column reconciliation detail ledger.
 
-### Plots and Evidence Graphics
+### Source Health
 
-- **Style:** Authored responsive SVG with visible axes, ruled minor grid, a cobalt response, pale confidence wash, oxide event marker, and green verified recovery point.
-- **Labels:** Recursive metadata stays concise. Callouts attach directly to evidence with hairline leaders.
-- **Boundary:** Synthetic data is labeled in the graphic description and again in the evidence status region.
+- **Structure:** Four source records show name, channel, lag, watermark, and detail.
+- **State:** Healthy is lime, degraded is coral, and stale is axis gray. Text always accompanies the status dot.
+- **Action:** The only section action opens the read-only Perspective explorer.
 
-### Code Plates
+### Lazy Perspective Explorer
 
-- **Shape:** Square dark-ink plate with a one-pixel border.
-- **Text:** Light Recursive code at a generous 1.72 line height, with cobalt-blue keywords and green numeric values.
-- **Header:** A compact ruled bar identifies the file and its architectural role.
+- **Boundary:** Vue loads the explorer through an async component only after the Data Explorer view is requested.
+- **Runtime:** Perspective 5.3 client, server, viewer, datagrid, Pro Dark theme, three WebAssembly assets, and isolated worker stay out of the initial overview path.
+- **Data:** Signals, positions, orders, fills, and sources become an entity-bounded table keyed by `row_id`; later snapshots use keyed table updates.
+- **Failure:** Loading stages are explicit and timeout-bounded. Worker failure produces a coral error state with retry-by-reload guidance.
+- **Budget:** CI caps initial JavaScript at 112 KiB, initial CSS at 40 KiB, and on-demand Perspective assets at 5 MiB. It also rejects eager Perspective WebAssembly or datagrid code.
 
 ## Do's and Don'ts
 
 ### Do:
 
-- Do align state, annotation, and plot evidence to shared rules or axes.
-- Do keep synthetic demonstrations visibly labeled and distinguish tested mechanics from unproven alpha.
-- Do use cobalt for actions and selected paths, oxide for event or caution, and green only for verified state.
-- Do preserve keyboard focus, semantic controls, and a static reduced-motion state.
-- Do use authored SVG for diagrams and plots so labels and evidence remain inspectable.
-- Do lead a researcher from causal contract to operator state, replay proof, and capital boundary.
+- Do keep mode, capital gate, data class, connection, and sequence visible as text.
+- Do reject malformed or unsupported snapshots before they replace the last validated state.
+- Do show no operational fixture when the configured initial snapshot fails.
+- Do mark the last validated snapshot stale when later updates fail, including its observation time.
+- Do keep cancel, flatten, approve-capital, and kill-switch actions outside the read-only operations port.
+- Do preserve wide operational tables inside named, keyboard-focusable scroll regions.
+- Do keep Perspective and all related JavaScript and WebAssembly out of the initial overview bundle.
+- Do label deterministic fixtures synthetic and observed operations data observed.
 
 ### Don't:
 
-- Don't use generic SaaS feature cards, floating panels, gradients, or drop shadows.
-- Don't introduce dark trading-terminal styling, candlestick shorthand, or speculative profit cues.
-- Don't round structural containers or turn pipeline nodes into decorative badges.
-- Don't scatter evidence into unrelated tiles when a ruled ledger or shared axis can reveal the relationship.
-- Don't ship rasterized interface text. Any future shipping raster must carry prompt and provenance metadata.
-- Don't call a candidate signal a trade, an open bucket a result, or tested mechanics proven alpha.
+- Don't wrap Helios Control in documentation navigation or reuse document-page composition.
+- Don't hide mode, capital, or data truth inside a menu, tooltip, or color-only indicator.
+- Don't replace a malformed snapshot with demo data or present stale state as live.
+- Don't add command authority to the snapshot or SSE port.
+- Don't eagerly import Perspective, its datagrid, themes, worker, or WebAssembly assets.
+- Don't create global horizontal overflow to preserve table width.
+- Don't use generic dashboard cards, soft rounded containers, decorative gradients, or drop shadows.
+- Don't imply that a candidate signal, confirmed fill, or observed feed authorizes live capital.
