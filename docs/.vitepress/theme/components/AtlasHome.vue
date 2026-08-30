@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 
 type Stage = {
   key: string;
@@ -61,8 +68,184 @@ const stages: Stage[] = [
   },
 ];
 
-const activeIndex = ref(3);
+const activeIndex = ref(0);
+const isPlaying = ref(true);
+const isVisible = ref(true);
+const pageHidden = ref(false);
+const reducedMotion = ref(false);
+const replayPass = ref(1);
+const replayPhase = ref<"streaming" | "paused" | "restoring" | "restored">(
+  "streaming",
+);
+const pipelineRail = ref<HTMLElement | null>(null);
+const pulseX = ref(0);
+const pulseY = ref(0);
+
+let replayTimer: number | undefined;
+let restartTimer: number | undefined;
+let intersectionObserver: IntersectionObserver | undefined;
+let resizeObserver: ResizeObserver | undefined;
+let motionPreference: MediaQueryList | undefined;
+
 const activeStage = computed(() => stages[activeIndex.value]);
+const pulseStyle = computed(() => ({
+  transform: `translate3d(${pulseX.value}px, ${pulseY.value}px, 0)`,
+}));
+const replayStatus = computed(() => {
+  if (replayPhase.value === "restoring") {
+    return "Checkpoint loaded · validating fingerprint";
+  }
+  if (replayPhase.value === "restored") {
+    return "State restored · source resumes after offset";
+  }
+  if (!isPlaying.value) {
+    return "Replay paused · inspect any operator";
+  }
+  return `Synthetic replay · pass ${String(replayPass.value).padStart(2, "0")}`;
+});
+const replayOffset = computed(() =>
+  (184_512 + (replayPass.value - 1) * stages.length + activeIndex.value).toLocaleString(
+    "en-US",
+  ),
+);
+const checkpointState = computed(() => {
+  if (replayPhase.value === "restoring") return "v1 · validating";
+  if (replayPass.value > 1) return "v1 · restored";
+  if (activeIndex.value === stages.length - 1) return "v1 · captured";
+  return "v1 · ready";
+});
+const resumeState = computed(() =>
+  replayPass.value > 1 || activeIndex.value === stages.length - 1
+    ? "compatible"
+    : "pending",
+);
+
+function updatePulsePosition() {
+  void nextTick(() => {
+    const rail = pipelineRail.value;
+    const node = rail?.querySelectorAll<HTMLElement>(".stage-node")[activeIndex.value];
+    if (!rail || !node) return;
+    const railRect = rail.getBoundingClientRect();
+    const nodeRect = node.getBoundingClientRect();
+    pulseX.value = nodeRect.left - railRect.left + nodeRect.width / 2 - 5;
+    pulseY.value = nodeRect.top - railRect.top + nodeRect.height / 2 - 5;
+  });
+}
+
+function advanceReplay() {
+  replayPhase.value = "streaming";
+  if (activeIndex.value === stages.length - 1) {
+    replayPass.value += 1;
+    activeIndex.value = 0;
+    return;
+  }
+  activeIndex.value += 1;
+}
+
+function cancelPendingRestore() {
+  if (restartTimer) {
+    window.clearTimeout(restartTimer);
+    restartTimer = undefined;
+  }
+}
+
+function selectStage(index: number) {
+  cancelPendingRestore();
+  isPlaying.value = false;
+  replayPhase.value = "paused";
+  activeIndex.value = index;
+}
+
+function toggleReplay() {
+  cancelPendingRestore();
+  isPlaying.value = !isPlaying.value;
+  replayPhase.value = isPlaying.value ? "streaming" : "paused";
+}
+
+function stepReplay() {
+  cancelPendingRestore();
+  isPlaying.value = false;
+  advanceReplay();
+  replayPhase.value = "paused";
+}
+
+function restartFromCheckpoint() {
+  cancelPendingRestore();
+  isPlaying.value = false;
+  replayPhase.value = "restoring";
+  activeIndex.value = stages.length - 1;
+
+  const finishRestore = () => {
+    restartTimer = undefined;
+    replayPass.value += 1;
+    activeIndex.value = 0;
+    replayPhase.value = "restored";
+  };
+
+  if (reducedMotion.value) {
+    finishRestore();
+  } else {
+    restartTimer = window.setTimeout(finishRestore, 620);
+  }
+}
+
+function handleVisibilityChange() {
+  pageHidden.value = document.hidden;
+}
+
+function handleMotionPreference(event: MediaQueryListEvent | MediaQueryList) {
+  reducedMotion.value = event.matches;
+  if (event.matches) {
+    isPlaying.value = false;
+    replayPhase.value = "paused";
+  }
+}
+
+watch(activeIndex, updatePulsePosition, { flush: "post" });
+
+onMounted(() => {
+  pageHidden.value = document.hidden;
+  motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+  handleMotionPreference(motionPreference);
+  motionPreference.addEventListener("change", handleMotionPreference);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+  window.addEventListener("resize", updatePulsePosition, { passive: true });
+
+  if (pipelineRail.value) {
+    intersectionObserver = new IntersectionObserver(
+      ([entry]) => {
+        isVisible.value = entry.isIntersecting;
+      },
+      { threshold: 0.15 },
+    );
+    intersectionObserver.observe(pipelineRail.value);
+
+    resizeObserver = new ResizeObserver(updatePulsePosition);
+    resizeObserver.observe(pipelineRail.value);
+  }
+
+  replayTimer = window.setInterval(() => {
+    if (
+      isPlaying.value &&
+      isVisible.value &&
+      !pageHidden.value &&
+      !reducedMotion.value
+    ) {
+      advanceReplay();
+    }
+  }, 1_350);
+  updatePulsePosition();
+});
+
+onBeforeUnmount(() => {
+  if (replayTimer) window.clearInterval(replayTimer);
+  if (restartTimer) window.clearTimeout(restartTimer);
+  intersectionObserver?.disconnect();
+  resizeObserver?.disconnect();
+  motionPreference?.removeEventListener("change", handleMotionPreference);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+  window.removeEventListener("resize", updatePulsePosition);
+});
 </script>
 
 <template>
@@ -112,15 +295,18 @@ const activeStage = computed(() => stages[activeIndex.value]);
         </p>
       </div>
 
-      <div class="pipeline-rail" aria-label="Streaming pipeline stages">
+      <div ref="pipelineRail" class="pipeline-rail" aria-label="Streaming pipeline stages">
         <button
           v-for="(stage, index) in stages"
           :key="stage.key"
           class="pipeline-stage"
-          :class="{ 'is-active': activeIndex === index }"
+          :class="{
+            'is-active': activeIndex === index,
+            'is-complete': activeIndex > index,
+          }"
           type="button"
           :aria-pressed="activeIndex === index"
-          @click="activeIndex = index"
+          @click="selectStage(index)"
         >
           <span class="stage-index">{{ stage.index }}</span>
           <span class="stage-node" aria-hidden="true">
@@ -155,10 +341,44 @@ const activeStage = computed(() => stages[activeIndex.value]);
           <span class="stage-method">{{ stage.method }}</span>
           <span v-if="index < stages.length - 1" class="stage-connector" aria-hidden="true"></span>
         </button>
-        <span class="event-pulse" aria-hidden="true"></span>
+        <span
+          class="event-pulse"
+          :class="{ 'is-restoring': replayPhase === 'restoring' }"
+          :style="pulseStyle"
+          aria-hidden="true"
+        ></span>
       </div>
 
-      <div class="stage-readout" aria-live="polite">
+      <div class="pipeline-console">
+        <div class="replay-status" role="status" :aria-live="isPlaying ? 'off' : 'polite'">
+          <span class="replay-lamp" :class="{ 'is-live': isPlaying }" aria-hidden="true"></span>
+          <span>{{ replayStatus }}</span>
+          <b>{{ activeIndex + 1 }} / {{ stages.length }}</b>
+        </div>
+        <div class="replay-controls" aria-label="Synthetic pipeline replay controls">
+          <button type="button" class="pipeline-control" @click="toggleReplay">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path v-if="isPlaying" d="M5 3v10M11 3v10" />
+              <path v-else d="m5 3 8 5-8 5z" />
+            </svg>
+            {{ isPlaying ? "Pause" : "Play" }}
+          </button>
+          <button type="button" class="pipeline-control" @click="stepReplay">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m3 3 7 5-7 5zM12 3v10" />
+            </svg>
+            Step
+          </button>
+          <button type="button" class="pipeline-control" @click="restartFromCheckpoint">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M3.3 5.3A5.5 5.5 0 1 1 2.7 10M3 2v3.7h3.7" />
+            </svg>
+            Restore checkpoint
+          </button>
+        </div>
+      </div>
+
+      <div class="stage-readout" :aria-live="isPlaying ? 'off' : 'polite'">
         <span class="readout-label">Selected · {{ activeStage.index }}</span>
         <strong>{{ activeStage.label }}</strong>
         <p>{{ activeStage.detail }}</p>
@@ -167,7 +387,11 @@ const activeStage = computed(() => stages[activeIndex.value]);
       <span class="registration registration-west" aria-hidden="true"></span>
     </section>
 
-    <section class="evidence-grid atlas-plate" aria-labelledby="evidence-title">
+    <section
+      class="evidence-grid atlas-plate"
+      :class="{ 'is-signal-ready': activeIndex >= 4 }"
+      aria-labelledby="evidence-title"
+    >
       <div class="plot-panel">
         <div class="plot-header">
           <div>
@@ -208,6 +432,7 @@ const activeStage = computed(() => stages[activeIndex.value]);
           />
           <polyline
             class="response-line"
+            pathLength="1"
             points="70,170 102,166 134,173 166,169 198,177 230,171 262,165 294,170 326,162 358,171 390,160 418,149 438,105 454,91 470,102 488,128 510,169 534,207 560,230 590,244 622,250 654,243 686,229 718,216 750,204 782,198 820,201 860,205"
           />
           <g class="sample-marks" aria-hidden="true">
@@ -296,13 +521,16 @@ const activeStage = computed(() => stages[activeIndex.value]);
         </section>
 
         <section class="ledger-section checkpoint-section">
-          <p class="ledger-label">Checkpoint ledger</p>
+          <p class="ledger-label">Synthetic runtime trace</p>
           <dl class="checkpoint-list">
-            <div><dt>Offset</dt><dd>184,512</dd></div>
+            <div><dt>Offset</dt><dd>{{ replayOffset }}</dd></div>
             <div><dt>Watermark</dt><dd>09:40:00Z</dd></div>
-            <div><dt>Snapshot</dt><dd>v1 · valid</dd></div>
+            <div><dt>Snapshot</dt><dd>{{ checkpointState }}</dd></div>
             <div><dt>Fingerprint</dt><dd>7a2c…9e1b</dd></div>
-            <div><dt>Resume</dt><dd class="verified">compatible</dd></div>
+            <div>
+              <dt>Resume</dt>
+              <dd :class="{ verified: resumeState === 'compatible' }">{{ resumeState }}</dd>
+            </div>
           </dl>
           <a href="./concepts/checkpoints">Inspect the restart contract →</a>
         </section>
