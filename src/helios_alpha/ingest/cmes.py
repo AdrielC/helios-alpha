@@ -94,6 +94,8 @@ def fetch_cmes_range(start: date, end: date, api_key: str | None = None) -> pl.D
                 "earth_impact_glancing": pl.Boolean,
                 "earth_directed_heuristic": pl.Boolean,
                 "linked_flare_ids": pl.Utf8,
+                "submission_time_utc": pl.Datetime(time_zone="UTC"),
+                "version_id": pl.Utf8,
             }
         )
     out = _cme_records_from_payload(rows)
@@ -112,6 +114,8 @@ def _cme_records_from_payload(rows: list[dict]) -> list[dict]:
         lon = analysis.get("longitude") if analysis else None
         lat = analysis.get("latitude") if analysis else None
         ctype = analysis.get("type") if analysis else None
+        submission = analysis.get("submissionTime") if analysis else cme.get("submissionTime")
+        version_id = analysis.get("versionId") if analysis else cme.get("versionId")
         enlil = None
         if analysis:
             enlils = analysis.get("enlilList") or []
@@ -139,6 +143,8 @@ def _cme_records_from_payload(rows: list[dict]) -> list[dict]:
                 "earth_impact_glancing": glancing,
                 "earth_directed_heuristic": directed,
                 "linked_flare_ids": ",".join(flares) if flares else None,
+                "submission_time_utc": parse_iso_z(submission),
+                "version_id": str(version_id) if version_id is not None else None,
             }
         )
     return out

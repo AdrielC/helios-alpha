@@ -2,6 +2,8 @@ export type FeedMode = "demo" | "shadow" | "paper" | "live";
 export type HealthState = "healthy" | "degraded" | "stale";
 export type SignalState = "observing" | "eligible" | "blocked";
 export type OrderState = "open" | "partially_filled" | "pending_reconciliation";
+export type StrategyState = "running" | "paused" | "blocked";
+export type StageState = "running" | "paused" | "blocked" | "replaying";
 
 export interface SignalPoint {
   readonly offsetSeconds: number;
@@ -90,6 +92,25 @@ export interface RiskView {
   readonly clockOffsetMs: number;
 }
 
+export interface StrategyView {
+  readonly id: string;
+  readonly name: string;
+  readonly state: StrategyState;
+  readonly generation: number;
+  readonly activeSignalId?: string;
+  readonly detail: string;
+}
+
+export interface StageView {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: "source" | "ordering" | "feature" | "hypothesis" | "risk" | "execution";
+  readonly state: StageState;
+  readonly lagMs: number;
+  readonly checkpoint: string;
+  readonly detail: string;
+}
+
 export interface OperationsSnapshot {
   readonly schemaVersion: 1;
   readonly sequence: number;
@@ -98,6 +119,8 @@ export interface OperationsSnapshot {
   readonly observedAt: string;
   readonly dataClass: "synthetic" | "observed";
   readonly accountLabel: string;
+  readonly strategies: readonly StrategyView[];
+  readonly stages: readonly StageView[];
   readonly signals: readonly SignalView[];
   readonly positions: readonly PositionView[];
   readonly orders: readonly OrderView[];
@@ -132,6 +155,88 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
   observedAt: initialObservedAt,
   dataClass: "synthetic",
   accountLabel: "SPACE-WEATHER / SHADOW",
+  strategies: [
+    {
+      id: "cme-liquidity-v3",
+      name: "CME liquidity response",
+      state: "running",
+      generation: 31,
+      activeSignalId: "cme-arrival-btc-01",
+      detail: "Shadow decisions only",
+    },
+    {
+      id: "geomagnetic-semis-v2",
+      name: "Geomagnetic semiconductor stress",
+      state: "running",
+      generation: 12,
+      activeSignalId: "kp-grid-semis-02",
+      detail: "Waiting for source agreement",
+    },
+    {
+      id: "solar-wind-vol-v1",
+      name: "Solar-wind volatility response",
+      state: "blocked",
+      generation: 8,
+      activeSignalId: "solar-wind-energy-03",
+      detail: "Capacity evidence expired",
+    },
+  ],
+  stages: [
+    {
+      id: "source-fence",
+      name: "Source fence",
+      kind: "source",
+      state: "running",
+      lagMs: 184,
+      checkpoint: "src:184512",
+      detail: "Backfill and live tail joined",
+    },
+    {
+      id: "event-order",
+      name: "Event-time order",
+      kind: "ordering",
+      state: "running",
+      lagMs: 311,
+      checkpoint: "ord:184508",
+      detail: "2s watermark, one declared gap",
+    },
+    {
+      id: "feature-state",
+      name: "Feature state",
+      kind: "feature",
+      state: "running",
+      lagMs: 422,
+      checkpoint: "feat:184505",
+      detail: "10m buckets and stable moments",
+    },
+    {
+      id: "hypothesis-update",
+      name: "Hypothesis update",
+      kind: "hypothesis",
+      state: "running",
+      lagMs: 588,
+      checkpoint: "hyp:184501",
+      detail: "Point-in-time posterior update",
+    },
+    {
+      id: "risk-admission",
+      name: "Risk admission",
+      kind: "risk",
+      state: "blocked",
+      lagMs: 642,
+      checkpoint: "risk:184498",
+      detail: "Capital gate closed",
+    },
+    {
+      id: "execution-router",
+      name: "Execution router",
+      kind: "execution",
+      state: "paused",
+      lagMs: 642,
+      checkpoint: "exec:184498",
+      detail: "No live order authority",
+    },
+  ],
   signals: [
     {
       id: "cme-arrival-btc-01",
@@ -426,6 +531,11 @@ interface HttpPortOptions {
   readonly streamUrl?: string;
 }
 
+export interface HeliosRuntimeConfig extends HttpPortOptions {
+  readonly commandUrl?: string;
+  readonly commandSessionUrl?: string;
+}
+
 export class HttpOperationsPort implements OperationsPort {
   readonly name = "HttpOperationsPort";
   private source: EventSource | undefined;
@@ -510,6 +620,36 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
   oneOf(snapshot.dataClass, ["synthetic", "observed"], "dataClass");
   text(snapshot.accountLabel, "accountLabel");
 
+  for (const [index, candidate] of list(snapshot.strategies, "strategies").entries()) {
+    const strategy = record(candidate, `strategies[${index}]`);
+    for (const field of ["id", "name", "detail"] as const) {
+      text(strategy[field], `strategies[${index}].${field}`);
+    }
+    oneOf(strategy.state, ["running", "paused", "blocked"], `strategies[${index}].state`);
+    integer(strategy.generation, `strategies[${index}].generation`);
+    if (strategy.activeSignalId !== undefined) {
+      text(strategy.activeSignalId, `strategies[${index}].activeSignalId`);
+    }
+  }
+
+  for (const [index, candidate] of list(snapshot.stages, "stages").entries()) {
+    const stage = record(candidate, `stages[${index}]`);
+    for (const field of ["id", "name", "checkpoint", "detail"] as const) {
+      text(stage[field], `stages[${index}].${field}`);
+    }
+    oneOf(
+      stage.kind,
+      ["source", "ordering", "feature", "hypothesis", "risk", "execution"],
+      `stages[${index}].kind`,
+    );
+    oneOf(
+      stage.state,
+      ["running", "paused", "blocked", "replaying"],
+      `stages[${index}].state`,
+    );
+    integer(stage.lagMs, `stages[${index}].lagMs`);
+  }
+
   for (const [index, candidate] of list(snapshot.signals, "signals").entries()) {
     const signal = record(candidate, `signals[${index}]`);
     for (const field of ["id", "hypothesis", "instrument", "trigger", "horizon", "observedAt", "availableAt", "decisionCut", "action"] as const) {
@@ -591,7 +731,7 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
 
 declare global {
   interface Window {
-    __HELIOS_OPERATIONS__?: HttpPortOptions;
+    __HELIOS_OPERATIONS__?: HeliosRuntimeConfig;
   }
 }
 

@@ -1,6 +1,6 @@
 ---
 name: Helios Control
-description: A standalone obsidian event atlas for inspecting operational truth without command authority.
+description: A standalone obsidian mission-control surface with separate read and protected command planes.
 colors:
   shell-black: "#060a0f"
   obsidian-ground: "#080d13"
@@ -133,7 +133,7 @@ components:
 
 **Creative North Star: "The Annotated Event Atlas"**
 
-Helios Control is a standalone operations instrument, not a documentation page and not a trading command center. It renders operational truth on an obsidian field with ruled ledgers, compact state labels, and explicit causal paths. Every surface helps an operator establish what data is present, when it was observed, what state the system owns, and which boundary prevents action.
+Helios Control is a standalone operations instrument, not a documentation page. It renders operational truth on an obsidian field with ruled ledgers, compact state labels, and explicit causal paths. A separately authenticated command plane can pause strategies, hold stage transitions, cancel orders, flatten positions, or activate the kill switch without putting broker credentials in the browser.
 
 The atlas language survives from Helios Alpha, but the app expression is darker, denser, and more operational. Polar cyan traces computation and active inspection, coral exposes blockers and stale state, and ion-lime marks healthy, observed, reconciled, or authorized facts. The interface never converts research evidence into capital authority by implication.
 
@@ -147,7 +147,7 @@ The first load is deliberately lightweight. A purpose-built Vue overview renders
 - Polar-cyan computation, coral blockers, and scarce ion-lime verification.
 - Fail-closed initial state and visibly stale last-known-good state.
 - Local, keyboard-focusable horizontal scrolling with visible cues.
-- Read-only snapshot boundary with lazy Perspective analysis.
+- Independent read-model and protected-command boundaries with lazy Perspective analysis.
 
 ## Colors
 
@@ -209,7 +209,7 @@ The palette behaves like luminous instrumentation on obsidian glass. Accent colo
 
 Helios Control owns the viewport. A 70px sticky command bar holds identity, Overview and Data Explorer views, three truth chips, and stream control. A 44px boundary line immediately states read-only or stale state. The main atlas is capped at 1920px, with a 220px operations index and a fluid workspace joined by one-pixel rules.
 
-The workspace favors horizontal ledgers over card grids. Five portfolio facts form one ruled strip. The event path holds a minimum 960px six-column causal tape, then pairs the signal list with its inspector. Positions and active orders share a ledger row; confirmed executions use a full-width table; source health closes the overview.
+The workspace favors horizontal ledgers over card grids. Five portfolio facts form one ruled strip. A strategy register and six-stage processing path expose control boundaries before the event tape. The event path holds a minimum 960px six-column causal tape, then pairs the signal list with its inspector. Positions and active orders share a ledger row; confirmed executions use a full-width table; source health closes the overview.
 
 At 1180px the summary becomes locally scrollable, signal and ledger pairs stack, and source health moves to two columns. At 820px the navigation rail disappears, the command bar stops sticking, tape and lineage regions scroll locally, and source health becomes one column. At 520px mode, capital, and data truth occupy an equal three-column row above the full-width feed control.
 
@@ -235,7 +235,7 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 
 - **Structure:** Full-viewport obsidian ground, 70px command bar, 44px truth boundary, 220px index, and fluid ruled workspace.
 - **Identity:** The Helios mark and app name appear without VitePress navigation, sidebars, or document controls.
-- **Boundary:** The shell exposes read state only. Mutation belongs to a separate authenticated command service.
+- **Boundary:** The snapshot stream remains read-only. Mutation crosses a separate, same-origin authenticated command service with CSRF protection, idempotency, and sequence preconditions.
 
 ### Command Bar and Truth Chips
 
@@ -244,11 +244,20 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 - **States:** Ordinary or synthetic truth is cyan. Pending and unknown are axis gray. Capital closed is coral. Live mode, capital authorized, and observed data are ion-lime.
 - **Connection Control:** Pause, resume, retry, reconnecting, connecting, and snapshot-only states remain text-labeled with a seven-pixel status dot.
 
-### Read-Only and Stale Boundary
+### Read and Command Boundary
 
-- **Normal:** States that signals have no order authority and includes the current capital-gate reason.
+- **Normal:** States whether an authenticated command service is attached and includes the current capital-gate reason.
 - **Stale:** Adds a coral-tinted ground, names the snapshot stale, and reports the last successful observation time.
 - **Sequence:** The validated snapshot sequence remains visible at the opposite edge.
+
+### Protected Command Plane
+
+- **Strategies:** Pause and resume requests are explicit commands, never local state toggles.
+- **Stages:** Each transition can be held before entry without mutating the read model in the browser.
+- **Orders and Positions:** Cancel and flatten actions require an operational reason and exact typed confirmation.
+- **Emergency Stop:** Kill-switch activation stays available as a distinct action and does not imply automatic liquidation.
+- **Admission:** Requests carry a CSRF token, idempotency key, and current snapshot sequence. The server owns authorization, risk policy, durability, and side effects.
+- **Receipts:** The interface displays validated command receipts and waits for the operations stream to report resulting state.
 
 ### Fail-Closed Unavailable State
 
@@ -298,7 +307,8 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 - Do reject malformed or unsupported snapshots before they replace the last validated state.
 - Do show no operational fixture when the configured initial snapshot fails.
 - Do mark the last validated snapshot stale when later updates fail, including its observation time.
-- Do keep cancel, flatten, approve-capital, and kill-switch actions outside the read-only operations port.
+- Do keep cancel, flatten, strategy, stage, and kill-switch actions outside the read-only operations port.
+- Do require reason, typed confirmation, idempotency, CSRF protection, and sequence admission for every command.
 - Do preserve wide operational tables inside named, keyboard-focusable scroll regions.
 - Do keep Perspective and all related JavaScript and WebAssembly out of the initial overview bundle.
 - Do label deterministic fixtures synthetic and observed operations data observed.
@@ -308,7 +318,7 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 - Don't wrap Helios Control in documentation navigation or reuse document-page composition.
 - Don't hide mode, capital, or data truth inside a menu, tooltip, or color-only indicator.
 - Don't replace a malformed snapshot with demo data or present stale state as live.
-- Don't add command authority to the snapshot or SSE port.
+- Don't add command authority to the snapshot or SSE port, and never optimistically mutate its state.
 - Don't eagerly import Perspective, its datagrid, themes, worker, or WebAssembly assets.
 - Don't create global horizontal overflow to preserve table width.
 - Don't use generic dashboard cards, soft rounded containers, decorative gradients, or drop shadows.

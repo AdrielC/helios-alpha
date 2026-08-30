@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import textwrap
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import polars as pl
+import pytest
 
-from helios_alpha.backtest.event_study import load_event_study_config, run_event_study
+from helios_alpha.backtest.event_study import (
+    CausalEventStudyError,
+    classify_causal_extremes,
+    load_event_study_config,
+    run_event_study,
+)
 
 
 def test_load_event_study_config_from_path(tmp_path: Path) -> None:
@@ -56,7 +62,15 @@ def test_run_event_study_uses_buffer_from_config(tmp_path: Path) -> None:
     base = date(2020, 1, 1)
     event_dates = [base + timedelta(days=30 * i) for i in range(n_flares)]
     ssi_vals = [0.2] * 5 + [0.9] * 6
-    events = pl.DataFrame({"event_date_utc": event_dates, "ssi": ssi_vals})
+    events = pl.DataFrame(
+        {
+            "event_date_utc": event_dates,
+            "available_at_utc": [
+                datetime.combine(day, time(12), tzinfo=UTC) for day in event_dates
+            ],
+            "ssi": ssi_vals,
+        }
+    )
 
     # Long price panel so control pool can exceed 30 after exclusions.
     n_px = 420
@@ -80,3 +94,35 @@ def test_run_event_study_uses_buffer_from_config(tmp_path: Path) -> None:
     row = s0.row(0, named=True)
     assert row["control_day_buffer_days"] == 0
     assert row["extreme_ssi_quantile"] == 0.5
+    assert row["ssi_threshold_mode"] == "expanding_prior_only"
+
+
+def test_later_events_cannot_change_an_earlier_extreme_classification() -> None:
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    original = pl.DataFrame(
+        {
+            "event_date_utc": [(base + timedelta(days=i)).date() for i in range(7)],
+            "available_at_utc": [base + timedelta(days=i) for i in range(7)],
+            "ssi": [0.1, 0.2, 0.3, 0.4, 0.5, 0.9, 0.1],
+        }
+    )
+    changed_future = original.with_columns(
+        pl.when(pl.col("available_at_utc") == base + timedelta(days=6))
+        .then(10_000.0)
+        .otherwise(pl.col("ssi"))
+        .alias("ssi")
+    )
+    before = classify_causal_extremes(original, quantile=0.5, min_history=5)
+    after = classify_causal_extremes(changed_future, quantile=0.5, min_history=5)
+    assert before["is_extreme_ssi"][5] is True
+    assert before["is_extreme_ssi"][5] == after["is_extreme_ssi"][5]
+    assert before["ssi_threshold_at_event"][5] == after["ssi_threshold_at_event"][5]
+
+
+def test_event_study_refuses_missing_availability() -> None:
+    events = pl.DataFrame({"event_date_utc": [date(2026, 1, 1)], "ssi": [0.9]})
+    prices = pl.DataFrame(
+        {"ticker": ["AAA"], "date": [date(2026, 1, 1)], "close": [100.0]}
+    )
+    with pytest.raises(CausalEventStudyError, match="available_at_utc"):
+        run_event_study(events, prices, ["AAA"])

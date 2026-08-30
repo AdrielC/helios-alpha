@@ -7,8 +7,16 @@ use serde::{Deserialize, Serialize};
 /// Mixed stream of bars (one row per trading session day) and treatment definitions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum HorizonInput {
-    Bar { session_day: i32, close: f64 },
-    Treatment { id: u32, horizon_trading_days: u32 },
+    Bar {
+        session_day: i32,
+        close: f64,
+        available_at: i64,
+    },
+    Treatment {
+        id: u32,
+        horizon_trading_days: u32,
+        available_at: i64,
+    },
 }
 
 /// Completed forward window (simple return from entry close to exit close).
@@ -17,6 +25,8 @@ pub struct ForwardHorizonOutcome {
     pub treatment_id: u32,
     pub entry_session_day: i32,
     pub exit_session_day: i32,
+    pub entry_available_at: i64,
+    pub exit_available_at: i64,
     pub simple_return: f64,
 }
 
@@ -27,6 +37,8 @@ pub struct ForwardHorizonIncomplete {
     pub entry_session_day: i32,
     pub last_session_day: i32,
     pub last_close: f64,
+    pub entry_available_at: i64,
+    pub last_available_at: i64,
     pub simple_return: f64,
     pub bars_remaining: u32,
 }
@@ -35,6 +47,7 @@ pub struct ForwardHorizonIncomplete {
 pub struct PendingTreatment {
     pub id: u32,
     pub horizon_trading_days: u32,
+    pub available_at: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -42,10 +55,12 @@ pub struct ActiveHorizon {
     pub id: u32,
     pub entry_session_day: i32,
     pub entry_close: f64,
+    pub entry_available_at: i64,
     pub bars_remaining: u32,
 }
 
-/// Tracks treatments, attaches them on the **next** bar, decrements horizon per bar, finalizes on 0.
+/// Tracks treatments, attaches them on the first bar whose `available_at` is **strictly after** the
+/// treatment, decrements existing horizons before attaching new ones, and finalizes on 0.
 ///
 /// **Session policy:** each `Bar` is one trading day; `horizon_trading_days` counts bars after
 /// attachment. [`FlushReason::SessionClose`] emits [`ForwardHorizonIncomplete`] for open windows
@@ -73,6 +88,9 @@ pub struct ForwardHorizonState {
     pub active: Vec<ActiveHorizon>,
     pub last_session_day: Option<i32>,
     pub last_close: Option<f64>,
+    pub last_available_at: Option<i64>,
+    /// Regressing records are rejected rather than being allowed to rewrite an earlier decision.
+    pub rejected_time_regressions: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -81,6 +99,8 @@ pub struct ForwardHorizonSnapshot {
     pub active: Vec<ActiveHorizon>,
     pub last_session_day: Option<i32>,
     pub last_close: Option<f64>,
+    pub last_available_at: Option<i64>,
+    pub rejected_time_regressions: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -100,6 +120,8 @@ impl Scan for ForwardHorizonScan {
             active: Vec::new(),
             last_session_day: None,
             last_close: None,
+            last_available_at: None,
+            rejected_time_regressions: 0,
         }
     }
 
@@ -111,23 +133,42 @@ impl Scan for ForwardHorizonScan {
             HorizonInput::Treatment {
                 id,
                 horizon_trading_days,
+                available_at,
             } => {
+                if state
+                    .last_available_at
+                    .is_some_and(|frontier| available_at < frontier)
+                {
+                    state.rejected_time_regressions =
+                        state.rejected_time_regressions.saturating_add(1);
+                    return;
+                }
+                state.last_available_at = Some(available_at);
                 state.pending.push(PendingTreatment {
                     id,
-                    horizon_trading_days,
+                    horizon_trading_days: horizon_trading_days.max(1),
+                    available_at,
                 });
             }
-            HorizonInput::Bar { session_day, close } => {
+            HorizonInput::Bar {
+                session_day,
+                close,
+                available_at,
+            } => {
+                if state
+                    .last_available_at
+                    .is_some_and(|frontier| available_at < frontier)
+                {
+                    state.rejected_time_regressions =
+                        state.rejected_time_regressions.saturating_add(1);
+                    return;
+                }
                 state.last_session_day = Some(session_day);
                 state.last_close = Some(close);
-                for p in state.pending.drain(..) {
-                    state.active.push(ActiveHorizon {
-                        id: p.id,
-                        entry_session_day: session_day,
-                        entry_close: close,
-                        bars_remaining: p.horizon_trading_days,
-                    });
-                }
+                state.last_available_at = Some(available_at);
+
+                // Existing windows consume this bar. A treatment cannot consume its own entry bar,
+                // so eligible pending rows are attached only after this pass.
                 state.active.retain_mut(|a| {
                     a.bars_remaining = a.bars_remaining.saturating_sub(1);
                     if a.bars_remaining == 0 {
@@ -136,6 +177,8 @@ impl Scan for ForwardHorizonScan {
                             treatment_id: a.id,
                             entry_session_day: a.entry_session_day,
                             exit_session_day: session_day,
+                            entry_available_at: a.entry_available_at,
+                            exit_available_at: available_at,
                             simple_return,
                         }));
                         false
@@ -143,6 +186,22 @@ impl Scan for ForwardHorizonScan {
                         true
                     }
                 });
+
+                let mut waiting = Vec::with_capacity(state.pending.len());
+                for p in state.pending.drain(..) {
+                    if p.available_at < available_at {
+                        state.active.push(ActiveHorizon {
+                            id: p.id,
+                            entry_session_day: session_day,
+                            entry_close: close,
+                            entry_available_at: available_at,
+                            bars_remaining: p.horizon_trading_days,
+                        });
+                    } else {
+                        waiting.push(p);
+                    }
+                }
+                state.pending = waiting;
             }
         }
     }
@@ -153,8 +212,12 @@ impl ForwardHorizonScan {
         state: &mut ForwardHorizonState,
         emit: &mut E,
     ) {
-        let (ls, lc) = match (state.last_session_day, state.last_close) {
-            (Some(d), Some(c)) => (d, c),
+        let (ls, lc, la) = match (
+            state.last_session_day,
+            state.last_close,
+            state.last_available_at,
+        ) {
+            (Some(d), Some(c), Some(a)) => (d, c, a),
             _ => return,
         };
         for a in state.active.drain(..) {
@@ -164,6 +227,8 @@ impl ForwardHorizonScan {
                 entry_session_day: a.entry_session_day,
                 last_session_day: ls,
                 last_close: lc,
+                entry_available_at: a.entry_available_at,
+                last_available_at: la,
                 simple_return,
                 bars_remaining: a.bars_remaining,
             }));
@@ -198,6 +263,8 @@ impl SnapshottingScan for ForwardHorizonScan {
             active: state.active.clone(),
             last_session_day: state.last_session_day,
             last_close: state.last_close,
+            last_available_at: state.last_available_at,
+            rejected_time_regressions: state.rejected_time_regressions,
         }
     }
 
@@ -207,6 +274,8 @@ impl SnapshottingScan for ForwardHorizonScan {
             active: snapshot.active,
             last_session_day: snapshot.last_session_day,
             last_close: snapshot.last_close,
+            last_available_at: snapshot.last_available_at,
+            rejected_time_regressions: snapshot.rejected_time_regressions,
         }
     }
 }
@@ -230,6 +299,7 @@ mod tests {
             HorizonInput::Bar {
                 session_day: 1,
                 close: 100.0,
+                available_at: 10,
             },
             &mut e,
         );
@@ -238,6 +308,7 @@ mod tests {
             HorizonInput::Treatment {
                 id: 1,
                 horizon_trading_days: 5,
+                available_at: 11,
             },
             &mut e,
         );
@@ -246,6 +317,7 @@ mod tests {
             HorizonInput::Bar {
                 session_day: 2,
                 close: 102.0,
+                available_at: 20,
             },
             &mut e,
         );
@@ -253,7 +325,7 @@ mod tests {
         assert_eq!(e.0.len(), 1);
         match &e.0[0] {
             ForwardHorizonOutput::Incomplete(i) => {
-                assert_eq!(i.bars_remaining, 4);
+                assert_eq!(i.bars_remaining, 5);
                 assert_eq!(i.last_session_day, 2);
             }
             _ => panic!("expected incomplete"),
@@ -272,6 +344,7 @@ mod tests {
                 HorizonInput::Treatment {
                     id,
                     horizon_trading_days: 1,
+                    available_at: 10,
                 },
                 &mut emit,
             );
@@ -281,6 +354,17 @@ mod tests {
             HorizonInput::Bar {
                 session_day: 1,
                 close: 100.0,
+                available_at: 20,
+            },
+            &mut emit,
+        );
+
+        scan.step(
+            &mut state,
+            HorizonInput::Bar {
+                session_day: 2,
+                close: 101.0,
+                available_at: 30,
             },
             &mut emit,
         );
@@ -294,5 +378,87 @@ mod tests {
             })
             .collect();
         assert_eq!(ids, vec![10, 20, 30]);
+    }
+
+    #[test]
+    fn treatment_never_attaches_to_a_bar_at_the_same_availability_instant() {
+        let scan = ForwardHorizonScan::default();
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+        scan.step(
+            &mut state,
+            HorizonInput::Treatment {
+                id: 7,
+                horizon_trading_days: 1,
+                available_at: 20,
+            },
+            &mut emit,
+        );
+        scan.step(
+            &mut state,
+            HorizonInput::Bar {
+                session_day: 1,
+                close: 100.0,
+                available_at: 20,
+            },
+            &mut emit,
+        );
+        assert!(state.active.is_empty());
+        assert_eq!(state.pending.len(), 1);
+
+        scan.step(
+            &mut state,
+            HorizonInput::Bar {
+                session_day: 2,
+                close: 101.0,
+                available_at: 21,
+            },
+            &mut emit,
+        );
+        scan.step(
+            &mut state,
+            HorizonInput::Bar {
+                session_day: 3,
+                close: 103.0,
+                available_at: 22,
+            },
+            &mut emit,
+        );
+        match &emit.0[0] {
+            ForwardHorizonOutput::Complete(outcome) => {
+                assert_eq!(outcome.entry_session_day, 2);
+                assert_eq!(outcome.exit_session_day, 3);
+                assert_eq!(outcome.entry_available_at, 21);
+                assert_eq!(outcome.exit_available_at, 22);
+            }
+            _ => panic!("expected complete horizon"),
+        }
+    }
+
+    #[test]
+    fn regressing_treatment_is_rejected_after_later_market_data() {
+        let scan = ForwardHorizonScan::default();
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+        scan.step(
+            &mut state,
+            HorizonInput::Bar {
+                session_day: 5,
+                close: 100.0,
+                available_at: 50,
+            },
+            &mut emit,
+        );
+        scan.step(
+            &mut state,
+            HorizonInput::Treatment {
+                id: 9,
+                horizon_trading_days: 1,
+                available_at: 40,
+            },
+            &mut emit,
+        );
+        assert!(state.pending.is_empty());
+        assert_eq!(state.rejected_time_regressions, 1);
     }
 }

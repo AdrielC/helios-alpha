@@ -1,4 +1,9 @@
-# Market data providers (licensed / paid)
+# Market data providers
+
+The current implementation decision is maintained in
+[First market-data and broker path](operations/market-data-path). It chooses Alpaca Basic for the
+first paper and one-dollar operational canary, with Databento historical data as the next research
+upgrade. The table below is an older provider survey, not the admission decision.
 
 **Recommendation for this repo:** **[Polygon.io](https://polygon.io/)** — Stocks **Developer** tier is usually the sweet spot for **cheap + good API** (REST aggregates, minute bars when you upgrade, clear docs). You bring your own license; set `HELIOS_POLYGON_API_KEY`.
 

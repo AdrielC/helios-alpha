@@ -16,6 +16,7 @@ fn build_stream(n: usize) -> Vec<ReplayRecord> {
         v.push(ReplayRecord::Bar {
             session_day: i as i32 * 2,
             close: 100.0 + i as f64 * 0.01,
+            available_at: AvailableAt(i as i64 * 2 + 1),
         });
         v.push(ReplayRecord::Treatment(AvailabilityTagged {
             value: TreatmentEvent {
@@ -25,7 +26,7 @@ fn build_stream(n: usize) -> Vec<ReplayRecord> {
                 horizon_trading_days: 5,
             },
             observed_at: None,
-            available_at: AvailableAt(0),
+            available_at: AvailableAt(i as i64 * 2 + 2),
             effective_at: None,
             session_date: None,
         }));

@@ -35,11 +35,11 @@ Researchers inspect architecture and API documentation, compose scans and reduce
 - Bounded event-time reordering, typed late and overflow outcomes, generic bucket reduction, and ordered bucket pipelines.
 - Versioned and fingerprinted checkpoints that retain stream offsets and validate restored payloads.
 - An event-shock proving ground with deterministic replay, treatment/control generation, and simulated execution.
-- A separately built read-only operator application for signals, active orders, held positions, risk state, and source freshness, with a synthetic demo port and an injectable HTTP/SSE boundary.
+- A separately built operator application for strategies, pipeline stages, signals, active orders, held positions, risk state, and source freshness, with independent read and authenticated command ports.
 - A lazy Perspective WebAssembly explorer for ad hoc grouping, filtering, and export without adding the analytical engine to the overview's initial load.
 - The current repository is a research and execution substrate, not a claim of profitable alpha and not a live broker-connected trading system.
 - Demonstration event streams and performance examples must be labeled synthetic when they are not sourced observations.
-- Live trading still requires durable source and sink transactions, broker integration, risk controls, execution-cost modeling, observability, and deployment operations.
+- The command frontend is implemented, but live trading still requires its durable server, broker integration, venue-grade risk controls, execution-cost modeling, observability, and deployment proof.
 
 ## Brand Commitments
 

@@ -70,6 +70,10 @@ export default defineConfig({
           },
           { text: "Event time", link: "/concepts/event-time" },
           {
+            text: "Source protocol",
+            link: "/concepts/source-protocol",
+          },
+          {
             text: "Online statistics",
             link: "/concepts/online-statistics",
           },
@@ -101,6 +105,10 @@ export default defineConfig({
           {
             text: "Capital admission",
             link: "/operations/capital-admission",
+          },
+          {
+            text: "First data and broker path",
+            link: "/operations/market-data-path",
           },
           {
             text: "Robinhood boundary",

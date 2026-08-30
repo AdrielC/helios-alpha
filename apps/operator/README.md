@@ -1,7 +1,8 @@
 # Helios Control
 
-Helios Control is the standalone read-only operations application for Helios Alpha. It is not part
-of the documentation site and it does not hold broker credentials or order authority.
+Helios Control is the standalone operations application for Helios Alpha. It is not part of the
+documentation site and it never holds broker credentials. The read model and protected command
+service remain separate ports.
 
 The default application uses a deterministic synthetic source so the interface can be developed
 without implying that market or space-weather observations are live. Every screen keeps the mode,
@@ -39,6 +40,8 @@ The deployment writes `public/runtime-config.js` without rebuilding the applicat
 window.__HELIOS_OPERATIONS__ = {
   snapshotUrl: "/api/operations/v1/snapshot",
   streamUrl: "/api/operations/v1/events",
+  commandSessionUrl: "/api/commands/v1/session",
+  commandUrl: "/api/commands/v1/commands",
 };
 ```
 
@@ -56,7 +59,19 @@ The read model owns:
 - exposure, capacity, incident, kill-switch, and capital-admission state.
 
 Mutation belongs to a separate authenticated command service. Do not extend the operations port
-with cancel, flatten, approve-capital, or kill-switch commands.
+with mutation methods. Without both command URLs the UI stays visibly unbound and every control is
+disabled.
+
+The command session endpoint returns a short-lived operator identity, expiry, and CSRF token. The
+browser keeps that token in memory only. Each command request carries same-origin credentials,
+the CSRF token, a unique idempotency key, and the reviewed snapshot sequence in both `If-Match`
+and the request body. The UI requires an operational reason and exact typed confirmation, then
+waits for a validated receipt. It never optimistically changes a position, order, strategy, or
+kill-switch state.
+
+The command service must independently authenticate the operator, authorize the action, validate
+the confirmation phrase, reject stale snapshot sequences, enforce risk policy, durably record the
+intent before side effects, and return the same receipt for a repeated idempotency key.
 
 ## Deployment boundary
 

@@ -138,7 +138,7 @@ def compute_ssi(df: pl.DataFrame, config_path: Path | None = None) -> pl.DataFra
         strict = r.get("earth_directed_strict")
         earth = bool(strict if strict is not None else r.get("earth_directed"))
         earth_f = 1.0 if earth else 0.0
-        prot = _norm_proton(r.get("proton_flux_ge10_max_post_flare"), fc)
+        prot = _norm_proton(r.get("proton_flux_ge10_prior_24h"), fc)
         kp = _norm_kp_prior(r.get("kp_estimated_max_prior_day"))
         components = [
             w.flare * flare_s,
@@ -158,7 +158,7 @@ def compute_ssi(df: pl.DataFrame, config_path: Path | None = None) -> pl.DataFra
                 ("class_type", r.get("class_type")),
                 ("speed_kms", r.get("speed_kms")),
                 ("earth_directed", strict if strict is not None else r.get("earth_directed")),
-                ("proton_flux", r.get("proton_flux_ge10_max_post_flare")),
+                ("proton_flux_prior_24h", r.get("proton_flux_ge10_prior_24h")),
                 ("kp_prior", r.get("kp_estimated_max_prior_day")),
             ]
             if value is None

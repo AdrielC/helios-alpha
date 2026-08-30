@@ -59,6 +59,13 @@ def build_event_table(
     trading_calendar: Any | None = None,
 ) -> pl.DataFrame:
     fl = flares_mod.flare_peak_trading_date(flares)
+    flare_renames = {}
+    if "submission_time_utc" in fl.columns:
+        flare_renames["submission_time_utc"] = "flare_submission_time_utc"
+    if "version_id" in fl.columns:
+        flare_renames["version_id"] = "flare_version_id"
+    if flare_renames:
+        fl = fl.rename(flare_renames)
     if trading_calendar is not None and "peak_time_utc" in fl.columns:
         def _sess_label(ts) -> date | None:
             if ts is None:
@@ -80,12 +87,15 @@ def build_event_table(
         .map_elements(_first_cme_id, return_dtype=pl.Utf8)
         .alias("primary_cme_id")
     )
-    cm = cmes.rename(
-        {
-            "earth_arrival_start_utc": "cme_earth_arrival_start_utc",
-            "earth_arrival_end_utc": "cme_earth_arrival_end_utc",
-        }
-    )
+    cme_renames = {
+        "earth_arrival_start_utc": "cme_earth_arrival_start_utc",
+        "earth_arrival_end_utc": "cme_earth_arrival_end_utc",
+    }
+    if "submission_time_utc" in cmes.columns:
+        cme_renames["submission_time_utc"] = "cme_submission_time_utc"
+    if "version_id" in cmes.columns:
+        cme_renames["version_id"] = "cme_version_id"
+    cm = cmes.rename(cme_renames)
     joined = fl.join(cm, left_on="primary_cme_id", right_on="cme_id", how="left")
     strict = (
         pl.coalesce(pl.col("enlil_earth_gb"), pl.lit(False))
@@ -97,6 +107,26 @@ def build_event_table(
         strict.alias("earth_directed_strict"),
         broad.alias("earth_directed_inclusive"),
         strict.alias("earth_directed"),
+    )
+    flare_available = (
+        pl.col("flare_submission_time_utc")
+        if "flare_submission_time_utc" in joined.columns
+        else pl.lit(None, dtype=pl.Datetime(time_zone="UTC"))
+    )
+    cme_available = (
+        pl.col("cme_submission_time_utc")
+        if "cme_submission_time_utc" in joined.columns
+        else pl.lit(None, dtype=pl.Datetime(time_zone="UTC"))
+    )
+    replay_eligible = flare_available.is_not_null() & (
+        ~pl.col("cme_detected") | cme_available.is_not_null()
+    )
+    joined = joined.with_columns(
+        replay_eligible.alias("causal_replay_eligible"),
+        pl.when(replay_eligible)
+        .then(pl.max_horizontal(pl.col("peak_time_utc"), flare_available, cme_available))
+        .otherwise(None)
+        .alias("available_at_utc"),
     )
     kp_prior = kp_daily.rename(
         {
@@ -133,7 +163,15 @@ def build_event_table(
             )
             dst_min = ds["dst_min_window_nT"][0]
         pmax = None
+        prior_proton = None
         if protons is not None and not protons.is_empty():
+            peak_time = in_utc(r.get("peak_time_utc"))
+            if peak_time is not None:
+                prior_proton = protons_mod.max_proton_since(
+                    protons,
+                    peak_time.subtract(days=1),
+                    peak_time,
+                )
             since = start_of_utc_day(anchor)
             until = None
             if center:
@@ -145,6 +183,7 @@ def build_event_table(
             "kp_estimated_max_around_arrival": kp_est,
             "kp_index_max_around_arrival": kp_ix,
             "dst_min_nT_around_arrival": dst_min,
+            "proton_flux_ge10_prior_24h": prior_proton,
             "proton_flux_ge10_max_post_flare": pmax,
         }
 
@@ -157,6 +196,8 @@ def build_event_table(
         "peak_time_utc",
         "event_session_date",
         "event_date_utc",
+        "available_at_utc",
+        "causal_replay_eligible",
         "class_type",
         "cme_detected",
         "primary_cme_id",
@@ -172,7 +213,12 @@ def build_event_table(
         "dst_min_nT_around_arrival",
         "kp_estimated_max_prior_day",
         "kp_index_max_prior_day",
+        "proton_flux_ge10_prior_24h",
         "proton_flux_ge10_max_post_flare",
+        "flare_submission_time_utc",
+        "flare_version_id",
+        "cme_submission_time_utc",
+        "cme_version_id",
         "enlil_earth_gb",
         "earth_impact_listed",
         "earth_directed_heuristic",
