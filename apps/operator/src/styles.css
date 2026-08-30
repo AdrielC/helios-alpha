@@ -1,0 +1,68 @@
+:root {
+  font-family: "Archivo Variable", system-ui, sans-serif;
+  color: #eef3f0;
+  background: #060a0f;
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --vp-font-family-base: "Archivo Variable", system-ui, sans-serif;
+  --vp-font-family-mono: "Recursive Variable", ui-monospace, monospace;
+  --atlas-ground: #080d13;
+  --atlas-ink: #eef3f0;
+  --atlas-muted: #a6b0b8;
+  --atlas-axis: #64717c;
+  --atlas-blue: #70c7df;
+  --atlas-blue-soft: #10252c;
+  --atlas-oxide: #ff846e;
+  --atlas-green: #b9e74b;
+  --atlas-green-ink: #cff873;
+  --atlas-rule: #25323b;
+  --atlas-rule-soft: #18232b;
+  --atlas-surface-alt: #0b1219;
+  --atlas-surface-strong: #101a22;
+}
+
+html,
+body,
+#app {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: #060a0f;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+::selection {
+  color: #060a0f;
+  background: var(--atlas-green);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #091117;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3c515e;
+  border: 2px solid #091117;
+}

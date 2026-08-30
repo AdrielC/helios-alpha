@@ -1,0 +1,30 @@
+{
+  "name": "@helios-alpha/operator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "vue-tsc --noEmit",
+    "build": "npm run typecheck && vite build",
+    "check:performance": "node scripts/check-performance.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "5.3.0",
+    "@fontsource-variable/recursive": "5.3.0",
+    "@perspective-dev/client": "5.3.0",
+    "@perspective-dev/server": "5.3.0",
+    "@perspective-dev/viewer": "5.3.0",
+    "@perspective-dev/viewer-datagrid": "5.3.0",
+    "vue": "3.5.42"
+  },
+  "devDependencies": {
+    "@types/node": "26.4.0",
+    "@types/react": "18.3.31",
+    "@vitejs/plugin-vue": "6.0.8",
+    "typescript": "5.9.3",
+    "vite": "8.2.2",
+    "vue-tsc": "3.3.11"
+  }
+}

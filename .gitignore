@@ -75,6 +75,7 @@ docs/_build/
 .pybuilder/
 target/
 node_modules/
+.vercel/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 

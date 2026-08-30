@@ -1,274 +1,237 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-30T01:17:10Z",
-  "title": "Design System: Helios Alpha",
+  "generatedAt": "2026-08-30T20:17:04Z",
+  "title": "Design System: Helios Control",
   "extensions": {
     "colorMeta": {
-      "atlas-ground": {
+      "shell-black": {
         "role": "neutral",
-        "displayName": "Atlas Ground",
-        "canonical": "#f9f9f9",
-        "tonalRamp": ["oklch(15% 0.000 89.9)", "oklch(27% 0.000 89.9)", "oklch(39% 0.000 89.9)", "oklch(51% 0.000 89.9)", "oklch(63% 0.000 89.9)", "oklch(75% 0.000 89.9)", "oklch(87% 0.000 89.9)", "oklch(95% 0.000 89.9)"]
+        "displayName": "Shell Black",
+        "canonical": "#060a0f",
+        "tonalRamp": ["oklch(15% 0.013 250.8)", "oklch(27% 0.013 250.8)", "oklch(39% 0.013 250.8)", "oklch(51% 0.013 250.8)", "oklch(63% 0.013 250.8)", "oklch(75% 0.013 250.8)", "oklch(87% 0.013 250.8)", "oklch(95% 0.013 250.8)"]
+      },
+      "obsidian-ground": {
+        "role": "neutral",
+        "displayName": "Obsidian Ground",
+        "canonical": "#080d13",
+        "tonalRamp": ["oklch(15% 0.015 252.7)", "oklch(27% 0.015 252.7)", "oklch(39% 0.015 252.7)", "oklch(51% 0.015 252.7)", "oklch(63% 0.015 252.7)", "oklch(75% 0.015 252.7)", "oklch(87% 0.015 252.7)", "oklch(95% 0.015 252.7)"]
+      },
+      "tape-black": {
+        "role": "neutral",
+        "displayName": "Tape Black",
+        "canonical": "#05090d",
+        "tonalRamp": ["oklch(15% 0.012 243.1)", "oklch(27% 0.012 243.1)", "oklch(39% 0.012 243.1)", "oklch(51% 0.012 243.1)", "oklch(63% 0.012 243.1)", "oklch(75% 0.012 243.1)", "oklch(87% 0.012 243.1)", "oklch(95% 0.012 243.1)"]
       },
       "surface-alt": {
         "role": "neutral",
-        "displayName": "Alternate Atlas Sheet",
-        "canonical": "#f3f5f7",
-        "tonalRamp": ["oklch(15% 0.003 247.9)", "oklch(27% 0.003 247.9)", "oklch(39% 0.003 247.9)", "oklch(51% 0.003 247.9)", "oklch(63% 0.003 247.9)", "oklch(75% 0.003 247.9)", "oklch(87% 0.003 247.9)", "oklch(95% 0.003 247.9)"]
+        "displayName": "Alternate Obsidian",
+        "canonical": "#0b1219",
+        "tonalRamp": ["oklch(15% 0.018 248.9)", "oklch(27% 0.018 248.9)", "oklch(39% 0.018 248.9)", "oklch(51% 0.018 248.9)", "oklch(63% 0.018 248.9)", "oklch(75% 0.018 248.9)", "oklch(87% 0.018 248.9)", "oklch(95% 0.018 248.9)"]
       },
-      "surface-soft": {
+      "surface-strong": {
         "role": "neutral",
-        "displayName": "Soft Evidence Wash",
-        "canonical": "#eef2f6",
-        "tonalRamp": ["oklch(15% 0.007 247.9)", "oklch(27% 0.007 247.9)", "oklch(39% 0.007 247.9)", "oklch(51% 0.007 247.9)", "oklch(63% 0.007 247.9)", "oklch(75% 0.007 247.9)", "oklch(87% 0.007 247.9)", "oklch(95% 0.007 247.9)"]
+        "displayName": "Strong Obsidian",
+        "canonical": "#101a22",
+        "tonalRamp": ["oklch(15% 0.022 243.1)", "oklch(27% 0.022 243.1)", "oklch(39% 0.022 243.1)", "oklch(51% 0.022 243.1)", "oklch(63% 0.022 243.1)", "oklch(75% 0.022 243.1)", "oklch(87% 0.022 243.1)", "oklch(95% 0.022 243.1)"]
       },
-      "ink": {
+      "primary-ink": {
         "role": "neutral",
-        "displayName": "Atlas Ink",
-        "canonical": "#14223d",
-        "tonalRamp": ["oklch(15% 0.055 262.4)", "oklch(27% 0.055 262.4)", "oklch(39% 0.055 262.4)", "oklch(51% 0.055 262.4)", "oklch(63% 0.055 262.4)", "oklch(75% 0.055 262.4)", "oklch(87% 0.055 262.4)", "oklch(95% 0.055 262.4)"]
+        "displayName": "Primary Instrument Ink",
+        "canonical": "#eef3f0",
+        "tonalRamp": ["oklch(15% 0.007 160.1)", "oklch(27% 0.007 160.1)", "oklch(39% 0.007 160.1)", "oklch(51% 0.007 160.1)", "oklch(63% 0.007 160.1)", "oklch(75% 0.007 160.1)", "oklch(87% 0.007 160.1)", "oklch(95% 0.007 160.1)"]
       },
       "muted-ink": {
         "role": "neutral",
-        "displayName": "Muted Research Ink",
-        "canonical": "#5d687b",
-        "tonalRamp": ["oklch(15% 0.033 261.4)", "oklch(27% 0.033 261.4)", "oklch(39% 0.033 261.4)", "oklch(51% 0.033 261.4)", "oklch(63% 0.033 261.4)", "oklch(75% 0.033 261.4)", "oklch(87% 0.033 261.4)", "oklch(95% 0.033 261.4)"]
+        "displayName": "Muted Instrument Ink",
+        "canonical": "#a6b0b8",
+        "tonalRamp": ["oklch(15% 0.016 241.8)", "oklch(27% 0.016 241.8)", "oklch(39% 0.016 241.8)", "oklch(51% 0.016 241.8)", "oklch(63% 0.016 241.8)", "oklch(75% 0.016 241.8)", "oklch(87% 0.016 241.8)", "oklch(95% 0.016 241.8)"]
       },
-      "axis-muted": {
+      "axis-ink": {
         "role": "neutral",
-        "displayName": "Measured Axis",
-        "canonical": "#87909e",
-        "tonalRamp": ["oklch(15% 0.021 253.4)", "oklch(27% 0.021 253.4)", "oklch(39% 0.021 253.4)", "oklch(51% 0.021 253.4)", "oklch(63% 0.021 253.4)", "oklch(75% 0.021 253.4)", "oklch(87% 0.021 253.4)", "oklch(95% 0.021 253.4)"]
+        "displayName": "Axis and Pending Ink",
+        "canonical": "#64717c",
+        "tonalRamp": ["oklch(15% 0.023 243.7)", "oklch(27% 0.023 243.7)", "oklch(39% 0.023 243.7)", "oklch(51% 0.023 243.7)", "oklch(63% 0.023 243.7)", "oklch(75% 0.023 243.7)", "oklch(87% 0.023 243.7)", "oklch(95% 0.023 243.7)"]
       },
-      "action-cobalt": {
+      "polar-cyan": {
         "role": "primary",
-        "displayName": "Action Cobalt",
-        "canonical": "#0b4cb6",
-        "tonalRamp": ["oklch(15% 0.179 260.7)", "oklch(27% 0.179 260.7)", "oklch(39% 0.179 260.7)", "oklch(51% 0.179 260.7)", "oklch(63% 0.179 260.7)", "oklch(75% 0.179 260.7)", "oklch(87% 0.179 260.7)", "oklch(95% 0.179 260.7)"]
+        "displayName": "Polar Cyan",
+        "canonical": "#70c7df",
+        "tonalRamp": ["oklch(15% 0.090 217.8)", "oklch(27% 0.090 217.8)", "oklch(39% 0.090 217.8)", "oklch(51% 0.090 217.8)", "oklch(63% 0.090 217.8)", "oklch(75% 0.090 217.8)", "oklch(87% 0.090 217.8)", "oklch(95% 0.090 217.8)"]
       },
-      "action-cobalt-deep": {
+      "polar-cyan-soft": {
         "role": "primary",
-        "displayName": "Deep Cobalt",
-        "canonical": "#173f89",
-        "tonalRamp": ["oklch(15% 0.132 261.4)", "oklch(27% 0.132 261.4)", "oklch(39% 0.132 261.4)", "oklch(51% 0.132 261.4)", "oklch(63% 0.132 261.4)", "oklch(75% 0.132 261.4)", "oklch(87% 0.132 261.4)", "oklch(95% 0.132 261.4)"]
+        "displayName": "Polar Cyan Field",
+        "canonical": "#10252c",
+        "tonalRamp": ["oklch(15% 0.030 221.8)", "oklch(27% 0.030 221.8)", "oklch(39% 0.030 221.8)", "oklch(51% 0.030 221.8)", "oklch(63% 0.030 221.8)", "oklch(75% 0.030 221.8)", "oklch(87% 0.030 221.8)", "oklch(95% 0.030 221.8)"]
       },
-      "action-cobalt-dark": {
-        "role": "primary",
-        "displayName": "Cobalt Ink",
-        "canonical": "#142f68",
-        "tonalRamp": ["oklch(15% 0.106 262.8)", "oklch(27% 0.106 262.8)", "oklch(39% 0.106 262.8)", "oklch(51% 0.106 262.8)", "oklch(63% 0.106 262.8)", "oklch(75% 0.106 262.8)", "oklch(87% 0.106 262.8)", "oklch(95% 0.106 262.8)"]
-      },
-      "confidence-wash": {
-        "role": "primary",
-        "displayName": "Confidence Wash",
-        "canonical": "#e4ecf8",
-        "tonalRamp": ["oklch(15% 0.018 258.4)", "oklch(27% 0.018 258.4)", "oklch(39% 0.018 258.4)", "oklch(51% 0.018 258.4)", "oklch(63% 0.018 258.4)", "oklch(75% 0.018 258.4)", "oklch(87% 0.018 258.4)", "oklch(95% 0.018 258.4)"]
-      },
-      "event-oxide": {
+      "coral-blocker": {
         "role": "secondary",
-        "displayName": "Event Oxide",
-        "canonical": "#b8535c",
-        "tonalRamp": ["oklch(15% 0.131 16.7)", "oklch(27% 0.131 16.7)", "oklch(39% 0.131 16.7)", "oklch(51% 0.131 16.7)", "oklch(63% 0.131 16.7)", "oklch(75% 0.131 16.7)", "oklch(87% 0.131 16.7)", "oklch(95% 0.131 16.7)"]
+        "displayName": "Coral Blocker",
+        "canonical": "#ff846e",
+        "tonalRamp": ["oklch(15% 0.154 31.5)", "oklch(27% 0.154 31.5)", "oklch(39% 0.154 31.5)", "oklch(51% 0.154 31.5)", "oklch(63% 0.154 31.5)", "oklch(75% 0.154 31.5)", "oklch(87% 0.154 31.5)", "oklch(95% 0.154 31.5)"]
       },
-      "evidence-green": {
+      "ion-lime": {
         "role": "tertiary",
-        "displayName": "Evidence Green",
-        "canonical": "#83b844",
-        "tonalRamp": ["oklch(15% 0.157 130.4)", "oklch(27% 0.157 130.4)", "oklch(39% 0.157 130.4)", "oklch(51% 0.157 130.4)", "oklch(63% 0.157 130.4)", "oklch(75% 0.157 130.4)", "oklch(87% 0.157 130.4)", "oklch(95% 0.157 130.4)"]
+        "displayName": "Ion-Lime",
+        "canonical": "#b9e74b",
+        "tonalRamp": ["oklch(15% 0.186 124.4)", "oklch(27% 0.186 124.4)", "oklch(39% 0.186 124.4)", "oklch(51% 0.186 124.4)", "oklch(63% 0.186 124.4)", "oklch(75% 0.186 124.4)", "oklch(87% 0.186 124.4)", "oklch(95% 0.186 124.4)"]
       },
-      "evidence-green-ink": {
+      "ion-lime-ink": {
         "role": "tertiary",
-        "displayName": "Evidence Green Ink",
-        "canonical": "#527d14",
-        "tonalRamp": ["oklch(15% 0.137 130.4)", "oklch(27% 0.137 130.4)", "oklch(39% 0.137 130.4)", "oklch(51% 0.137 130.4)", "oklch(63% 0.137 130.4)", "oklch(75% 0.137 130.4)", "oklch(87% 0.137 130.4)", "oklch(95% 0.137 130.4)"]
+        "displayName": "Ion-Lime Ink",
+        "canonical": "#cff873",
+        "tonalRamp": ["oklch(15% 0.166 123.9)", "oklch(27% 0.166 123.9)", "oklch(39% 0.166 123.9)", "oklch(51% 0.166 123.9)", "oklch(63% 0.166 123.9)", "oklch(75% 0.166 123.9)", "oklch(87% 0.166 123.9)", "oklch(95% 0.166 123.9)"]
       },
       "rule": {
         "role": "neutral",
-        "displayName": "Atlas Rule",
-        "canonical": "#cdcdcf",
-        "tonalRamp": ["oklch(15% 0.003 286.3)", "oklch(27% 0.003 286.3)", "oklch(39% 0.003 286.3)", "oklch(51% 0.003 286.3)", "oklch(63% 0.003 286.3)", "oklch(75% 0.003 286.3)", "oklch(87% 0.003 286.3)", "oklch(95% 0.003 286.3)"]
+        "displayName": "Control Rule",
+        "canonical": "#25323b",
+        "tonalRamp": ["oklch(15% 0.024 238.8)", "oklch(27% 0.024 238.8)", "oklch(39% 0.024 238.8)", "oklch(51% 0.024 238.8)", "oklch(63% 0.024 238.8)", "oklch(75% 0.024 238.8)", "oklch(87% 0.024 238.8)", "oklch(95% 0.024 238.8)"]
       },
       "rule-soft": {
         "role": "neutral",
-        "displayName": "Soft Atlas Rule",
-        "canonical": "#e2e3e5",
-        "tonalRamp": ["oklch(15% 0.003 264.5)", "oklch(27% 0.003 264.5)", "oklch(39% 0.003 264.5)", "oklch(51% 0.003 264.5)", "oklch(63% 0.003 264.5)", "oklch(75% 0.003 264.5)", "oklch(87% 0.003 264.5)", "oklch(95% 0.003 264.5)"]
-      },
-      "inverse": {
-        "role": "neutral",
-        "displayName": "Inverse White",
-        "canonical": "#ffffff",
-        "tonalRamp": ["oklch(15% 0.000 89.9)", "oklch(27% 0.000 89.9)", "oklch(39% 0.000 89.9)", "oklch(51% 0.000 89.9)", "oklch(63% 0.000 89.9)", "oklch(75% 0.000 89.9)", "oklch(87% 0.000 89.9)", "oklch(95% 0.000 89.9)"]
-      },
-      "code-text": {
-        "role": "neutral",
-        "displayName": "Code Plate Text",
-        "canonical": "#dbe6f4",
-        "tonalRamp": ["oklch(15% 0.022 254.4)", "oklch(27% 0.022 254.4)", "oklch(39% 0.022 254.4)", "oklch(51% 0.022 254.4)", "oklch(63% 0.022 254.4)", "oklch(75% 0.022 254.4)", "oklch(87% 0.022 254.4)", "oklch(95% 0.022 254.4)"]
-      },
-      "code-muted": {
-        "role": "neutral",
-        "displayName": "Code Plate Muted",
-        "canonical": "#aebbd0",
-        "tonalRamp": ["oklch(15% 0.033 260.0)", "oklch(27% 0.033 260.0)", "oklch(39% 0.033 260.0)", "oklch(51% 0.033 260.0)", "oklch(63% 0.033 260.0)", "oklch(75% 0.033 260.0)", "oklch(87% 0.033 260.0)", "oklch(95% 0.033 260.0)"]
+        "displayName": "Soft Control Rule",
+        "canonical": "#18232b",
+        "tonalRamp": ["oklch(15% 0.022 240.3)", "oklch(27% 0.022 240.3)", "oklch(39% 0.022 240.3)", "oklch(51% 0.022 240.3)", "oklch(63% 0.022 240.3)", "oklch(75% 0.022 240.3)", "oklch(87% 0.022 240.3)", "oklch(95% 0.022 240.3)"]
       }
     },
     "typographyMeta": {
-      "statement": { "displayName": "Atlas Statement", "purpose": "Large section arguments on wide atlas sheets." },
-      "thesis": { "displayName": "Compact Thesis", "purpose": "The primary proposition in a specification band." },
-      "section-title": { "displayName": "Plate Title", "purpose": "Plot, pipeline, and evidence-region headings." },
-      "observatory-statement": { "displayName": "Observatory Statement", "purpose": "The major uncertainty argument above the posterior lanes." },
-      "mobile-statement": { "displayName": "Mobile Statement", "purpose": "The compact display size for narrow atlas sheets." },
-      "supporting": { "displayName": "Supporting Research Prose", "purpose": "Compact explanatory text attached to major diagrams." },
-      "lane-title": { "displayName": "Frequency Lane Title", "purpose": "Primary labels for aligned posterior frequencies." },
-      "body": { "displayName": "Research Prose", "purpose": "Explanations, boundaries, and operational context." },
-      "nav-title": { "displayName": "Instrument Wordmark", "purpose": "The restrained text-only product title." },
-      "data": { "displayName": "State Data", "purpose": "Metrics, runtime facts, and checkpoint values." },
-      "label": { "displayName": "Atlas Label", "purpose": "Navigation, metadata, methods, legends, and state names." },
-      "compact-label": { "displayName": "Compact Atlas Label", "purpose": "Dense controls, phase labels, and ledger keys." },
-      "micro-label": { "displayName": "Micro Measurement Label", "purpose": "Axis endpoints and dense quantitative annotations only." },
-      "code": { "displayName": "Executable Code", "purpose": "Rust composition examples and executable material." }
+      "unavailable-display": { "displayName": "Unavailable Display", "purpose": "Fail-closed messaging when no validated snapshot exists." },
+      "section-title": { "displayName": "Operations Section", "purpose": "Event tape, ledgers, source health, and explorer headings." },
+      "app-title": { "displayName": "Application Identity", "purpose": "Helios Control identity in the persistent command bar." },
+      "body": { "displayName": "Operational Explanation", "purpose": "Boundary detail and compact supporting copy." },
+      "metric": { "displayName": "Portfolio Metric", "purpose": "High-priority summary values with tabular rhythm." },
+      "data": { "displayName": "Operations Data", "purpose": "Rows, identifiers, timestamps, quantities, and event tape state." },
+      "label": { "displayName": "Control Label", "purpose": "Tabs, truth chips, controls, and ledger labels." },
+      "micro-label": { "displayName": "Micro State Label", "purpose": "Table headers and tightly constrained signal state." }
     },
     "shadows": [],
     "motion": [
-      { "name": "state-fast", "value": "160ms ease", "purpose": "Color, background, and small transform feedback." },
-      { "name": "stage-traverse", "value": "460ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Moves the oxide event pulse to the next explicit state owner." },
-      { "name": "trace-interval", "value": "1350ms", "purpose": "Advances one stage while the synthetic replay is visible and playing." },
-      { "name": "connector-register", "value": "360ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Registers a completed stage connector." },
-      { "name": "plot-register", "value": "720ms to 760ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Reveals the synthetic confidence band and response after the signal stage." },
-      { "name": "posterior-phase", "value": "560ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Moves the active field through observe, pool, constrain, draw, and select." },
-      { "name": "posterior-register", "value": "720ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Resolves posterior densities with clip and blur before keyed draw needles register." },
-      { "name": "posterior-interval", "value": "1650ms", "purpose": "Advances one posterior phase while the observatory is visible and playing." },
-      { "name": "reduced-motion", "value": "0.01ms 1", "purpose": "Pauses autoplay and removes traversal while preserving a static selected state." }
+      { "name": "event-register", "value": "1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite", "purpose": "Moves the newest event dot across the causal tape while streaming." },
+      { "name": "status-pulse", "value": "900ms ease-out infinite alternate", "purpose": "Shows connecting and reconnecting state without replacing its text label." },
+      { "name": "perspective-load", "value": "1.2s linear infinite", "purpose": "Registers the lazy analytical skeleton while Perspective starts." },
+      { "name": "reduced-motion", "value": "none", "purpose": "Stops event, connection, and explorer loading animation while preserving state." }
     ],
     "breakpoints": [
-      { "name": "compact", "value": "1100px" },
-      { "name": "mobile", "value": "760px" }
+      { "name": "compact", "value": "1180px" },
+      { "name": "mobile", "value": "820px" },
+      { "name": "explorer-mobile", "value": "720px" },
+      { "name": "narrow", "value": "520px" }
     ]
   },
   "components": [
     {
-      "name": "Atlas Navigation",
+      "name": "Helios Control Command Bar",
       "kind": "nav",
-      "refersTo": "nav-link",
-      "description": "A slim ruled navigation line with a text-only title and cobalt active state.",
-      "html": "<nav class=\"ds-atlas-nav\" aria-label=\"Design sample\"><a class=\"ds-atlas-brand\" href=\"#\">Helios Alpha</a><a class=\"ds-atlas-nav-link ds-is-active\" href=\"#\">Atlas</a><a class=\"ds-atlas-nav-link\" href=\"#\">Concepts</a><a class=\"ds-atlas-nav-link\" href=\"#\">Research</a></nav>",
-      "css": ".ds-atlas-nav { display: flex; gap: 28px; align-items: center; min-height: 52px; padding: 0 20px; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-atlas-brand, .ds-atlas-nav-link { position: relative; color: inherit; text-decoration: none; text-transform: uppercase; } .ds-atlas-brand { margin-right: auto; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 15px; font-variation-settings: \"MONO\" 1, \"CASL\" 0, \"wght\" 650; letter-spacing: 0.13em; } .ds-atlas-nav-link { align-self: stretch; display: grid; place-items: center; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 11px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.08em; } .ds-atlas-nav-link:hover, .ds-atlas-nav-link:focus-visible, .ds-atlas-nav-link.ds-is-active { color: var(--atlas-blue, #0b4cb6); } .ds-atlas-nav-link.ds-is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; content: \"\"; background: var(--atlas-blue, #0b4cb6); } .ds-atlas-nav-link:focus-visible, .ds-atlas-brand:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 4px; }"
+      "refersTo": "command-tab-active",
+      "description": "Standalone identity, app views, persistent truth, and read-feed control in one ruled line.",
+      "html": "<header class=\"ds-control-bar\"><div class=\"ds-control-identity\"><span class=\"ds-control-mark\"><i></i><i></i><i></i><i></i></span><strong>Helios Control</strong></div><nav><button class=\"ds-control-tab ds-is-active\">Overview</button><button class=\"ds-control-tab\">Data explorer <small>WASM</small></button></nav><div class=\"ds-control-truth\"><span>Shadow</span><span class=\"ds-is-closed\">Capital closed</span><span>Synthetic feed</span></div></header>",
+      "css": ".ds-control-bar { display: grid; grid-template-columns: minmax(230px,1fr) auto minmax(430px,1fr); min-height: 70px; color: var(--atlas-ink,#eef3f0); background: var(--atlas-ground,#080d13); border-bottom: 1px solid var(--atlas-rule,#25323b); } .ds-control-identity, .ds-control-bar nav, .ds-control-truth { display: flex; align-items: center; } .ds-control-identity { gap: 13px; padding: 0 22px; font-family: var(--vp-font-family-base,\"Archivo Variable\",sans-serif); } .ds-control-mark { display: grid; grid-template-columns: repeat(2,5px); gap: 3px; width: 21px; height: 21px; padding: 3px; border: 1px solid var(--atlas-green,#b9e74b); } .ds-control-mark i { background: var(--atlas-green,#b9e74b); } .ds-control-tab { position: relative; height: 70px; padding: 0 20px; color: var(--atlas-muted,#a6b0b8); font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; background: transparent; border: 0; border-right: 1px solid var(--atlas-rule-soft,#18232b); } .ds-control-tab:hover, .ds-control-tab:focus-visible { color: var(--atlas-ink,#eef3f0); background: var(--atlas-surface-alt,#0b1219); } .ds-control-tab.ds-is-active { color: var(--atlas-blue,#70c7df); background: var(--atlas-surface-strong,#101a22); } .ds-control-tab.ds-is-active::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; content: \"\"; background: var(--atlas-blue,#70c7df); } .ds-control-tab small { color: var(--atlas-green-ink,#cff873); } .ds-control-truth { justify-content: flex-end; gap: 6px; padding: 0 18px; font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 10px; text-transform: uppercase; } .ds-control-truth span { min-height: 30px; display: inline-flex; align-items: center; padding: 5px 8px; color: var(--atlas-blue,#70c7df); border: 1px solid var(--atlas-rule,#25323b); } .ds-control-truth .ds-is-closed { color: var(--atlas-oxide,#ff846e); } .ds-control-tab:focus-visible { outline: 2px solid var(--atlas-oxide,#ff846e); outline-offset: -2px; }"
     },
     {
-      "name": "Composition Guide Action",
-      "kind": "button",
-      "refersTo": "primary-action",
-      "description": "The transparent, underlined primary action used to move from evidence into a guide.",
-      "html": "<a class=\"ds-primary-action\" href=\"#\">Walk through the strategy <span aria-hidden=\"true\">→</span></a>",
-      "css": ".ds-primary-action { display: inline-flex; gap: 16px; align-items: center; min-height: 20px; padding: 0 0 1px; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 11px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 650; letter-spacing: 0.05em; text-decoration: none; text-transform: uppercase; background: transparent; border-bottom: 1px solid currentColor; border-radius: 1px; transition: color 160ms ease; } .ds-primary-action:hover, .ds-primary-action:focus-visible { color: var(--atlas-oxide, #b8535c); } .ds-primary-action:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 4px; }"
+      "name": "Mode Capital Data Truth",
+      "kind": "chip",
+      "refersTo": "truth-chip",
+      "description": "Three text-labeled chips that keep operating mode, capital gate, and data class visible together.",
+      "html": "<div class=\"ds-truth-row\"><span class=\"ds-truth-chip\">Shadow</span><span class=\"ds-truth-chip ds-is-blocked\">Capital closed</span><span class=\"ds-truth-chip ds-is-verified\">Observed feed</span></div>",
+      "css": ".ds-truth-row { display: flex; gap: 6px; color: var(--atlas-ink,#eef3f0); background: var(--atlas-ground,#080d13); } .ds-truth-chip { display: inline-flex; min-height: 30px; align-items: center; padding: 5px 8px; color: var(--atlas-blue,#70c7df); font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; border: 1px solid var(--atlas-rule,#25323b); } .ds-truth-chip.ds-is-blocked { color: var(--atlas-oxide,#ff846e); } .ds-truth-chip.ds-is-verified { color: var(--atlas-green-ink,#cff873); border-color: var(--atlas-green,#b9e74b); }"
     },
     {
-      "name": "Specification Band",
-      "kind": "custom",
-      "refersTo": "specification-fact",
-      "description": "Compact runtime facts aligned in a ruled strip beside a thesis.",
-      "html": "<dl class=\"ds-spec-band\"><div><dt>Input</dt><dd>typed observation</dd></div><div><dt>Clock</dt><dd>event time</dd></div><div><dt>Recovery</dt><dd>offset + snapshot</dd></div><div><dt>Claim</dt><dd>mechanics only</dd></div></dl>",
-      "css": ".ds-spec-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-spec-band > div { min-width: 0; padding: 10px 20px; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-spec-band > div:first-child { border-left: 0; } .ds-spec-band dt { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; } .ds-spec-band dd { margin: 8px 0 0; overflow: hidden; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 13px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 580; text-overflow: ellipsis; white-space: nowrap; }"
-    },
-    {
-      "name": "Pipeline Stage Selector",
-      "kind": "custom",
-      "refersTo": "stage-node-active",
-      "description": "An inspectable typed stage with explicit index, node, method, and selected state.",
-      "html": "<button class=\"ds-pipeline-stage ds-is-active\" type=\"button\" aria-pressed=\"true\"><span class=\"ds-stage-index\">04</span><span class=\"ds-stage-node\"><svg viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M3 16.5h14M3.5 16V3.5\"/><polyline points=\"5,13 8,10 10.5,12 14.5,6 17,8\"/></svg></span><span class=\"ds-stage-label\">Moments</span><span class=\"ds-stage-method\">try_push(x)</span></button>",
-      "css": ".ds-pipeline-stage { display: grid; grid-template-rows: 10px 36px auto auto; justify-items: start; min-width: 122px; padding: 0 18px 4px 0; color: var(--atlas-ink, #14223d); text-align: left; cursor: pointer; background: transparent; border: 0; } .ds-stage-index, .ds-stage-method { font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-variation-settings: \"MONO\" 1, \"CASL\" 0; text-transform: uppercase; } .ds-stage-index { color: #7f8897; font-size: 9px; } .ds-stage-node { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 2px; color: var(--atlas-blue, #0b4cb6); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-blue, #0b4cb6); border-radius: 50%; transition: color 160ms ease, background 160ms ease, transform 460ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-stage-node svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.45; } .ds-stage-label { margin-top: 3px; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; } .ds-stage-method { margin-top: 3px; color: var(--atlas-muted, #5d687b); font-size: 9px; } .ds-pipeline-stage:hover .ds-stage-node, .ds-pipeline-stage:focus-visible .ds-stage-node, .ds-pipeline-stage.ds-is-active .ds-stage-node { color: #fff; background: var(--atlas-blue, #0b4cb6); transform: translateY(-2px); } .ds-pipeline-stage.ds-is-active .ds-stage-label { color: var(--atlas-blue, #0b4cb6); } .ds-pipeline-stage:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: 5px; }"
-    },
-    {
-      "name": "Replay Controls",
-      "kind": "button",
-      "refersTo": "replay-control",
-      "description": "Explicit controls for playing, advancing, and restoring the synthetic operator trace.",
-      "html": "<div class=\"ds-replay-controls\" aria-label=\"Synthetic trace controls\"><button type=\"button\">Pause trace</button><button type=\"button\">Advance one stage</button><button type=\"button\">Restore checkpoint</button></div>",
-      "css": ".ds-replay-controls { display: flex; color: var(--atlas-blue, #0b4cb6); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-replay-controls button { min-height: 36px; padding: 0 13px; color: inherit; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; background: transparent; border: 0; border-right: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-replay-controls button:hover, .ds-replay-controls button:focus-visible { color: var(--atlas-oxide, #b8535c); background: var(--atlas-blue-soft, #eef2f6); } .ds-replay-controls button:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: -4px; }"
-    },
-    {
-      "name": "Posterior Observatory",
-      "kind": "custom",
-      "refersTo": "posterior-frequency-lane",
-      "description": "Three aligned frequency lanes animate from admitted outcomes through partial pooling, feasibility gates, keyed draws, and one selected research candidate.",
-      "html": "<section class=\"ds-posterior-observatory\" aria-label=\"Synthetic posterior observatory\"><nav><button>Observe</button><button>Pool</button><button>Constrain</button><button>Draw</button><button aria-pressed=\"true\">Select</button></nav><article><h3>10 minutes</h3><svg viewBox=\"0 0 240 70\" role=\"img\" aria-label=\"Synthetic posterior density\"><path d=\"M10 60 C70 60 80 12 125 12 S180 60 230 60\"/><line x1=\"160\" y1=\"8\" x2=\"160\" y2=\"60\"/></svg><p>Selected · highest eligible draw</p></article></section>",
-      "css": ".ds-posterior-observatory { color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-posterior-observatory nav { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-posterior-observatory button { min-height: 45px; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; text-transform: uppercase; background: transparent; border: 0; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-posterior-observatory article { display: grid; grid-template-columns: 120px 1fr 190px; align-items: center; min-height: 120px; background: color-mix(in srgb, var(--atlas-green, #83b844) 8%, var(--atlas-ground, #f9f9f9)); } .ds-posterior-observatory h3, .ds-posterior-observatory p { padding: 16px; margin: 0; } .ds-posterior-observatory svg { width: 100%; fill: var(--atlas-blue-soft, #e4ecf8); stroke: var(--atlas-blue, #0b4cb6); } .ds-posterior-observatory line { stroke: var(--atlas-oxide, #b8535c); stroke-dasharray: 3 3; } .ds-posterior-observatory p { color: #527d14; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; text-transform: uppercase; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); }"
-    },
-    {
-      "name": "Research Contract Ledger",
-      "kind": "custom",
-      "refersTo": "research-contract-row",
-      "description": "Four ruled constraints state the event, availability boundary, decision boundary, and falsifier before implementation.",
-      "html": "<dl class=\"ds-research-contract\"><div><dt>Event</dt><dd>A timestamped observation with a documented detection rule.</dd></div><div><dt>Available at</dt><dd>The first instant the strategy could actually have observed it.</dd></div><div><dt>Decision</dt><dd>A candidate emitted only from a watermark-closed summary.</dd></div><div><dt>Falsifier</dt><dd>Pre-registered controls, costs, and out-of-sample failure criteria.</dd></div></dl>",
-      "css": ".ds-research-contract { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); margin: 0; color: var(--atlas-ink, #14223d); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-research-contract > div { min-height: 150px; padding: 30px 54px; border-bottom: 1px solid var(--atlas-rule, #cdcdcf); border-left: 1px solid var(--atlas-rule, #cdcdcf); } .ds-research-contract dt { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; } .ds-research-contract dd { max-width: 34ch; margin: 12px 0 0; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 18px; line-height: 1.42; }"
-    },
-    {
-      "name": "Annotation Ledger",
+      "name": "Stale Read-Only Boundary",
       "kind": "card",
-      "refersTo": "ruled-plate",
-      "description": "A flat ruled list that ties numbered notes to observed evidence.",
-      "html": "<section class=\"ds-annotation-ledger\" aria-label=\"Annotations\"><p class=\"ds-ledger-tab\">Annotations</p><ol><li><span>01</span>Availability time gates the feature stage.</li><li><span>02</span>Late and overflow states remain typed outcomes.</li><li><span>03</span>Signal logic enters at the composition boundary.</li></ol></section>",
-      "css": ".ds-annotation-ledger { padding: 15px 24px 12px; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-ledger-tab { padding-bottom: 6px; margin: 0; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 2px solid var(--atlas-blue, #0b4cb6); } .ds-annotation-ledger ol { padding: 0; margin: 7px 0 0; list-style: none; } .ds-annotation-ledger li { display: grid; grid-template-columns: 32px 1fr; gap: 8px; padding: 8px 0; font-family: var(--vp-font-family-base, \"Archivo Variable\", sans-serif); font-size: 12px; line-height: 1.42; border-bottom: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-annotation-ledger li span { color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; }"
+      "refersTo": "stale-boundary",
+      "description": "A persistent boundary that names stale state, last validated time, capital reason, and sequence.",
+      "html": "<section class=\"ds-stale-boundary\"><strong>Stale operations snapshot</strong><span>Updates are unavailable. Showing the last validated observation from 14:17:04 MDT.</span><code>SEQ 184,512</code></section>",
+      "css": ".ds-stale-boundary { display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; min-height: 44px; padding: 0 22px; color: var(--atlas-ink,#eef3f0); background: color-mix(in srgb,var(--atlas-oxide,#ff846e) 9%,var(--atlas-ground,#080d13)); border-bottom: 1px solid var(--atlas-rule,#25323b); } .ds-stale-boundary strong, .ds-stale-boundary code { font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 10px; letter-spacing: .05em; text-transform: uppercase; } .ds-stale-boundary strong { color: var(--atlas-oxide,#ff846e); } .ds-stale-boundary span { color: var(--atlas-muted,#a6b0b8); font-family: var(--vp-font-family-base,\"Archivo Variable\",sans-serif); font-size: 12px; } .ds-stale-boundary code { color: var(--atlas-axis,#64717c); }"
     },
     {
-      "name": "Checkpoint Ledger",
+      "name": "Fail-Closed Unavailable State",
       "kind": "card",
-      "refersTo": "ruled-plate",
-      "description": "A compact restart-state record that reserves green for verified compatibility.",
-      "html": "<section class=\"ds-checkpoint-ledger\"><p>Checkpoint ledger</p><dl><div><dt>Offset</dt><dd>184,512</dd></div><div><dt>Watermark</dt><dd>09:40:00Z</dd></div><div><dt>Snapshot</dt><dd>v1 · valid</dd></div><div><dt>Resume</dt><dd class=\"ds-is-verified\">compatible</dd></div></dl></section>",
-      "css": ".ds-checkpoint-ledger { padding: 15px 24px 12px; color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-checkpoint-ledger > p { margin: 0; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; } .ds-checkpoint-ledger dl { margin: 7px 0 0; border-top: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-checkpoint-ledger dl > div { display: grid; grid-template-columns: 110px 1fr; padding: 5px 0; border-bottom: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-checkpoint-ledger dt, .ds-checkpoint-ledger dd { font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-variation-settings: \"MONO\" 1, \"CASL\" 0; } .ds-checkpoint-ledger dt { color: var(--atlas-muted, #5d687b); font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; } .ds-checkpoint-ledger dd { margin: 0; font-size: 11px; } .ds-checkpoint-ledger .ds-is-verified { color: #527d14; }"
+      "refersTo": "unavailable-panel",
+      "description": "The full-page state shown when no validated snapshot can be displayed.",
+      "html": "<section class=\"ds-unavailable\"><span class=\"ds-unavailable-mark\"></span><p>Operations source unavailable</p><h2>No validated snapshot is available</h2><span>The operations snapshot failed validation.</span><small>Last successful observation: no successful snapshot</small><button>Retry operations feed</button></section>",
+      "css": ".ds-unavailable { display: grid; min-height: 420px; place-content: center; justify-items: start; padding: 32px; color: var(--atlas-ink,#eef3f0); background: #05090d; } .ds-unavailable-mark { width: 24px; height: 24px; margin-bottom: 30px; border: 1px solid var(--atlas-oxide,#ff846e); background: linear-gradient(135deg,transparent 46%,var(--atlas-oxide,#ff846e) 47%,var(--atlas-oxide,#ff846e) 53%,transparent 54%); } .ds-unavailable p, .ds-unavailable small, .ds-unavailable button { font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); text-transform: uppercase; } .ds-unavailable p { margin: 0 0 8px; color: var(--atlas-oxide,#ff846e); font-size: 9px; letter-spacing: .08em; } .ds-unavailable h2 { max-width: 580px; margin: 0; font-family: var(--vp-font-family-base,\"Archivo Variable\",sans-serif); font-size: 42px; line-height: .98; letter-spacing: -.045em; } .ds-unavailable > span:not(.ds-unavailable-mark) { margin-top: 16px; color: var(--atlas-muted,#a6b0b8); font-size: 13px; } .ds-unavailable small { margin-top: 8px; color: var(--atlas-axis,#64717c); font-size: 9px; } .ds-unavailable button { margin-top: 24px; padding: 9px 12px; color: var(--atlas-ground,#080d13); font-size: 10px; background: var(--atlas-oxide,#ff846e); border: 1px solid var(--atlas-oxide,#ff846e); } .ds-unavailable button:hover, .ds-unavailable button:focus-visible { color: var(--atlas-oxide,#ff846e); background: transparent; } .ds-unavailable button:focus-visible { outline: 2px solid var(--atlas-oxide,#ff846e); outline-offset: 3px; }"
     },
     {
-      "name": "Rust Code Plate",
-      "kind": "custom",
-      "refersTo": "code-plate",
-      "description": "An inverted, square-edged plate for executable composition examples.",
-      "html": "<section class=\"ds-code-plate\" aria-label=\"Rust composition example\"><div class=\"ds-code-bar\"><span>pipeline.rs</span><span>domain-free substrate</span></div><pre><code><span class=\"ds-code-keyword\">let</span> state = pipeline.step(event)?;\ncheckpoint.write(offset, state);</code></pre></section>",
-      "css": ".ds-code-plate { color: #dbe6f4; background: var(--atlas-ink, #14223d); border: 1px solid #0d172a; border-radius: 0; } .ds-code-bar { display: flex; justify-content: space-between; padding: 9px 13px; color: #aebbd0; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid #42506a; } .ds-code-plate pre { padding: 24px 26px; margin: 0; overflow-x: auto; background: transparent; } .ds-code-plate code { color: inherit; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 14px; line-height: 1.72; } .ds-code-keyword { color: #85b6ff; }"
+      "name": "Operations Summary Strip",
+      "kind": "card",
+      "refersTo": "ruled-table",
+      "description": "Five portfolio and system facts share one ruled, locally scrollable strip.",
+      "html": "<section class=\"ds-summary-region\" tabindex=\"0\" aria-label=\"Portfolio summary. Scroll horizontally for all metrics.\"><dl><div><dt>Gross exposure</dt><dd>$25,977</dd><small>52.0% of limit</small></div><div><dt>Reserved</dt><dd>$3,497</dd><small>Open order capacity</small></div><div><dt>Unrealized P&amp;L</dt><dd class=\"ds-is-positive\">+$101.28</dd><small>Across 3 positions</small></div><div><dt>Orders today</dt><dd>7 / 20</dd><small>0 unreconciled</small></div><div><dt>Source lag</dt><dd class=\"ds-is-caution\">4,820ms</dd><small>Worst active source</small></div></dl><span>Scroll for all portfolio facts →</span></section>",
+      "css": ".ds-summary-region { overflow-x: auto; color: var(--atlas-ink,#eef3f0); background: var(--atlas-ground,#080d13); border-bottom: 1px solid var(--atlas-rule,#25323b); } .ds-summary-region dl { display: grid; grid-template-columns: repeat(5,190px); margin: 0; } .ds-summary-region dl > div { padding: 18px 20px; border-right: 1px solid var(--atlas-rule,#25323b); } .ds-summary-region dt, .ds-summary-region dd { font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); } .ds-summary-region dt { color: var(--atlas-axis,#64717c); font-size: 8px; letter-spacing: .05em; text-transform: uppercase; } .ds-summary-region dd { margin: 7px 0 3px; font-size: 21px; letter-spacing: -.035em; } .ds-summary-region small { color: var(--atlas-muted,#a6b0b8); font-size: 11px; } .ds-summary-region > span { display: block; padding: 5px 12px; color: var(--atlas-blue,#70c7df); font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 8px; text-align: right; text-transform: uppercase; border-top: 1px solid var(--atlas-rule-soft,#18232b); } .ds-summary-region .ds-is-positive { color: var(--atlas-green-ink,#cff873); } .ds-summary-region .ds-is-caution { color: var(--atlas-oxide,#ff846e); } .ds-summary-region:focus-visible { outline: 2px solid var(--atlas-oxide,#ff846e); outline-offset: -2px; }"
     },
     {
-      "name": "Evidence Status Strip",
+      "name": "Causal Event Tape Row",
       "kind": "custom",
-      "refersTo": "evidence-status",
-      "description": "A ruled disclosure that separates synthetic demonstration from verified mechanics and unproven alpha.",
-      "html": "<section class=\"ds-evidence-strip\" aria-label=\"Evidence status\"><strong>Illustrative series</strong><span>The plot explains alignment and state. It is not an empirical result.</span><span>Mechanics <b>tested</b> · Alpha <i>unproven</i></span></section>",
-      "css": ".ds-evidence-strip { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; gap: 22px; align-items: center; min-height: 44px; padding: 7px 42px; color: var(--atlas-muted, #5d687b); background: var(--atlas-ground, #f9f9f9); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-variation-settings: \"MONO\" 1, \"CASL\" 0; letter-spacing: 0.06em; text-transform: uppercase; border-top: 1px solid var(--atlas-rule, #cdcdcf); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-evidence-strip strong { color: var(--atlas-blue, #0b4cb6); } .ds-evidence-strip b { color: #527d14; font-style: normal; } .ds-evidence-strip i { color: var(--atlas-oxide, #b8535c); font-style: normal; font-weight: 700; }"
+      "refersTo": "ruled-table",
+      "description": "One event remains traceable across sequence, event time, input, reorder, reduce, and effect.",
+      "html": "<div class=\"ds-tape-region\" tabindex=\"0\" role=\"region\" aria-label=\"Synthetic event table. Scroll horizontally for all columns.\"><div class=\"ds-tape-row\"><span class=\"ds-tape-dot\"></span><code>000000184512</code><code>15:42:18.420</code><strong>ORDER</strong><div><i></i><b>R1B</b></div><div><i></i><b>P2</b></div><div><i></i><b>SHADOW_FILL</b></div></div></div>",
+      "css": ".ds-tape-region { min-width: 0; overflow-x: auto; color: var(--atlas-blue,#70c7df); background: #05090d; border: 1px solid var(--atlas-rule,#25323b); } .ds-tape-row { position: relative; display: grid; grid-template-columns: 150px 126px 92px 160px 130px 200px; min-width: 930px; min-height: 35px; align-items: center; padding-left: 32px; font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 11px; font-variant-numeric: tabular-nums; } .ds-tape-row code, .ds-tape-row strong { color: inherit; font: inherit; } .ds-tape-dot { position: absolute; left: 16px; width: 7px; height: 7px; background: currentColor; border-radius: 50%; } .ds-tape-row div { display: grid; grid-template-columns: 1fr minmax(54px,auto); align-items: center; } .ds-tape-row i { height: 1px; background: currentColor; opacity: .6; } .ds-tape-row b { padding: 3px 5px; overflow: hidden; text-align: center; text-overflow: ellipsis; white-space: nowrap; border: 1px solid currentColor; } .ds-tape-region:focus-visible { outline: 2px solid var(--atlas-oxide,#ff846e); outline-offset: -2px; }"
+    },
+    {
+      "name": "Signal Candidate Inspector",
+      "kind": "custom",
+      "refersTo": "ruled-table",
+      "description": "Candidate state, evidence trace, causal cut, blocker, and lineage stay joined.",
+      "html": "<article class=\"ds-signal-inspector\"><header><div><span>BTC-USD · 45m</span><h3>CME shock to crypto liquidity</h3></div><strong>87.2%</strong></header><dl><div><dt>Trigger</dt><dd>GOES flux &gt; P99.5</dd></div><div><dt>Available</dt><dd>15:41:55.311Z</dd></div><div><dt>Decision cut</dt><dd>15:42:00.000Z</dd></div><div><dt>Effect</dt><dd>Reduce long 18%</dd></div></dl><ol><li>GOES-R</li><li>reorder</li><li>10m bucket</li><li>posterior</li><li>risk</li></ol></article>",
+      "css": ".ds-signal-inspector { padding: 18px 20px; color: var(--atlas-ink,#eef3f0); background: var(--atlas-ground,#080d13); border: 1px solid var(--atlas-rule,#25323b); } .ds-signal-inspector header { display: flex; justify-content: space-between; gap: 18px; } .ds-signal-inspector header span, .ds-signal-inspector header > strong, .ds-signal-inspector dt, .ds-signal-inspector ol { font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); } .ds-signal-inspector header span { color: var(--atlas-blue,#70c7df); font-size: 9px; text-transform: uppercase; } .ds-signal-inspector h3 { margin: 2px 0 0; font-family: var(--vp-font-family-base,\"Archivo Variable\",sans-serif); font-size: 20px; } .ds-signal-inspector header > strong { color: var(--atlas-green-ink,#cff873); font-size: 24px; } .ds-signal-inspector dl { display: grid; grid-template-columns: repeat(4,1fr); margin: 14px 0 0; border-top: 1px solid var(--atlas-rule,#25323b); border-left: 1px solid var(--atlas-rule,#25323b); } .ds-signal-inspector dl > div { padding: 10px; border-right: 1px solid var(--atlas-rule,#25323b); border-bottom: 1px solid var(--atlas-rule,#25323b); } .ds-signal-inspector dt { color: var(--atlas-axis,#64717c); font-size: 8px; text-transform: uppercase; } .ds-signal-inspector dd { margin: 4px 0 0; color: var(--atlas-muted,#a6b0b8); font-size: 11px; } .ds-signal-inspector ol { display: flex; gap: 22px; padding: 0; margin: 11px 0 0; color: var(--atlas-muted,#a6b0b8); font-size: 8px; text-transform: uppercase; list-style: none; }"
+    },
+    {
+      "name": "Dense Operations Ledger",
+      "kind": "custom",
+      "refersTo": "ruled-table",
+      "description": "A locally scrollable operations table preserves identity, ownership, amount, and freshness.",
+      "html": "<div class=\"ds-ledger-scroll\" tabindex=\"0\" aria-label=\"Positions table, scroll horizontally on small screens\"><table><thead><tr><th>Instrument</th><th>Strategy</th><th>Quantity</th><th>Average</th><th>Mark</th><th>Market value</th><th>Unrealized</th><th>Freshness</th></tr></thead><tbody><tr><th>BTC-USD</th><td>cme-liquidity-v3</td><td>0.32</td><td>$63,742</td><td>$64,118</td><td>$20,518</td><td class=\"ds-is-positive\">+$120</td><td>184ms</td></tr></tbody></table></div>",
+      "css": ".ds-ledger-scroll { overflow-x: auto; color: var(--atlas-muted,#a6b0b8); background: var(--atlas-ground,#080d13); border: 1px solid var(--atlas-rule,#25323b); } .ds-ledger-scroll table { width: 100%; min-width: 920px; border-collapse: collapse; font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 11px; font-variant-numeric: tabular-nums; } .ds-ledger-scroll th, .ds-ledger-scroll td { height: 42px; padding: 0 14px; text-align: left; white-space: nowrap; border-right: 1px solid var(--atlas-rule-soft,#18232b); border-bottom: 1px solid var(--atlas-rule-soft,#18232b); } .ds-ledger-scroll thead th { height: 29px; color: var(--atlas-axis,#64717c); font-size: 8px; letter-spacing: .04em; text-transform: uppercase; background: var(--atlas-surface-alt,#0b1219); } .ds-ledger-scroll tbody th { color: var(--atlas-ink,#eef3f0); } .ds-ledger-scroll .ds-is-positive { color: var(--atlas-green-ink,#cff873); } .ds-ledger-scroll:focus-visible { outline: 2px solid var(--atlas-oxide,#ff846e); outline-offset: -2px; }"
+    },
+    {
+      "name": "Lazy Perspective Status",
+      "kind": "custom",
+      "refersTo": "truth-chip-verified",
+      "description": "The analytical workbench announces its isolated on-demand runtime without implying command authority.",
+      "html": "<section class=\"ds-perspective-header\"><div><h3>Live data explorer</h3><p>Pivot, group, filter, and export the current snapshot without touching order authority.</p></div><span><i></i>Perspective ready</span><footer>Perspective 5.3 · lazy-loaded WebAssembly</footer></section>",
+      "css": ".ds-perspective-header { display: grid; grid-template-columns: 1fr auto; gap: 24px; padding: 16px 22px; color: var(--atlas-ink,#eef3f0); background: var(--atlas-ground,#080d13); border: 1px solid var(--atlas-rule,#25323b); } .ds-perspective-header h3 { margin: 0 0 3px; font-family: var(--vp-font-family-base,\"Archivo Variable\",sans-serif); font-size: 22px; letter-spacing: -.02em; } .ds-perspective-header p { margin: 0; color: var(--atlas-muted,#a6b0b8); font-size: 13px; } .ds-perspective-header > span, .ds-perspective-header footer { font-family: var(--vp-font-family-mono,\"Recursive Variable\",monospace); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; } .ds-perspective-header > span { display: flex; gap: 7px; align-items: center; } .ds-perspective-header i { width: 7px; height: 7px; background: var(--atlas-green,#b9e74b); border-radius: 50%; } .ds-perspective-header footer { grid-column: 1 / -1; padding-top: 12px; color: var(--atlas-muted,#a6b0b8); border-top: 1px solid var(--atlas-rule,#25323b); }"
     }
   ],
   "narrative": {
     "northStar": "The Annotated Event Atlas",
-    "overview": "Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.\n\nThe world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.\n\nThe Posterior Observatory extends this world into uncertainty. Related frequency lanes share one ruled frame, posterior densities register from left to right, oxide needles mark keyed samples, and the selected eligible lane receives the only green field.\n\nThe primary reader is a quantitatively literate researcher. Pages follow the causal computation first: what is observed, when it is knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.",
+    "overview": "Helios Control is a standalone operations instrument, not a documentation page and not a trading command center. It renders operational truth on an obsidian field with ruled ledgers, compact state labels, and explicit causal paths. Every surface helps an operator establish what data is present, when it was observed, what state the system owns, and which boundary prevents action.\n\nThe atlas language survives from Helios Alpha, but the app expression is darker, denser, and more operational. Polar cyan traces computation and active inspection, coral exposes blockers and stale state, and ion-lime marks healthy, observed, reconciled, or authorized facts. The interface never converts research evidence into capital authority by implication.\n\nThe first load is deliberately lightweight. A purpose-built Vue overview renders one validated snapshot through shallow state. Perspective 5.3, its JavaScript, its cacheable WebAssembly assets, and its isolated worker arrive only after the operator opens Data Explorer. The analytical workbench extends the overview; it does not own the initial shell.",
     "keyCharacteristics": [
-      "Continuous cool-white atlas sheets divided by one-pixel rules.",
-      "Dense but readable evidence, aligned to a shared temporal or structural axis.",
-      "Archivo for explanation and Recursive for labels, metrics, and code.",
-      "Cobalt paths, oxide event marks, and scarce evidence green.",
-      "Flat depth, near-square controls, registration crosses, and authored SVG diagrams."
+      "Obsidian full-screen app shell with no documentation chrome.",
+      "Persistent mode, capital, data-class, connection, and sequence truth.",
+      "Dense Recursive tables and ledgers joined by one-pixel rules.",
+      "Polar-cyan computation, coral blockers, and scarce ion-lime verification.",
+      "Fail-closed initial state and visibly stale last-known-good state.",
+      "Local, keyboard-focusable horizontal scrolling with visible cues.",
+      "Read-only snapshot boundary with lazy Perspective analysis."
     ],
     "rules": [
-      { "name": "The Evidence Color Rule", "body": "Cobalt means action or active computation, oxide means event or caution, and green means verified evidence. Never use these colors as interchangeable decoration.", "section": "colors" },
-      { "name": "The Two-Hand Rule", "body": "Archivo explains the system. Recursive identifies, measures, and executes it.", "section": "typography" },
-      { "name": "The Shared Axis Rule", "body": "Related evidence must align to the same ruled grid, temporal axis, or state boundary. Do not scatter facts into independent cards.", "section": "layout" },
-      { "name": "The Flat Evidence Rule", "body": "If a region needs hierarchy, change its rule, tone, or alignment before considering any shadow. Shipping surfaces remain shadow-free.", "section": "elevation" },
-      { "name": "The Instrument Shape Rule", "body": "Corners stay square or nearly square. Circles identify nodes and measured points, never decorative badges.", "section": "shapes" },
-      { "name": "The Research Language Rule", "body": "Call an open bucket state, a closed summary evidence, a strategy output a candidate signal, and an authorized execution an order. Never collapse these boundaries.", "section": "typography" }
+      { "name": "The Truth Color Rule", "body": "Cyan means active computation or inspection. Coral means blocked, stale, degraded, failed, or negative. Lime means healthy, observed, reconciled, authorized, ready, or positive. Never use these accents interchangeably.", "section": "colors" },
+      { "name": "The Persistent Truth Rule", "body": "Mode, capital gate, and data class remain visible together in the command bar. Color supports their text labels but never replaces them.", "section": "colors" },
+      { "name": "The Operational Mono Rule", "body": "If a value changes, identifies, reconciles, timestamps, measures, or gates operation, set it in Recursive with tabular numerals where applicable.", "section": "typography" },
+      { "name": "The Local Scroll Rule", "body": "Preserve the width that makes an operations table useful, then contain its overflow inside a named, keyboard-focusable region. Never solve density by shrinking text below the established scale or by giving the page a horizontal scrollbar.", "section": "layout" },
+      { "name": "The Ruled Depth Rule", "body": "Use rules, tone, and state fill to establish hierarchy. Do not float operational facts in cards or imply priority with shadow.", "section": "elevation" },
+      { "name": "The Instrument Shape Rule", "body": "Square geometry holds information. Small circles report status. Neither form is decorative.", "section": "shapes" }
     ],
     "dos": [
-      "Do align state, annotation, and plot evidence to shared rules or axes.",
-      "Do keep synthetic demonstrations visibly labeled and distinguish tested mechanics from unproven alpha.",
-      "Do use cobalt for actions and selected paths, oxide for event or caution, and green only for verified state.",
-      "Do preserve keyboard focus, semantic controls, and a static reduced-motion state.",
-      "Do use authored SVG for diagrams and plots so labels and evidence remain inspectable.",
-      "Do lead a researcher from causal contract to operator state, replay proof, and capital boundary."
+      "Do keep mode, capital gate, data class, connection, and sequence visible as text.",
+      "Do reject malformed or unsupported snapshots before they replace the last validated state.",
+      "Do show no operational fixture when the configured initial snapshot fails.",
+      "Do mark the last validated snapshot stale when later updates fail, including its observation time.",
+      "Do keep cancel, flatten, approve-capital, and kill-switch actions outside the read-only operations port.",
+      "Do preserve wide operational tables inside named, keyboard-focusable scroll regions.",
+      "Do keep Perspective and all related JavaScript and WebAssembly out of the initial overview bundle.",
+      "Do label deterministic fixtures synthetic and observed operations data observed."
     ],
     "donts": [
-      "Don't use generic SaaS feature cards, floating panels, gradients, or drop shadows.",
-      "Don't introduce dark trading-terminal styling, candlestick shorthand, or speculative profit cues.",
-      "Don't round structural containers or turn pipeline nodes into decorative badges.",
-      "Don't scatter evidence into unrelated tiles when a ruled ledger or shared axis can reveal the relationship.",
-      "Don't ship rasterized interface text. Any future shipping raster must carry prompt and provenance metadata.",
-      "Don't call a candidate signal a trade, an open bucket a result, or tested mechanics proven alpha."
+      "Don't wrap Helios Control in documentation navigation or reuse document-page composition.",
+      "Don't hide mode, capital, or data truth inside a menu, tooltip, or color-only indicator.",
+      "Don't replace a malformed snapshot with demo data or present stale state as live.",
+      "Don't add command authority to the snapshot or SSE port.",
+      "Don't eagerly import Perspective, its datagrid, themes, worker, or WebAssembly assets.",
+      "Don't create global horizontal overflow to preserve table width.",
+      "Don't use generic dashboard cards, soft rounded containers, decorative gradients, or drop shadows.",
+      "Don't imply that a candidate signal, confirmed fill, or observed feed authorizes live capital."
     ]
   }
 }
