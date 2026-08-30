@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly test_root="$(mktemp -d /tmp/helios-golem-integration.XXXXXX)"
+readonly data_dir="$test_root/data"
+readonly ports_file="$test_root/ports.json"
+readonly server_log="$test_root/golem-server.log"
+readonly config_dir="$test_root/config"
+
+golem_server_pid=""
+
+stop_server() {
+  if [[ -n "$golem_server_pid" ]] && kill -0 "$golem_server_pid" 2>/dev/null; then
+    kill -TERM "$golem_server_pid"
+    wait "$golem_server_pid" 2>/dev/null || true
+  fi
+  golem_server_pid=""
+}
+
+cleanup() {
+  local -r exit_code=$?
+  trap - EXIT
+  stop_server
+  if (( exit_code != 0 )) && [[ -f "$server_log" ]]; then
+    echo "Golem server tail after smoke-test failure:" >&2
+    tail -200 "$server_log" >&2
+  fi
+  case "$test_root" in
+    /tmp/helios-golem-integration.*) rm -rf -- "$test_root" ;;
+    *) echo "Refusing to remove unexpected test path: $test_root" >&2 ;;
+  esac
+  exit "$exit_code"
+}
+trap cleanup EXIT
+
+start_server() {
+  rm -f -- "$ports_file"
+  # The built-in local profile uses 9881 for management. The per-test data directory keeps this
+  # proof isolated from developer state; port collisions fail the test instead of sharing a server.
+  golem server run \
+    --router-addr 127.0.0.1 \
+    --router-port 9881 \
+    --custom-request-port 0 \
+    --mcp-port 0 \
+    --ports-file "$ports_file" \
+    --data-dir "$data_dir" \
+    >>"$server_log" 2>&1 &
+  golem_server_pid=$!
+
+  for _ in $(seq 1 240); do
+    if [[ -s "$ports_file" ]]; then
+      break
+    fi
+    if ! kill -0 "$golem_server_pid" 2>/dev/null; then
+      echo "Golem server exited before writing its ports file" >&2
+      return 1
+    fi
+    sleep 0.25
+  done
+  if [[ ! -s "$ports_file" ]]; then
+    echo "Timed out waiting for Golem server readiness" >&2
+    return 1
+  fi
+
+  local -r router_port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["routerPort"])' "$ports_file")"
+  if [[ "$router_port" != "9881" ]]; then
+    echo "Golem smoke server reported unexpected router port: $router_port" >&2
+    return 1
+  fi
+}
+
+assert_contains() {
+  local -r output=$1
+  local -r expected=$2
+  if [[ "$output" != *"$expected"* ]]; then
+    echo "Expected Golem output to contain: $expected" >&2
+    echo "$output" >&2
+    return 1
+  fi
+}
+
+assert_equal() {
+  local -r actual=$1
+  local -r expected=$2
+  if [[ "$actual" != "$expected" ]]; then
+    echo "Expected repeated idempotent invocation to return the original receipt" >&2
+    diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") >&2 || true
+    return 1
+  fi
+}
+
+readonly agent_id='HypothesisShardAgent("ci-proof-v1", "normalized-events", 0, 17, 40)'
+readonly open_key='v1/11:ci-proof-v1/17:normalized-events/0/17/40-40'
+readonly likelihood_key='v1/11:ci-proof-v1/17:normalized-events/0/17/41-41'
+readonly open_batch='SourceBatch { records: [SourceRecord { offset: 40, mutation: SourceMutation::Open(Open { key: "solar-flare", evidence: EvidenceEnvelope { sequence: 0, effective_at: 9, available_at: 10, payload: EventShockEvidence::Trigger(Trigger { prior_ppm: 1000, deadline_available_at: 100 }) } }) }] }'
+readonly likelihood_batch='SourceBatch { records: [SourceRecord { offset: 41, mutation: SourceMutation::Evidence(Evidence { key: "solar-flare", evidence: EvidenceEnvelope { sequence: 1, effective_at: 19, available_at: 20, payload: EventShockEvidence::LikelihoodAssessment(LikelihoodAssessment { observation_positive: true, sensitivity_ppm: 950000, false_positive_ppm: 1000, deadline_available_at: 200 }) } }) }] }'
+
+start_server
+
+golem --environment test --config-dir "$config_dir" --yes deploy
+
+first_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$open_key" "$agent_id" process_batch "$open_batch")"
+assert_contains "$first_receipt" 'next_offset: 41'
+assert_contains "$first_receipt" 'RequestLikelihoodAssessment'
+
+duplicate_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$open_key" "$agent_id" process_batch "$open_batch")"
+assert_equal "$duplicate_receipt" "$first_receipt"
+
+golem --environment test --config-dir "$config_dir" agent simulate-crash "$agent_id"
+after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$agent_id" status)"
+assert_contains "$after_crash" 'next_offset: 41'
+assert_contains "$after_crash" 'next_deadline_available_at: Some(100)'
+
+stop_server
+start_server
+
+after_restart="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$agent_id" status)"
+assert_contains "$after_restart" 'next_offset: 41'
+assert_contains "$after_restart" 'active_hypotheses: 1'
+
+replayed_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$open_key" "$agent_id" process_batch "$open_batch")"
+assert_equal "$replayed_receipt" "$first_receipt"
+
+likelihood_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$likelihood_key" "$agent_id" process_batch "$likelihood_batch")"
+assert_contains "$likelihood_receipt" 'next_offset: 42'
+assert_contains "$likelihood_receipt" 'posterior_ppm: 487429'
+
+final_status="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$agent_id" status)"
+assert_contains "$final_status" 'next_offset: 42'
+assert_contains "$final_status" 'next_deadline_available_at: Some(200)'
+
+echo "Golem durability smoke passed: duplicate suppression, simulated crash, full server restart, and contiguous resume."

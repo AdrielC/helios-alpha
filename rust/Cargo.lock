@@ -719,6 +719,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "helio_golem"
+version = "0.1.0"
+dependencies = [
+ "helio_hypothesis",
+ "helio_scan",
+ "helio_time",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "helio_hypothesis"
 version = "0.1.0"
 dependencies = [

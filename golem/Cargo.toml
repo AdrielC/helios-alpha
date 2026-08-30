@@ -1,0 +1,25 @@
+[package]
+name = "helios_hypothesis_shard"
+version = "0.0.1"
+edition = "2024"
+
+[profile.release]
+opt-level = "s"
+lto = true
+
+[profile.dev]
+debug = 0
+incremental = false
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[dependencies]
+golem-rust = { version = "2.0.0", features = ["export_golem_agentic"] }
+helio_golem = { path = "../rust/crates/helio_golem" }
+helio_hypothesis = { path = "../rust/crates/helio_hypothesis" }
+helio_time = { path = "../rust/crates/helio_time" }
+log = { version = "0.4.29", features = ["kv"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

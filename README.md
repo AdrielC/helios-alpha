@@ -149,6 +149,7 @@ coordinates source progress, state, and downstream writes.
 |---|---|---|
 | `helio_scan` | State machines, composition, emit sinks, controls, persistence seams | Markets, transports, business policy |
 | `helio_hypothesis` | Keyed conditional lifecycle, deadlines, atomic model effects, snapshots, typed actor service | Domain meaning, durable transactions, execution authority |
+| `helio_golem` | Atomic source-offset batches, deterministic invocation identities, validated shard snapshots | Golem SDK types, event-shock meaning, cloud credentials |
 | `helio_time` | Frequencies, interval bounds, bucket grids, causal availability | Buffers and eviction machinery |
 | `helio_window` | Bounded reorder, bucket reduction, rolling and session state | Signal meaning |
 | `helio_stats` | Moments, covariance, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
@@ -178,6 +179,24 @@ cargo bench -p helio_bench --bench online_stats -- --noplot
 ```
 
 `helios_signald` additionally needs `libzmq` and a C++ toolchain.
+
+### Prove the Golem restart boundary
+
+The `golem` application wraps the generic `helio_golem` driver in a real Golem Rust agent. Its
+reference model follows a trigger through likelihood and market assessments, but the durable driver
+contains no trading or event-shock vocabulary.
+
+```bash
+cd golem
+golem build --yes
+bash tests/golem_local_smoke.sh
+```
+
+The smoke test deploys to an isolated local Golem server, repeats one invocation key, simulates an
+agent crash, restarts the full server, and verifies contiguous resume. CI pins the Golem CLI binary
+and checks its SHA-256 digest before running the same proof. Read the
+[Golem deployment guide](https://adrielc.github.io/helios-alpha/operations/golem-cloud) for the
+implemented boundary and the remaining cloud, shadow, risk, and broker gates.
 
 ### Run the docs locally
 

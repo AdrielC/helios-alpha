@@ -7,10 +7,10 @@ stateful hypothesis shards, conditional model workflows, scheduled wakeups, and 
 sagas. It should not replace the lowest-latency native feed handler, order book, or colocated
 execution loop.
 
-This recommendation is based on Golem 1.5 documentation reviewed on August 29, 2026 and a local
-compatibility check. The Helios substrate crates `helio_scan`, `helio_time`, `helio_stats`,
-`helio_window`, and `helio_hypothesis` compile for Golem's `wasm32-wasip2` target with their default
-runtime integrations disabled.
+This recommendation is based on Golem 1.5 documentation and source reviewed on August 29, 2026,
+plus an executable local durability proof. The portable Helios crates compile for Golem's
+`wasm32-wasip2` target. A real Golem Rust agent now owns one durable hypothesis shard, restores a
+versioned custom snapshot, and processes source batches through generated typed interfaces.
 
 Why the fit is good:
 
@@ -36,6 +36,70 @@ Primary references: [Golem concepts](https://learn.golem.cloud/v1.5/concepts),
 [Rust WASI dependencies](https://learn.golem.cloud/v1.5/how-to-guides/rust/golem-add-rust-crate),
 [durability controls](https://learn.golem.cloud/v1.5/develop/durability), and
 [Rust snapshots](https://learn.golem.cloud/v1.5/how-to-guides/rust/golem-custom-snapshot-rust).
+
+## What exists now
+
+The repository has two deliberately separate layers:
+
+- `helio_golem` is a portable adapter kernel. It owns source-offset validation, bounded atomic
+  batches, deterministic invocation keys, and validated shard snapshots. It has no Golem SDK,
+  trading, or event-shock types.
+- `golem/` is the deployable application. It supplies Golem `Schema` wire types and a concrete
+  event-shock reference model that moves from trigger prior, through a Bayesian likelihood update,
+  to a market assessment and research candidate.
+
+The agent exposes exactly three operations:
+
+```text
+HypothesisShardAgent(fingerprint, source, partition, shard, initial_offset)
+  invocation_key(first_offset, last_offset) -> Result<String, AgentError>
+  process_batch(batch) -> Result<ProcessReceipt, AgentError>
+  status() -> Result<ShardStatus, AgentError>
+```
+
+The component chooses `snapshotting = "periodic(30s)"` explicitly and implements custom async
+snapshot save and load hooks. Constructor arguments form the durable Golem agent identity. The
+logical Helios shard identity excludes `initial_offset`; that value is still bound into the Golem
+identity and snapshot envelope so a restore cannot silently move to a different source prefix.
+
+### Run the durability proof
+
+```bash
+cd rust
+cargo test -p helio_golem
+cargo check --target wasm32-wasip2 -p helio_golem --no-default-features
+
+cd ../golem
+cargo test
+cargo clippy --target wasm32-wasip2 --all-targets -- -D warnings
+golem build --yes
+bash tests/golem_local_smoke.sh
+```
+
+The smoke test starts a fresh Golem server with an isolated data directory, deploys the component,
+and proves all of the following:
+
+1. Offset 40 commits exactly once and advances the shard to 41.
+2. Repeating the same length-prefixed invocation key returns the original receipt without a second
+   transition.
+3. A simulated agent crash preserves the hypothesis, source cursor, and deadline.
+4. A complete server stop and restart against the same data directory preserves the same state.
+5. Replaying the original key after restart still leaves the cursor at 41.
+6. Offset 41 resumes the Bayesian chain, produces posterior `487429` parts per million, replaces
+   the deadline, and advances to 42.
+
+The local operation log contained one `process_batch` invocation for the repeated key and a
+575-byte snapshot. CI repeats the proof on Linux with Golem v1.5.9, verifies the downloaded CLI's
+SHA-256 digest, and builds the metadata-enriched WASM component with `golem build`.
+
+This follows Golem's own open-source worker-executor test pattern: invoke with one idempotency key,
+restart the executor, repeat the key, and assert the effect happened once. See the pinned
+[upstream test source](https://github.com/golemcloud/golem/blob/0bf0e7d2b65f9d6e36a8112757e7ca742945aa3f/golem-worker-executor/tests/api.rs)
+and Golem's [integration-test setup guide](https://learn.golem.cloud/v1.5/how-to-guides/common/golem-integration-test-setup).
+
+The smoke server uses Golem's built-in local management port 9881 because that profile owns local
+authentication. Its data, configuration, custom-request port, and MCP port are isolated per run. A
+management-port collision fails the test instead of connecting to an existing developer server.
 
 ## The hybrid system
 
@@ -90,17 +154,17 @@ strategy fingerprint + source ID + source partition + logical shard
 State:
 
 - `HypothesisEngine<K, Model, Reason>`
-- last committed source offset
+- exact next source offset
 - accepted availability frontier
-- pipeline and snapshot version
-- stable cursor for emitted effect identities
+- versioned, validated engine state
+- deterministic model-output identities
 
 Methods:
 
 ```text
-process_batch(batch_id, first_offset, last_offset, records) -> ProcessReceipt
-advance_frontier(watermark, source_offset) -> ProcessReceipt
+process_batch(records with contiguous source offsets) -> ProcessReceipt
 status() -> ShardStatus
+invocation_key(first_offset, last_offset) -> String
 ```
 
 `process_batch` rejects gaps, overlaps, fingerprint mismatches, and batches that exceed configured
@@ -169,10 +233,10 @@ Retries reuse the same identity. A random key created during a retry is a correc
 The hypothesis machine uses availability-time deadlines. Golem scheduled invocations are durable,
 but a wall-clock wakeup is not automatically a source watermark.
 
-Phase one uses explicit `advance_frontier` calls from the partition router. The router advances only
-after it knows every source record through that availability cut has been admitted. This preserves
-the tie rule where evidence available exactly at a deadline may cancel it before the frontier
-passes.
+The current component represents a frontier advance as a source mutation inside `process_batch`.
+The partition router may emit that mutation only after it knows every source record through the
+availability cut has been admitted. This preserves the tie rule where evidence available exactly
+at a deadline may cancel it before the frontier passes.
 
 Phase two may schedule one durable wakeup at `HypothesisState::next_timer_at()`. On wake, the shard
 requests or verifies the source cut before advancing. Duplicate schedules reuse a deterministic
@@ -186,22 +250,21 @@ See Golem's [scheduled invocation contract](https://learn.golem.cloud/v1.5/how-t
 Golem's operation log is the primary recovery mechanism. Helios snapshots provide a compact,
 validated state boundary for fast recovery and schema migration.
 
-The Golem adapter should implement custom snapshot hooks with a versioned envelope:
+The Golem adapter implements custom snapshot hooks with a versioned envelope:
 
 ```text
-ShardSnapshotV1
+AgentSnapshotV1
   format_version
-  strategy_fingerprint
-  machine_config
-  last_source_offset
-  accepted_frontier
-  hypothesis_snapshot
-  effect_identity_cursor
+  initial_offset
+  DurableShardSnapshotV1
+    shard identity
+    max batch size
+    next source offset
+    hypothesis snapshot
 ```
 
-`save_snapshot` serializes the envelope. `load_snapshot` checks the fingerprint and configuration,
-then calls `HypothesisEngine::try_from_snapshot`. Invalid state fails closed before the agent
-resumes.
+`save_snapshot` serializes the envelope. `load_snapshot` checks its format, constructor-bound
+initial offset, identity, batch capacity, and hypothesis invariants before the agent resumes.
 
 Start with explicit `snapshotting = "periodic(30s)"`, then tune from operation-log growth and measured
 recovery time. A high-frequency shard should not snapshot every record. Golem documents that the
@@ -236,7 +299,7 @@ replay-incompatible algorithm and assume the platform can infer the migration.
 - Keep Tokio and ZMQ adapters out of the Golem component.
 - Gate WASI compatibility in CI.
 
-### Phase 1: component adapter
+### Phase 1: component adapter, complete
 
 - Create a separate Golem application component that depends on `helio_hypothesis` without the
   `service` feature.
@@ -247,7 +310,18 @@ replay-incompatible algorithm and assume the platform can infer the migration.
 Exit proof: component build passes, snapshot round-trip restores identical future events, and a
 repeated invocation key does not advance the sequence twice.
 
-### Phase 2: local crash laboratory
+### Phase 2A: restart and duplicate laboratory, complete
+
+- Build the generated Golem component for WASI Preview 2.
+- Repeat an invocation key before and after an agent crash.
+- Stop and restart the complete Golem server against the same isolated data directory.
+- Resume from the exact next source offset and compare the Bayesian result.
+- Run this proof in required CI with a pinned and digest-verified Golem CLI.
+
+Exit proof: duplicate suppression, simulated crash recovery, full server restart, snapshot restore,
+and contiguous source resume all produce the expected state.
+
+### Phase 2B: expanded crash and upgrade laboratory
 
 - Run deterministic input through native and Golem hosts and compare every event identity.
 - Kill a shard before transition, after transition, during a model call, and after candidate send.

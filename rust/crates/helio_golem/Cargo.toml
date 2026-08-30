@@ -1,0 +1,15 @@
+[package]
+name = "helio_golem"
+version = "0.1.0"
+edition = "2021"
+description = "Offset-safe durable shard driver for hosting Helios hypothesis machines in Golem"
+
+[dependencies]
+helio_hypothesis = { path = "../helio_hypothesis" }
+helio_scan = { path = "../helio_scan" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+helio_time = { path = "../helio_time" }
+serde_json = "1"
