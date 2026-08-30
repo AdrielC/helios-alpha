@@ -87,7 +87,8 @@ jobs:
       - name: Install focused proof dependencies
         run: |
           python -m pip install -U pip
-          python -m pip install "exchange-calendars==4.13.2" "pytest>=8"
+          python -m pip install \
+            "exchange-calendars==4.13.2" "pendulum>=3" "pyyaml>=6" "pytest>=8"
           rustup target add wasm32-wasip2
 
       - name: Run portable capital-control proof
