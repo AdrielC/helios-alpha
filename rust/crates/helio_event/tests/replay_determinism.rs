@@ -12,10 +12,6 @@ use helio_time::AvailableAt;
 
 fn synthetic_stream() -> Vec<ReplayRecord> {
     vec![
-        ReplayRecord::Bar {
-            session_day: 100,
-            close: 100.0,
-        },
         ReplayRecord::Treatment(AvailabilityTagged {
             value: TreatmentEvent {
                 id: 1,
@@ -29,12 +25,19 @@ fn synthetic_stream() -> Vec<ReplayRecord> {
             session_date: None,
         }),
         ReplayRecord::Bar {
+            session_day: 100,
+            close: 100.0,
+            available_at: AvailableAt(10),
+        },
+        ReplayRecord::Bar {
             session_day: 101,
             close: 101.0,
+            available_at: AvailableAt(20),
         },
         ReplayRecord::Bar {
             session_day: 102,
             close: 104.0,
+            available_at: AvailableAt(30),
         },
         ReplayRecord::Treatment(AvailabilityTagged {
             value: TreatmentEvent {
@@ -51,10 +54,12 @@ fn synthetic_stream() -> Vec<ReplayRecord> {
         ReplayRecord::Bar {
             session_day: 103,
             close: 105.0,
+            available_at: AvailableAt(510),
         },
         ReplayRecord::Bar {
             session_day: 104,
             close: 106.0,
+            available_at: AvailableAt(520),
         },
     ]
 }
@@ -171,10 +176,6 @@ fn session_close_flushes_mid_horizon_no_complete_fold_update() {
     let pipe = CausalEventStudyPipeline::new(cfg);
     let fold = EventStudyFoldScan;
     let records = vec![
-        ReplayRecord::Bar {
-            session_day: 1,
-            close: 100.0,
-        },
         ReplayRecord::Treatment(AvailabilityTagged {
             value: TreatmentEvent {
                 id: 1,
@@ -188,8 +189,14 @@ fn session_close_flushes_mid_horizon_no_complete_fold_update() {
             session_date: None,
         }),
         ReplayRecord::Bar {
+            session_day: 1,
+            close: 100.0,
+            available_at: AvailableAt(10),
+        },
+        ReplayRecord::Bar {
             session_day: 2,
             close: 102.0,
+            available_at: AvailableAt(20),
         },
     ];
     let mut st = pipe.init();

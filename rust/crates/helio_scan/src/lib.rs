@@ -69,6 +69,7 @@ mod persist;
 mod runner;
 mod runners;
 mod scan;
+mod source;
 
 #[macro_use]
 mod macros;
@@ -87,3 +88,4 @@ pub use persist::*;
 pub use runner::*;
 pub use runners::*;
 pub use scan::*;
+pub use source::*;

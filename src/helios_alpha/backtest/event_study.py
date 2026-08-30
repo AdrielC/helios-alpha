@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time
 from math import isfinite
 from pathlib import Path
 from typing import Any
@@ -37,6 +37,7 @@ class EventStudyConfig:
 
     extreme_ssi_quantile: float = 0.9
     control_day_buffer_days: int = 3
+    min_threshold_history: int = 5
 
 
 def load_event_study_config(thresholds_path: Path | None = None) -> EventStudyConfig:
@@ -47,7 +48,88 @@ def load_event_study_config(thresholds_path: Path | None = None) -> EventStudyCo
     return EventStudyConfig(
         extreme_ssi_quantile=float(es.get("extreme_ssi_quantile", 0.9)),
         control_day_buffer_days=int(es.get("control_day_buffer_days", 3)),
+        min_threshold_history=int(es.get("min_threshold_history", 5)),
     )
+
+
+class CausalEventStudyError(ValueError):
+    """The event sample cannot support point-in-time classification."""
+
+
+def classify_causal_extremes(
+    events: pl.DataFrame,
+    *,
+    ssi_col: str = "ssi",
+    event_date_col: str = "event_date_utc",
+    available_at_col: str = "available_at_utc",
+    quantile: float = 0.9,
+    min_history: int = 5,
+) -> pl.DataFrame:
+    """Classify each event from the SSI distribution available strictly beforehand.
+
+    Rows sharing an availability instant are classified as one batch. They cannot train one
+    another. This makes classification invariant to later events and deterministic under replay.
+    """
+    required = {ssi_col, event_date_col, available_at_col}
+    missing = sorted(required.difference(events.columns))
+    if missing:
+        raise CausalEventStudyError(
+            "causal event classification requires columns: " + ", ".join(missing)
+        )
+    if not 0.0 <= quantile <= 1.0:
+        raise CausalEventStudyError("extreme SSI quantile must be inside [0, 1]")
+    if min_history < 1:
+        raise CausalEventStudyError("minimum threshold history must be positive")
+    null_counts = events.select(
+        [pl.col(name).null_count().alias(name) for name in sorted(required)]
+    ).row(0)
+    if any(null_counts):
+        raise CausalEventStudyError(
+            "SSI, event date, and availability must be known for every classified event"
+        )
+
+    ordered = events.with_row_index("__input_order").sort(
+        [available_at_col, event_date_col, "__input_order"]
+    )
+    history: list[float] = []
+    thresholds: list[float | None] = []
+    is_extreme: list[bool] = []
+    rows = ordered.to_dicts()
+    index = 0
+    while index < len(rows):
+        available_at = rows[index][available_at_col]
+        end = index + 1
+        while end < len(rows) and rows[end][available_at_col] == available_at:
+            end += 1
+        threshold = (
+            float(np.quantile(np.asarray(history, dtype=float), quantile))
+            if len(history) >= min_history
+            else None
+        )
+        batch_values: list[float] = []
+        for row in rows[index:end]:
+            value = float(row[ssi_col])
+            if not isfinite(value):
+                raise CausalEventStudyError("SSI values must be finite")
+            thresholds.append(threshold)
+            is_extreme.append(threshold is not None and value >= threshold)
+            batch_values.append(value)
+        history.extend(batch_values)
+        index = end
+
+    return ordered.with_columns(
+        pl.Series("ssi_threshold_at_event", thresholds, dtype=pl.Float64),
+        pl.Series("is_extreme_ssi", is_extreme, dtype=pl.Boolean),
+    ).drop("__input_order")
+
+
+def _as_of_cuts(as_of: date | datetime) -> tuple[datetime, date]:
+    if isinstance(as_of, datetime):
+        if as_of.tzinfo is None or as_of.utcoffset() is None:
+            raise CausalEventStudyError("as_of datetime must be timezone-aware")
+        cut = as_of.astimezone(UTC)
+        return cut, cut.date()
+    return datetime.combine(as_of, time.max, tzinfo=UTC), as_of
 
 
 def _window_metrics(rets: list[float]) -> tuple[float, float]:
@@ -131,9 +213,10 @@ def run_event_study(
     *,
     ssi_col: str = "ssi",
     event_date_col: str = "event_date_utc",
+    available_at_col: str = "available_at_utc",
     study_cfg: EventStudyConfig | None = None,
     thresholds_path: Path | None = None,
-    as_of: date | None = None,
+    as_of: date | datetime | None = None,
     trading_calendar: Any | None = None,
     filter_events_to_sessions: bool = False,
     use_session_horizons: bool = False,
@@ -154,13 +237,21 @@ def run_event_study(
     extreme_q = cfg.extreme_ssi_quantile
 
     ev = events
+    required = {ssi_col, event_date_col, available_at_col}
+    missing = sorted(required.difference(ev.columns))
+    if missing:
+        raise CausalEventStudyError(
+            "causal event study requires columns: " + ", ".join(missing)
+        )
     if as_of is not None:
-        ev = ev.filter(pl.col(event_date_col) <= pl.lit(as_of))
+        availability_cut, market_cut = _as_of_cuts(as_of)
+        ev = ev.filter(
+            pl.col(event_date_col) <= pl.lit(market_cut),
+            pl.col(available_at_col) <= pl.lit(availability_cut),
+        )
     px = prices
     if as_of is not None:
-        px = px.filter(pl.col("date") <= pl.lit(as_of))
-
-    ev = ev.drop_nulls(subset=[ssi_col, event_date_col])
+        px = px.filter(pl.col("date") <= pl.lit(market_cut))
 
     if filter_events_to_sessions and trading_calendar is not None and not ev.is_empty():
         lo = ev[event_date_col].min()
@@ -168,8 +259,17 @@ def run_event_study(
         sess_idx = trading_calendar.sessions_in_range(lo, hi)
         session_labels = {pd.Timestamp(x).normalize().date() for x in sess_idx}
         ev = ev.filter(pl.col(event_date_col).is_in(list(session_labels)))
-    thr = float(ev[ssi_col].quantile(extreme_q))
-    high_dates = sorted(set(ev.filter(pl.col(ssi_col) >= thr)[event_date_col].to_list()))
+    ev = classify_causal_extremes(
+        ev,
+        ssi_col=ssi_col,
+        event_date_col=event_date_col,
+        available_at_col=available_at_col,
+        quantile=extreme_q,
+        min_history=cfg.min_threshold_history,
+    )
+    high_dates = sorted(
+        set(ev.filter(pl.col("is_extreme_ssi"))[event_date_col].to_list())
+    )
 
     all_outcomes: list[pl.DataFrame] = []
     for t in tickers:
@@ -186,10 +286,17 @@ def run_event_study(
 
     ssi_by_date = (
         ev.group_by(event_date_col)
-        .agg(pl.col(ssi_col).max().alias("ssi_at_event"))
+        .agg(
+            pl.col(ssi_col).max().alias("ssi_at_event"),
+            pl.col("ssi_threshold_at_event")
+            .drop_nulls()
+            .min()
+            .alias("ssi_threshold_at_event"),
+        )
         .rename({event_date_col: "event_date_utc"})
     )
-    outcomes = outcomes.join(ssi_by_date, on="event_date_utc", how="left")
+    if not outcomes.is_empty():
+        outcomes = outcomes.join(ssi_by_date, on="event_date_utc", how="left")
 
     summary_rows: list[dict] = []
     for t in tickers:
@@ -246,7 +353,8 @@ def run_event_study(
                     "ci95_low": lo,
                     "ci95_high": hi,
                     "p_welch": p_welch,
-                    "ssi_threshold": thr,
+                    "ssi_threshold_mode": "expanding_prior_only",
+                    "min_threshold_history": cfg.min_threshold_history,
                     "extreme_ssi_quantile": extreme_q,
                     "control_day_buffer_days": buf,
                 }
@@ -285,7 +393,8 @@ def run_event_study(
                     "ci95_low": lo2,
                     "ci95_high": hi2,
                     "p_welch": welch_t_pvalue(np.array(treat_rv), np.array(ctrl_rv)),
-                    "ssi_threshold": thr,
+                    "ssi_threshold_mode": "expanding_prior_only",
+                    "min_threshold_history": cfg.min_threshold_history,
                     "extreme_ssi_quantile": extreme_q,
                     "control_day_buffer_days": buf,
                 }

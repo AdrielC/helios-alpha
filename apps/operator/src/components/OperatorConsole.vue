@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
+import type { CommandAuthority } from "../operations/command-port";
 import {
   createOperationsPort,
   initialOperationsSnapshot,
@@ -8,15 +9,25 @@ import {
 } from "../operations/operations-port";
 
 const PerspectiveExplorer = defineAsyncComponent(() => import("./PerspectiveExplorer.vue"));
+const CommandPlane = defineAsyncComponent(() => import("./CommandPlane.vue"));
 
 const snapshot = shallowRef(initialOperationsSnapshot);
 const hasSnapshot = ref(false);
 const lastSuccessfulAt = ref<string>();
 const failureReason = ref("");
-const view = ref<"overview" | "explorer">("overview");
+const view = ref<"overview" | "control" | "explorer">("overview");
 const connection = ref<"connecting" | "streaming" | "reconnecting" | "snapshot" | "paused" | "error">("connecting");
 const selectedSignalId = ref(initialOperationsSnapshot.signals[0].id);
 const inspectedOrderId = ref(initialOperationsSnapshot.orders[0].clientOrderId);
+const commandAuthority = shallowRef<CommandAuthority>({
+  state: "unavailable",
+  detail:
+    typeof window !== "undefined" &&
+    window.__HELIOS_OPERATIONS__?.commandUrl &&
+    window.__HELIOS_OPERATIONS__.commandSessionUrl
+      ? "Open Control plane to verify command authority"
+      : "No authenticated command service is configured",
+});
 let port: OperationsPort | undefined;
 let unsubscribe: (() => void) | undefined;
 
@@ -57,12 +68,20 @@ const dataDetail = computed(() => {
   return snapshot.value.dataClass === "synthetic" ? "Deterministic UI fixture" : "Source-backed operations data";
 });
 const isStale = computed(() => hasSnapshot.value && ["connecting", "reconnecting", "error"].includes(connection.value));
-const boundaryTitle = computed(() => isStale.value ? "Stale operations snapshot" : "Read-only operations surface");
+const boundaryTitle = computed(() => {
+  if (isStale.value) return "Stale operations snapshot";
+  return commandAuthority.value.state === "authenticated"
+    ? "Protected command plane attached"
+    : "Operations read model";
+});
 const boundaryDetail = computed(() => {
   if (isStale.value) {
     return `Updates are unavailable. Showing the last validated observation from ${lastObservationLabel.value}.`;
   }
-  return `Signals have no order authority through this surface. ${snapshot.value.risk.capitalGateReason}.`;
+  if (commandAuthority.value.state === "authenticated") {
+    return `Commands are admitted by a separate authenticated service. ${snapshot.value.risk.capitalGateReason}.`;
+  }
+  return `${commandAuthority.value.detail}. ${snapshot.value.risk.capitalGateReason}.`;
 });
 const lastObservationLabel = computed(() => {
   if (!lastSuccessfulAt.value) return "no successful snapshot";
@@ -127,6 +146,10 @@ async function connectPort(): Promise<void> {
     failureReason.value = error instanceof Error ? error.message : "The operations source could not be loaded";
     connection.value = "error";
   }
+}
+
+function applyCommandAuthority(authority: CommandAuthority): void {
+  commandAuthority.value = authority;
 }
 
 function handleStreamControl(): void {
@@ -240,6 +263,14 @@ const tapeRows = computed(() => [
       <nav aria-label="Console views">
         <button :aria-current="view === 'overview' ? 'page' : undefined" @click="view = 'overview'">Overview</button>
         <button
+          :aria-current="view === 'control' ? 'page' : undefined"
+          :disabled="!hasSnapshot"
+          @click="view = 'control'"
+        >
+          Control plane
+          <span>Protected</span>
+        </button>
+        <button
           :aria-current="view === 'explorer' ? 'page' : undefined"
           :disabled="!hasSnapshot"
           @click="view = 'explorer'"
@@ -252,6 +283,9 @@ const tapeRows = computed(() => [
         <span class="mode-chip" :data-mode="hasSnapshot ? snapshot.mode : 'pending'">{{ modeLabel }}</span>
         <span class="capital-chip" :data-gate="hasSnapshot ? snapshot.risk.capitalGate : 'unknown'">{{ capitalLabel }}</span>
         <span class="data-chip" :data-class="hasSnapshot ? snapshot.dataClass : 'pending'">{{ dataTitle }}</span>
+        <span class="command-chip" :data-authority="commandAuthority.state">
+          {{ commandAuthority.state === "authenticated" ? "Commands secured" : "Commands unbound" }}
+        </span>
         <button
           class="stream-control"
           :disabled="connection === 'connecting' || connection === 'snapshot'"
@@ -282,6 +316,11 @@ const tapeRows = computed(() => [
 
       <div class="operator-layout">
         <aside class="operator-rail" aria-label="Operations index">
+          <a href="#control-plane" @click.prevent="view = 'control'">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11M5 2.5v3M10.5 6.5v3M7.5 10.5v3"/></svg>
+            Control plane
+            <span>{{ snapshot.strategies.length }}</span>
+          </a>
           <a href="#signal-tape" class="active">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 11 5.2 7.8l2.3 1.8L12.8 4 14 5.2"/><circle cx="5.2" cy="7.8" r="1"/><circle cx="12.8" cy="4" r="1"/></svg>
             Signal tape
@@ -480,6 +519,11 @@ const tapeRows = computed(() => [
       </div>
     </template>
 
+    <Suspense v-else-if="view === 'control'">
+      <CommandPlane :snapshot="snapshot" :stale="isStale" @authority="applyCommandAuthority" />
+      <template #fallback><div class="explorer-fallback" role="status">Preparing protected command plane…</div></template>
+    </Suspense>
+
     <Suspense v-else>
       <PerspectiveExplorer :snapshot="snapshot" />
       <template #fallback><div class="explorer-fallback" role="status">Preparing analytical worker…</div></template>
@@ -581,7 +625,8 @@ const tapeRows = computed(() => [
 .operator-session { justify-content: flex-end; gap: 6px; padding: 0 18px; }
 .mode-chip,
 .capital-chip,
-.data-chip { display: inline-flex; min-height: 30px; align-items: center; padding: 5px 8px; white-space: nowrap; border: 1px solid var(--atlas-rule); }
+.data-chip,
+.command-chip { display: inline-flex; min-height: 30px; align-items: center; padding: 5px 8px; white-space: nowrap; border: 1px solid var(--atlas-rule); }
 .mode-chip { color: var(--atlas-blue); }
 .mode-chip[data-mode="live"] { color: var(--atlas-green-ink); border-color: var(--atlas-green); }
 .mode-chip[data-mode="pending"] { color: var(--atlas-axis); }
@@ -591,6 +636,9 @@ const tapeRows = computed(() => [
 .data-chip { color: var(--atlas-blue); }
 .data-chip[data-class="observed"] { color: var(--atlas-green-ink); border-color: var(--atlas-green); }
 .data-chip[data-class="pending"] { color: var(--atlas-axis); }
+.command-chip { color: var(--atlas-axis); }
+.command-chip[data-authority="authenticated"] { color: var(--atlas-green-ink); border-color: var(--atlas-green); }
+.command-chip[data-authority="expired"] { color: var(--atlas-oxide); }
 .stream-control {
   display: flex;
   align-items: center;
@@ -622,7 +670,7 @@ const tapeRows = computed(() => [
   min-height: 44px;
   padding: 0 22px;
   color: var(--atlas-muted);
-  font-size: 12px;
+  font-size: 13px;
   border-bottom: 1px solid var(--atlas-rule);
   background: var(--atlas-surface-alt);
 }
@@ -639,10 +687,10 @@ const tapeRows = computed(() => [
   background: var(--operator-black);
 }
 .unavailable-mark { width: 24px; height: 24px; margin-bottom: 30px; border: 1px solid var(--atlas-oxide); background: linear-gradient(135deg, transparent 46%, var(--atlas-oxide) 47%, var(--atlas-oxide) 53%, transparent 54%); }
-.operator-unavailable p { margin: 0 0 8px; color: var(--atlas-oxide); font-family: var(--vp-font-family-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.operator-unavailable p { margin: 0 0 8px; color: var(--atlas-oxide); font-family: var(--vp-font-family-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .operator-unavailable h1 { max-width: 580px; margin: 0; font-size: clamp(28px, 5vw, 58px); line-height: .98; letter-spacing: -.045em; }
 .operator-unavailable > span { max-width: 600px; margin-top: 16px; color: var(--atlas-muted); font-size: 13px; }
-.operator-unavailable small { margin-top: 8px; color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 9px; text-transform: uppercase; }
+.operator-unavailable small { margin-top: 8px; color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 10px; text-transform: uppercase; }
 .operator-unavailable button { margin-top: 24px; padding: 9px 12px; color: var(--atlas-ground); font-family: var(--vp-font-family-mono); font-size: 10px; text-transform: uppercase; border: 1px solid var(--atlas-oxide); background: var(--atlas-oxide); cursor: pointer; }
 .operator-unavailable button:hover { color: var(--atlas-oxide); background: transparent; }
 
@@ -670,7 +718,7 @@ const tapeRows = computed(() => [
 .operator-rail > a.active { color: var(--atlas-blue); background: var(--atlas-blue-soft); border-color: var(--atlas-rule); }
 
 .rail-ledger { margin-top: 28px; padding: 16px; border-top: 1px solid var(--atlas-rule); border-bottom: 1px solid var(--atlas-rule); }
-.rail-ledger > p { margin: 0 0 12px; color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+.rail-ledger > p { margin: 0 0 12px; color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 .rail-ledger dl { margin: 0; }
 .rail-ledger dl div { display: grid; gap: 3px; padding: 9px 0; border-bottom: 1px solid var(--atlas-rule-soft); }
 .rail-ledger dt { color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 8px; text-transform: uppercase; }
@@ -679,8 +727,8 @@ const tapeRows = computed(() => [
 .data-stamp svg { width: 18px; fill: none; stroke: var(--atlas-blue); }
 .data-stamp[data-class="observed"] svg { stroke: var(--atlas-green); }
 .data-stamp div { display: grid; gap: 2px; }
-.data-stamp strong { font-family: var(--vp-font-family-mono); font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase; }
-.data-stamp span { color: var(--atlas-muted); font-size: 9px; }
+.data-stamp strong { font-family: var(--vp-font-family-mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+.data-stamp span { color: var(--atlas-muted); font-size: 10px; }
 
 .operator-workspace { min-width: 0; }
 .operator-summary { position: relative; border-bottom: 1px solid var(--atlas-rule); }
@@ -697,6 +745,7 @@ const tapeRows = computed(() => [
 .negative { color: var(--atlas-oxide) !important; }
 .caution { color: var(--atlas-oxide) !important; }
 
+
 .signal-tape { scroll-margin-top: 124px; background: var(--operator-black); }
 .signal-tape > header { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; min-height: 92px; padding: 21px 22px; border-bottom: 1px solid var(--atlas-rule); }
 .signal-tape h1,
@@ -708,12 +757,12 @@ const tapeRows = computed(() => [
 .source-health header p { margin: 5px 0 0; color: var(--atlas-muted); font-size: 13px; line-height: 1.45; }
 .tape-metrics { display: flex; margin: 0; }
 .tape-metrics > div { min-width: 118px; padding: 3px 14px; border-left: 1px solid var(--atlas-rule); }
-.tape-metrics dd { margin: 6px 0 0; color: var(--atlas-green-ink); font-family: var(--vp-font-family-mono); font-size: 17px; font-variant-numeric: tabular-nums; }
+.tape-metrics dd { margin: 6px 0 0; color: var(--atlas-green-ink); font-family: var(--vp-font-family-mono); font-size: 21px; font-variant-numeric: tabular-nums; }
 
 .tape-table { min-width: 960px; }
 .tape-columns,
 .tape-row { display: grid; grid-template-columns: 150px 126px 92px minmax(120px, 1fr) minmax(120px, .75fr) minmax(176px, 1.25fr); }
-.tape-columns { padding: 9px 18px 9px 32px; color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--atlas-rule); }
+.tape-columns { padding: 9px 18px 9px 32px; color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 8px; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--atlas-rule); }
 .tape-scroll { overflow-x: auto; scrollbar-color: var(--atlas-blue) var(--atlas-blue-soft); }
 .tape-body { position: relative; padding: 7px 18px 10px; overflow: hidden; }
 .tape-body::after { position: absolute; inset: 0; pointer-events: none; content: ""; background-image: linear-gradient(var(--atlas-rule-soft) 1px, transparent 1px), linear-gradient(90deg, var(--atlas-rule-soft) 1px, transparent 1px); background-size: 100% 28px, 92px 100%; opacity: .28; }
@@ -737,15 +786,15 @@ const tapeRows = computed(() => [
 .signal-list button.selected { color: var(--atlas-ink); background: var(--atlas-blue-soft); }
 .signal-list button strong,
 .signal-list button b { font-family: var(--vp-font-family-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
-.signal-list button > span:nth-child(3) { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.signal-list button > span:nth-child(3) { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .signal-state { font-family: var(--vp-font-family-mono); font-size: 8px; letter-spacing: .04em; text-transform: uppercase; }
 .signal-state[data-state="eligible"] { color: var(--atlas-green-ink); }
 .signal-state[data-state="blocked"] { color: var(--atlas-oxide); }
 .signal-state[data-state="observing"] { color: var(--atlas-blue); }
 .signal-inspector { min-width: 0; padding: 18px 20px; background: var(--atlas-ground); }
 .signal-inspector > header { display: flex; justify-content: space-between; gap: 18px; align-items: start; }
-.signal-inspector header span { color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; }
-.signal-inspector header > strong { color: var(--atlas-green-ink); font-family: var(--vp-font-family-mono); font-size: 24px; }
+.signal-inspector header span { color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.signal-inspector header > strong { color: var(--atlas-green-ink); font-family: var(--vp-font-family-mono); font-size: 21px; }
 .signal-plot { width: 100%; height: 108px; margin: 14px 0; overflow: visible; border-top: 1px solid var(--atlas-rule-soft); border-bottom: 1px solid var(--atlas-rule-soft); }
 .plot-grid { fill: none; stroke: var(--atlas-rule-soft); stroke-width: .5; }
 .plot-line { fill: none; stroke: var(--atlas-blue); stroke-width: 2; }
@@ -766,7 +815,7 @@ const tapeRows = computed(() => [
 .ledger-panel + .ledger-panel { border-left: 1px solid var(--atlas-rule); }
 .ledger-panel > header,
 .source-health > header { display: flex; justify-content: space-between; align-items: start; gap: 18px; min-height: 78px; padding: 17px 20px; border-bottom: 1px solid var(--atlas-rule); }
-.ledger-panel header > span { color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 9px; text-transform: uppercase; }
+.ledger-panel header > span { color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 10px; text-transform: uppercase; }
 .table-scroll { overflow-x: auto; scrollbar-color: var(--atlas-blue) var(--atlas-blue-soft); }
 table { width: 100%; min-width: 920px; border-collapse: collapse; color: var(--atlas-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 th,
@@ -775,7 +824,7 @@ thead th { height: 29px; color: var(--atlas-axis); font-family: var(--vp-font-fa
 tbody th { color: var(--atlas-ink); font-family: var(--vp-font-family-mono); }
 .number { text-align: right; font-family: var(--vp-font-family-mono); }
 .execution-panel table { min-width: 1120px; }
-.execution-panel code { color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 9px; }
+.execution-panel code { color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 10px; }
 .order-layout { display: grid; grid-template-columns: minmax(190px, .9fr) minmax(170px, 1.1fr); }
 .order-list { border-right: 1px solid var(--atlas-rule); }
 .order-list button { display: grid; grid-template-columns: 40px 1fr; gap: 5px 9px; width: 100%; min-height: 68px; padding: 11px 13px; color: var(--atlas-muted); text-align: left; border: 0; border-bottom: 1px solid var(--atlas-rule-soft); background: transparent; cursor: pointer; }
@@ -784,14 +833,13 @@ tbody th { color: var(--atlas-ink); font-family: var(--vp-font-family-mono); }
 .order-list button span { color: var(--atlas-green-ink); font-family: var(--vp-font-family-mono); font-size: 8px; text-transform: uppercase; }
 .order-list button span[data-side="sell"] { color: var(--atlas-oxide); }
 .order-list button strong { font-family: var(--vp-font-family-mono); font-size: 11px; }
-.order-list button b { overflow: hidden; font-size: 9px; font-weight: 450; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.order-list button b { overflow: hidden; font-size: 10px; font-weight: 450; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .order-list button code { grid-column: 1 / -1; color: var(--atlas-axis); font-size: 8px; }
 .order-detail { display: grid; grid-template-columns: repeat(2, 1fr); align-content: start; margin: 0; }
 .order-detail > div { min-width: 0; padding: 10px; border-right: 1px solid var(--atlas-rule-soft); border-bottom: 1px solid var(--atlas-rule-soft); }
 .verified { color: var(--atlas-green-ink); }
-
 .source-health { scroll-margin-top: 124px; border-top: 1px solid var(--atlas-rule); border-bottom: 1px solid var(--atlas-rule); }
-.source-health header button { color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 9px; letter-spacing: .03em; text-transform: uppercase; border: 0; border-bottom: 1px solid currentColor; background: transparent; cursor: pointer; }
+.source-health header button { color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 10px; letter-spacing: .03em; text-transform: uppercase; border: 0; border-bottom: 1px solid currentColor; background: transparent; cursor: pointer; }
 .source-health header button:hover { color: var(--atlas-oxide); }
 .source-health ul { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 0; list-style: none; }
 .source-health li { display: grid; grid-template-columns: 8px 1fr; gap: 8px 11px; min-width: 0; padding: 15px 17px; border-right: 1px solid var(--atlas-rule); }
@@ -804,8 +852,8 @@ tbody th { color: var(--atlas-ink); font-family: var(--vp-font-family-mono); }
 .source-health li div span { overflow: hidden; color: var(--atlas-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .source-health li dl { grid-column: 2; display: flex; gap: 16px; margin: 0; }
 .source-health li dl div { display: grid; gap: 2px; }
-.source-health li dt { color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 7px; text-transform: uppercase; }
-.source-health li dd { margin: 0; color: var(--atlas-muted); font-family: var(--vp-font-family-mono); font-size: 9px; }
+.source-health li dt { color: var(--atlas-axis); font-family: var(--vp-font-family-mono); font-size: 8px; text-transform: uppercase; }
+.source-health li dd { margin: 0; color: var(--atlas-muted); font-family: var(--vp-font-family-mono); font-size: 10px; }
 .source-detail { grid-column: 2; overflow: hidden; color: var(--atlas-axis); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .explorer-fallback { display: grid; min-height: calc(100vh - 70px); place-items: center; color: var(--atlas-muted); font-family: var(--vp-font-family-mono); font-size: 11px; background: var(--operator-black); }
 
@@ -846,7 +894,9 @@ tbody th { color: var(--atlas-ink); font-family: var(--vp-font-family-mono); }
   .operator-rail { display: none; }
   .signal-tape { overflow: hidden; }
   .signal-tape > header { align-items: stretch; flex-direction: column; }
-  .tape-metrics { overflow-x: auto; }
+  .tape-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; }
+  .tape-metrics > div { min-width: 0; padding: 3px 8px; }
+  .tape-metrics dd { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
   .tape-metrics > div:first-child { border-left: 0; }
   .tape-scroll-cue { display: block; padding: 5px 12px; color: var(--atlas-blue); font-family: var(--vp-font-family-mono); font-size: 8px; letter-spacing: .03em; text-align: right; text-transform: uppercase; border-bottom: 1px solid var(--atlas-rule-soft); }
   .signal-decision { grid-template-columns: minmax(0, 1fr); }
@@ -864,15 +914,16 @@ tbody th { color: var(--atlas-ink); font-family: var(--vp-font-family-mono); }
 }
 
 @media (max-width: 520px) {
-  .operator-session { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; padding: 8px 12px; border-top: 1px solid var(--atlas-rule); }
+  .operator-session { display: grid; grid-template-columns: repeat(2, 1fr); width: 100%; padding: 8px 12px; border-top: 1px solid var(--atlas-rule); }
   .mode-chip,
   .capital-chip,
-  .data-chip { justify-content: center; padding: 5px 3px; text-align: center; }
+  .data-chip,
+  .command-chip { justify-content: center; padding: 5px 3px; text-align: center; }
   .stream-control { grid-column: 1 / -1; width: 100%; justify-content: center; }
   .summary-scroll > dl { grid-template-columns: repeat(5, 160px); }
   .signal-tape > header { padding: 13px 12px; }
   .signal-list button { grid-template-columns: 54px 50px 1fr auto; gap: 6px; padding: 0 9px; }
-  .signal-list button > span:nth-child(3) { font-size: 9px; }
+  .signal-list button > span:nth-child(3) { font-size: 10px; }
   .signal-inspector { padding: 12px; }
   .signal-inspector h2 { font-size: 16px; }
   .signal-inspector header > strong { font-size: 20px; }

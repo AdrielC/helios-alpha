@@ -14,6 +14,7 @@ def row(**overrides: object) -> dict[str, object]:
         "speed_kms": 1200.0,
         "earth_directed_strict": True,
         "earth_directed": True,
+        "proton_flux_ge10_prior_24h": 10.0,
         "proton_flux_ge10_max_post_flare": 10.0,
         "kp_estimated_max_prior_day": 4.0,
         "dst_min_nT_around_arrival": -25.0,
@@ -40,6 +41,18 @@ def test_candidate_ssi_does_not_use_future_arrival_dst() -> None:
     )
     assert scored["ssi"][0] == scored["ssi"][1]
     assert scored["ssi_complete"].to_list() == [True, True]
+
+
+def test_candidate_ssi_does_not_use_post_flare_protons() -> None:
+    scored = compute_ssi(
+        pl.DataFrame(
+            [
+                row(proton_flux_ge10_max_post_flare=0.1),
+                row(proton_flux_ge10_max_post_flare=10_000.0),
+            ]
+        )
+    )
+    assert scored["ssi"][0] == scored["ssi"][1]
 
 
 def test_missing_inputs_are_visible_in_output() -> None:

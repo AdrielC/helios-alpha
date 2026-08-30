@@ -37,6 +37,8 @@ def fetch_flares_range(start: date, end: date, api_key: str | None = None) -> pl
                 "class_type": pl.Utf8,
                 "active_region_num": pl.Int64,
                 "linked_cme_ids": pl.Utf8,
+                "submission_time_utc": pl.Datetime(time_zone="UTC"),
+                "version_id": pl.Utf8,
             }
         )
     out: list[dict] = []
@@ -53,6 +55,8 @@ def fetch_flares_range(start: date, end: date, api_key: str | None = None) -> pl
                 "class_type": r.get("classType"),
                 "active_region_num": int(ar) if ar is not None else None,
                 "linked_cme_ids": ",".join(cme_ids) if cme_ids else None,
+                "submission_time_utc": parse_iso_z(r.get("submissionTime")),
+                "version_id": str(r["versionId"]) if r.get("versionId") is not None else None,
             }
         )
     df = pl.DataFrame(out)
@@ -87,6 +91,8 @@ def ingest_flares_json(path: Path) -> pl.DataFrame:
                 "class_type": r.get("classType"),
                 "active_region_num": int(ar) if ar is not None else None,
                 "linked_cme_ids": ",".join(cme_ids) if cme_ids else None,
+                "submission_time_utc": parse_iso_z(r.get("submissionTime")),
+                "version_id": str(r["versionId"]) if r.get("versionId") is not None else None,
             }
         )
     df = pl.DataFrame(rows)

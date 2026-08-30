@@ -94,6 +94,9 @@ impl Scan for ClusterToHorizonScan {
         emit.emit(HorizonInput::Treatment {
             id: input.start_day as u32,
             horizon_trading_days: horizon,
+            // This adapter uses the cluster's coarse day clock. The live causal pipeline carries
+            // exact `AvailableAt` values and does not use this compatibility mapping.
+            available_at: input.end_day,
         });
     }
 }
@@ -256,7 +259,12 @@ impl CausalEventStudyPipeline {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ReplayRecord {
     Treatment(crate::AvailabilityTagged<TreatmentEvent>),
-    Bar { session_day: i32, close: f64 },
+    Bar {
+        session_day: i32,
+        close: f64,
+        /// First instant the completed bar could be used by a decision.
+        available_at: helio_time::AvailableAt,
+    },
 }
 
 impl Scan for CausalEventStudyPipeline {
@@ -278,6 +286,7 @@ impl Scan for CausalEventStudyPipeline {
     {
         match input {
             ReplayRecord::Treatment(t) => {
+                let available_at = t.available_at.0;
                 let mut selected = helio_scan::VecEmitter::new();
                 self.select.step(&mut state.select, t, &mut selected);
                 for ev in selected.into_inner() {
@@ -286,6 +295,7 @@ impl Scan for CausalEventStudyPipeline {
                         HorizonInput::Treatment {
                             id: ev.id,
                             horizon_trading_days: ev.horizon_trading_days,
+                            available_at,
                         },
                         emit,
                     );
@@ -293,10 +303,18 @@ impl Scan for CausalEventStudyPipeline {
                     self.cluster.step(&mut state.cluster, ev, &mut drop);
                 }
             }
-            ReplayRecord::Bar { session_day, close } => {
+            ReplayRecord::Bar {
+                session_day,
+                close,
+                available_at,
+            } => {
                 self.forward.step(
                     &mut state.forward,
-                    HorizonInput::Bar { session_day, close },
+                    HorizonInput::Bar {
+                        session_day,
+                        close,
+                        available_at: available_at.0,
+                    },
                     emit,
                 );
             }

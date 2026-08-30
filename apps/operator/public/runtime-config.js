@@ -3,6 +3,8 @@
  * Example:
  * window.__HELIOS_OPERATIONS__ = {
  *   snapshotUrl: "/api/operations/v1/snapshot",
- *   streamUrl: "/api/operations/v1/events"
+ *   streamUrl: "/api/operations/v1/events",
+ *   commandSessionUrl: "/api/commands/v1/session",
+ *   commandUrl: "/api/commands/v1/commands"
  * };
  */

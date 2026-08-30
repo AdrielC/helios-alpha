@@ -20,6 +20,7 @@ other event shocks without putting space-weather or trading vocabulary in the co
 [Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
 [Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness) ·
 [Inspect capital admission](https://adrielc.github.io/helios-alpha/operations/capital-admission) ·
+[Choose the first data and broker path](https://adrielc.github.io/helios-alpha/operations/market-data-path) ·
 [Inspect the Robinhood boundary](https://adrielc.github.io/helios-alpha/operations/robinhood) ·
 [Review the Golem Cloud architecture](https://adrielc.github.io/helios-alpha/operations/golem-cloud)
 
@@ -247,11 +248,13 @@ npm ci
 npm run docs:dev
 ```
 
-Helios Control is a separate application in `apps/operator`. It shows candidate signals, active
-orders, held positions, risk state, and source freshness from a deterministic demo port. Configure
-`window.__HELIOS_OPERATIONS__` with a same-origin snapshot URL and optional SSE URL to replace that
-fixture. Perspective 5.3 loads only when the operator opens Data Explorer, keeping the initial
-overview independent of its WebAssembly payload and keeping the console out of the docs build.
+Helios Control is a separate application in `apps/operator`. It shows strategies, processing
+stages, candidate signals, active orders, held positions, risk state, and source freshness from a
+deterministic demo port. Configure `window.__HELIOS_OPERATIONS__` with same-origin read URLs to
+replace that fixture. Optional command-session and command URLs attach a separate protected
+mutation boundary. Perspective 5.3 loads only when the operator opens Data Explorer, keeping the
+initial overview independent of its WebAssembly payload and keeping the console out of the docs
+build.
 
 ```bash
 npm run operator:dev

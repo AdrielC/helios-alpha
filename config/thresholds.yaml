@@ -18,3 +18,4 @@ solar_shock_index:
 event_study:
   extreme_ssi_quantile: 0.9
   control_day_buffer_days: 3
+  min_threshold_history: 5
