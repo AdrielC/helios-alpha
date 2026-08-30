@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::time::Instant;
 
-use helio_scan::{Scan, SnapshottingScan};
 use crate::clock::*;
 use crate::fingerprint::*;
 use crate::kalman::{
@@ -13,6 +12,8 @@ use crate::kalman_options::{KalmanFitMode, KalmanHarnessOptions};
 use crate::metrics::sharpe_annualized_daily;
 use crate::range::*;
 use crate::Result;
+use helio_scan::{Scan, SnapshottingScan};
+use helio_stats::{CompensatedSum, ScaledSumSquares};
 
 /// Identifies a backtest pipeline line (app name + semver-style version string).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -120,12 +121,12 @@ impl<C: Clock> BacktestHarness<C> {
         let n_days = spec.range.span_secs() / 86_400 + 1;
         let bars_processed = n_days;
         let mut daily: Vec<f64> = Vec::with_capacity(n_days as usize);
-        let mut acc = 0.0f64;
+        let mut pnl = CompensatedSum::new();
         for i in 0..n_days {
             let t = spec.range.start_epoch_sec + (i as i64) * 86_400;
             let w = ((t % 13) as f64) * 1e-4;
             daily.push(w);
-            acc += w;
+            pnl.try_push(w)?;
         }
         let sharpe_daily_annualized = sharpe_annualized_daily(&daily);
 
@@ -135,13 +136,19 @@ impl<C: Clock> BacktestHarness<C> {
             let fit_slice = &daily[..mle_fit_n];
             let cfg = match spec.kalman.fit_mode {
                 KalmanFitMode::Em => fit_local_level_em(fit_slice, LocalLevelEmOptions::default()),
-                KalmanFitMode::Mle => fit_local_level_mle(fit_slice, LocalLevelMleOptions::default()),
+                KalmanFitMode::Mle => {
+                    fit_local_level_mle(fit_slice, LocalLevelMleOptions::default())
+                }
             };
             let (outs, _st) = run_kalman_local_level(cfg, &daily);
             let last = outs.last().expect("n_days >= 1");
-            let innovation_energy: f64 = outs.iter().map(|o| o.innovation * o.innovation).sum();
+            let mut innovation_energy = ScaledSumSquares::new();
+            for output in &outs {
+                innovation_energy.try_push(output.innovation)?;
+            }
+            let innovation_energy = innovation_energy.try_sum_squares()?;
             let neg_loglik = crate::kalman::innovation_neg_loglik(&daily, cfg.q, cfg.r)
-                .unwrap_or(f64::NAN);
+                .ok_or(crate::BacktestError::InvalidKalmanLikelihood)?;
 
             if spec.kalman.verify_snapshot_resume {
                 let nd = n_days as usize;
@@ -187,7 +194,7 @@ impl<C: Clock> BacktestHarness<C> {
             clock_now_epoch_sec: clock_anchor,
             bars_processed,
             run_wall_secs,
-            pnl_simple: acc,
+            pnl_simple: pnl.try_total()?,
             sharpe_daily_annualized,
             kalman,
         })
@@ -213,8 +220,7 @@ pub fn demo_run_spec() -> BacktestRunSpec {
         // ~20y of daily toy observations (heavy default for throughput demos).
         range: EpochRange::new(0, 20 * 365 * 86_400).expect("demo range"),
         strategy: StrategySpec {
-            digest_hex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-                .into(),
+            digest_hex: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".into(),
         },
         kalman: KalmanHarnessOptions {
             enabled: true,
@@ -273,11 +279,13 @@ mod tests {
         let r = h.run(&spec).unwrap();
         let elapsed = t0.elapsed();
         assert_eq!(r.bars_processed, 20 * 365 + 1);
-        assert!(r.kalman.is_some(), "kalman should run by default on demo spec");
+        assert!(
+            r.kalman.is_some(),
+            "kalman should run by default on demo spec"
+        );
         assert!(
             elapsed.as_secs() < 5,
-            "20y + kalman took {:?} (expected < 5s in CI)",
-            elapsed
+            "20y + kalman took {elapsed:?} (expected < 5s in CI)"
         );
     }
 

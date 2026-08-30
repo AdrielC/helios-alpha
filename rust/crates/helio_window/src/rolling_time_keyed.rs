@@ -92,7 +92,7 @@ where
             return;
         };
         w.push(TimeKey(input.key_secs), input.value);
-        if w.len() > 0 {
+        if !w.is_empty() {
             emit.emit(w.summary());
         }
     }

@@ -8,6 +8,11 @@ state machines for ordering, windows, online statistics, Bayesian updates, keyed
 hypotheses, checkpointing, and replay. Trading policy is composed on top. It is not baked into the
 kernel.
 
+Space weather is the reference strategy. A solar observation opens a typed incident; propagation,
+Earth-intersection, infrastructure, and market assessments arrive as later causal evidence; the
+runtime emits a research candidate and stops before order authority. The same machinery applies to
+other event shocks without putting space-weather or trading vocabulary in the core crates.
+
 [Explore the Event Atlas](https://adrielc.github.io/helios-alpha/) ·
 [Build a keyed hypothesis machine](https://adrielc.github.io/helios-alpha/concepts/hypothesis-machines) ·
 [Build a 10-minute signal](https://adrielc.github.io/helios-alpha/guide/compose-a-strategy) ·
@@ -152,9 +157,9 @@ coordinates source progress, state, and downstream writes.
 | `helio_golem` | Atomic source-offset batches, deterministic invocation identities, validated shard snapshots | Golem SDK types, event-shock meaning, cloud credentials |
 | `helio_time` | Frequencies, interval bounds, bucket grids, causal availability | Buffers and eviction machinery |
 | `helio_window` | Bounded reorder, bucket reduction, rolling and session state | Signal meaning |
-| `helio_stats` | Moments, covariance, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
+| `helio_stats` | Stable moments, compensated sums, scaled norms, log probabilities, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
 | `helio_event` | An event-shock proving ground and simulated strategy vertical | Broker authorization |
-| `helio_backtest` | Fixed clocks, fingerprints, Kalman research, replay harnesses | Live execution guarantees |
+| `helio_backtest` | Fixed clocks, fingerprints, guarded Kalman research, replay harnesses | Live execution guarantees |
 | `helios_signald` | Optional ZMQ integration | Kernel abstractions |
 | `helio_bench` | Criterion workloads and baselines | Runtime dependencies |
 
@@ -177,6 +182,17 @@ cd rust
 cargo test -p helio_stats
 cargo bench -p helio_bench --bench online_stats -- --noplot
 ```
+
+Run the typed space-weather reference and its restart proof:
+
+```bash
+cd rust
+cargo run -p helio_hypothesis --example space_weather
+cargo test -p helio_hypothesis --test space_weather_reference
+```
+
+The complete support boundary is documented in
+[Trade space weather without hiding the causal chain](https://adrielc.github.io/helios-alpha/guide/space-weather-reference).
 
 `helios_signald` additionally needs `libzmq` and a C++ toolchain.
 
@@ -238,6 +254,10 @@ benchmark:
 - Reorder and rolling state are explicitly bounded.
 - Batch acceleration is opt-in and must prove equivalence with one-at-a-time execution.
 - Statistical state rejects non-finite arithmetic and counts beyond exact `f64` integer precision.
+- Neumaier-compensated sums retain their correction across checkpoints.
+- Scaled sum-of-squares avoids intermediate overflow and underflow in norms.
+- Conditional probabilities remain authoritative in log space after ordinary probability underflow.
+- The guarded Kalman scan rejects poison input atomically and validates restored forecast state.
 - Criterion workloads cover online updates, deterministic merges, checkpoint cadence, and windows.
 - Keyed hypothesis benchmarks cover one hot key, 1,024 interleaved keys, and 4,096 deadline fires.
 
@@ -246,6 +266,8 @@ One release-mode Criterion quick pass on an Apple M3 Pro measured:
 | Workload | Reference result |
 |---|---:|
 | Welford moment update | 107 million observations/s |
+| Neumaier-compensated sum | 145 million observations/s |
+| Scaled sum-of-squares norm | 127 million observations/s |
 | Normal-Inverse-Gamma update | 108 million observations/s |
 | SHA-256-keyed Gamma-Poisson draw | 431 ns, or 2.32 million draws/s |
 | Keyed hypothesis update, one active key | about 46 ns, or 21.8 million updates/s |

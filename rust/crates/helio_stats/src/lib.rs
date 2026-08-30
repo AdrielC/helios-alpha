@@ -10,12 +10,16 @@ use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "bayes")]
 mod bayes;
 mod hawkes;
+mod numerics;
 mod scans;
 
+#[cfg(feature = "bayes")]
 pub use bayes::*;
 pub use hawkes::*;
+pub use numerics::*;
 pub use scans::*;
 
 /// Largest integer count that every `f64` operation can represent exactly.

@@ -35,10 +35,10 @@ fn fixed_step_duration_secs(step: FixedStep) -> Option<i64> {
 /// Returns trailing span in seconds for `spec` when it is `Trailing { size: Fixed(..), .. }`.
 pub fn trailing_fixed_window_span_secs(spec: WindowSpec) -> Option<i64> {
     match spec {
-        WindowSpec::Trailing { size, .. } => match size {
-            Frequency::Fixed(fs) => fixed_step_duration_secs(fs),
-            _ => None,
-        },
+        WindowSpec::Trailing {
+            size: Frequency::Fixed(step),
+            ..
+        } => fixed_step_duration_secs(step),
         _ => None,
     }
 }
@@ -90,6 +90,10 @@ impl<T: Clone, A: EvictingWindowAggregator<T>> TimeKeyedWindowState<T, A> {
 
     pub fn len(&self) -> usize {
         self.deque.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.deque.is_empty()
     }
 
     pub fn clear(&mut self) {

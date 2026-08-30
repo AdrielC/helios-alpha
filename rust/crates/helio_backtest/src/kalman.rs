@@ -17,9 +17,25 @@
 //! streaming / composable runtime filtering.
 
 use helio_scan::{
-    Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot, VecEmitter,
+    Emit, FallibleRestoreScan, FlushReason, FlushableScan, Scan, SnapshottingScan, VecEmitter,
+    VersionedSnapshot,
 };
+use helio_stats::{CompensatedSum, ScaledSumSquares};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+/// Rejection from the guarded streaming Kalman adapter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum KalmanError {
+    #[error("Kalman configuration requires finite q, r, x_init, and p_init with q/r positive and p_init non-negative")]
+    InvalidConfig,
+    #[error("Kalman observation must be finite")]
+    NonFiniteObservation,
+    #[error("Kalman state or snapshot is invalid")]
+    InvalidState,
+    #[error("Kalman arithmetic produced a non-finite result")]
+    NumericalOverflow,
+}
 
 /// Static parameters for the local-level model `x_t = x_{t-1} + w_t`, `y_t = x_t + v_t`,
 /// `Var(w)=q`, `Var(v)=r`, with initial `x_0 ~ (x_init, p_init)`.
@@ -42,6 +58,23 @@ impl Default for KalmanLocalLevelConfig {
     }
 }
 
+impl KalmanLocalLevelConfig {
+    pub fn validate(&self) -> Result<(), KalmanError> {
+        let valid = self.q.is_finite()
+            && self.q > 0.0
+            && self.r.is_finite()
+            && self.r > 0.0
+            && self.x_init.is_finite()
+            && self.p_init.is_finite()
+            && self.p_init >= 0.0;
+        if valid {
+            Ok(())
+        } else {
+            Err(KalmanError::InvalidConfig)
+        }
+    }
+}
+
 /// Serializable filter state after any number of [`KalmanLocalLevelScan::step`] calls.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct KalmanLocalLevelState {
@@ -49,6 +82,16 @@ pub struct KalmanLocalLevelState {
     pub x: f64,
     /// Posterior variance of the level.
     pub p: f64,
+}
+
+impl KalmanLocalLevelState {
+    pub fn validate(&self) -> Result<(), KalmanError> {
+        if self.x.is_finite() && self.p.is_finite() && self.p >= 0.0 {
+            Ok(())
+        } else {
+            Err(KalmanError::InvalidState)
+        }
+    }
 }
 
 /// Same as [`KalmanLocalLevelState`] for snapshots (versioned for persistence).
@@ -82,6 +125,119 @@ pub struct KalmanLocalLevelScan {
 impl KalmanLocalLevelScan {
     pub fn new(cfg: KalmanLocalLevelConfig) -> Self {
         Self { cfg }
+    }
+
+    /// Compute one guarded update without mutating state on failure.
+    pub fn try_step(
+        &self,
+        state: &mut KalmanLocalLevelState,
+        observation: f64,
+    ) -> Result<KalmanOutput, KalmanError> {
+        self.cfg.validate()?;
+        state.validate()?;
+        if !observation.is_finite() {
+            return Err(KalmanError::NonFiniteObservation);
+        }
+
+        let p_prior = state.p + self.cfg.q;
+        let innovation_variance = p_prior + self.cfg.r;
+        if !p_prior.is_finite() || !innovation_variance.is_finite() || innovation_variance <= 0.0 {
+            return Err(KalmanError::NumericalOverflow);
+        }
+        let innovation = observation - state.x;
+        let gain = p_prior / innovation_variance;
+        let x_post = gain.mul_add(innovation, state.x);
+        // Joseph form preserves non-negativity better than `(1 - K) * P` under rounding.
+        let one_minus_gain = 1.0 - gain;
+        let p_post = (one_minus_gain * one_minus_gain).mul_add(p_prior, gain * gain * self.cfg.r);
+        let next = KalmanLocalLevelState {
+            x: x_post,
+            p: p_post,
+        };
+        if !innovation.is_finite() || !gain.is_finite() || next.validate().is_err() {
+            return Err(KalmanError::NumericalOverflow);
+        }
+        *state = next;
+        Ok(KalmanOutput {
+            y: observation,
+            x_hat: x_post,
+            innovation,
+            k: gain,
+        })
+    }
+}
+
+/// Fallible, atomic scan adapter for production streaming forecasts.
+///
+/// The legacy [`KalmanLocalLevelScan`] output remains infallible for API compatibility. New
+/// pipelines should use this adapter so invalid input is an explicit output and cannot poison the
+/// checkpointed state.
+#[derive(Debug, Clone, Copy)]
+pub struct GuardedKalmanLocalLevelScan {
+    inner: KalmanLocalLevelScan,
+}
+
+impl GuardedKalmanLocalLevelScan {
+    pub fn try_new(cfg: KalmanLocalLevelConfig) -> Result<Self, KalmanError> {
+        cfg.validate()?;
+        Ok(Self {
+            inner: KalmanLocalLevelScan::new(cfg),
+        })
+    }
+}
+
+impl Scan for GuardedKalmanLocalLevelScan {
+    type In = f64;
+    type Out = Result<KalmanOutput, KalmanError>;
+    type State = KalmanLocalLevelState;
+
+    fn init(&self) -> Self::State {
+        self.inner.init()
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        emit.emit(self.inner.try_step(state, input));
+    }
+}
+
+impl FlushableScan for GuardedKalmanLocalLevelScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for GuardedKalmanLocalLevelScan {
+    type Snapshot = KalmanLocalLevelSnapshot;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        KalmanLocalLevelSnapshot {
+            x: state.x,
+            p: state.p,
+        }
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        KalmanLocalLevelState {
+            x: snapshot.x,
+            p: snapshot.p,
+        }
+    }
+}
+
+impl FallibleRestoreScan for GuardedKalmanLocalLevelScan {
+    type RestoreError = KalmanError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        let state = self.restore(snapshot);
+        state.validate()?;
+        Ok(state)
     }
 }
 
@@ -169,7 +325,14 @@ struct LocalLevelForward {
 
 fn forward_filter_local_level(cfg: KalmanLocalLevelConfig, y: &[f64]) -> Option<LocalLevelForward> {
     let n = y.len();
-    if n == 0 || !(cfg.q > 0.0 && cfg.r > 0.0) {
+    let valid_config = cfg.q.is_finite()
+        && cfg.q > 0.0
+        && cfg.r.is_finite()
+        && cfg.r > 0.0
+        && cfg.x_init.is_finite()
+        && cfg.p_init.is_finite()
+        && cfg.p_init >= 0.0;
+    if n == 0 || !valid_config || y.iter().any(|value| !value.is_finite()) {
         return None;
     }
     let mut xf = Vec::with_capacity(n);
@@ -180,17 +343,27 @@ fn forward_filter_local_level(cfg: KalmanLocalLevelConfig, y: &[f64]) -> Option<
 
     let mut x = cfg.x_init;
     let mut p = cfg.p_init;
-    for t in 0..n {
+    for &observation in y {
         let p_prior = p + cfg.q;
         let st = p_prior + cfg.r;
         if !(st > 0.0 && st.is_finite()) {
             return None;
         }
-        let innov = y[t] - x;
+        let innov = observation - x;
         let k = p_prior / st;
-        let x_new = x + k * innov;
-        let p_new = (1.0 - k).max(0.0) * p_prior;
-        p_pred_tp1.push(p_new + cfg.q);
+        let x_new = k.mul_add(innov, x);
+        let one_minus_k = 1.0 - k;
+        let p_new = (one_minus_k * one_minus_k).mul_add(p_prior, k * k * cfg.r);
+        let next_prediction = p_new + cfg.q;
+        if !innov.is_finite()
+            || !k.is_finite()
+            || !x_new.is_finite()
+            || !p_new.is_finite()
+            || !next_prediction.is_finite()
+        {
+            return None;
+        }
+        p_pred_tp1.push(next_prediction);
         s.push(st);
         nu.push(innov);
         xf.push(x_new);
@@ -216,11 +389,21 @@ pub fn innovation_neg_loglik(y: &[f64], q: f64, r: f64) -> Option<f64> {
         p_init: r.max(1e-12),
     };
     let f = forward_filter_local_level(cfg, y)?;
-    let mut ll = 0.0f64;
+    let mut log_variances = CompensatedSum::new();
+    let mut standardized_residuals = ScaledSumSquares::new();
     for t in 0..y.len() {
-        ll += f.s[t].ln() + f.nu[t] * f.nu[t] / f.s[t];
+        log_variances.try_push(f.s[t].ln()).ok()?;
+        standardized_residuals
+            .try_push(f.nu[t] / f.s[t].sqrt())
+            .ok()?;
     }
-    Some(0.5 * ll)
+    let mut objective = CompensatedSum::new();
+    objective.try_push(log_variances.try_total().ok()?).ok()?;
+    objective
+        .try_push(standardized_residuals.try_sum_squares().ok()?)
+        .ok()?;
+    let result = 0.5 * objective.try_total().ok()?;
+    result.is_finite().then_some(result)
 }
 
 /// RTS smoother: returns smoothed means `xs`, variances `Ps`, and lag-one cross-covariance
@@ -273,22 +456,24 @@ fn em_mstep_local_level(
     if n < 2 || xs.len() != n || ps.len() != n || cov_lm1_t.len() != n {
         return None;
     }
-    let mut sum_diff2 = 0.0f64;
+    let mut sum_diff2 = CompensatedSum::new();
     for t in 1..n {
         let ex2 = ps[t] + xs[t] * xs[t];
         let exm12 = ps[t - 1] + xs[t - 1] * xs[t - 1];
         let c = cov_lm1_t[t];
-        sum_diff2 += ex2 + exm12 - 2.0 * c - 2.0 * xs[t - 1] * xs[t];
+        let contribution = ex2 + exm12 - 2.0 * c - 2.0 * xs[t - 1] * xs[t];
+        sum_diff2.try_push(contribution).ok()?;
     }
-    let q = (sum_diff2 / (n - 1) as f64).max(1e-30);
+    let q = (sum_diff2.try_total().ok()? / (n - 1) as f64).max(1e-30);
 
-    let mut sum_obs2 = 0.0f64;
+    let mut sum_obs2 = CompensatedSum::new();
     for t in 0..n {
         let res = y[t] - xs[t];
-        sum_obs2 += res * res + ps[t];
+        let contribution = res * res + ps[t];
+        sum_obs2.try_push(contribution).ok()?;
     }
-    let r = (sum_obs2 / n as f64).max(1e-30);
-    Some((q, r))
+    let r = (sum_obs2.try_total().ok()? / n as f64).max(1e-30);
+    (q.is_finite() && r.is_finite()).then_some((q, r))
 }
 
 /// Options for [`fit_local_level_em`].
@@ -422,17 +607,13 @@ pub fn fit_local_level_mle(y: &[f64], opts: LocalLevelMleOptions) -> KalmanLocal
     let mut log_r = -10.0f64;
     for _ in 0..opts.outer_iters {
         log_q = golden_section_minimize(
-            |lq| {
-                innovation_neg_loglik(y, lq.exp(), log_r.exp()).unwrap_or(f64::INFINITY)
-            },
+            |lq| innovation_neg_loglik(y, lq.exp(), log_r.exp()).unwrap_or(f64::INFINITY),
             opts.log_q_lo,
             opts.log_q_hi,
             opts.golden_iters,
         );
         log_r = golden_section_minimize(
-            |lr| {
-                innovation_neg_loglik(y, log_q.exp(), lr.exp()).unwrap_or(f64::INFINITY)
-            },
+            |lr| innovation_neg_loglik(y, log_q.exp(), lr.exp()).unwrap_or(f64::INFINITY),
             opts.log_r_lo,
             opts.log_r_hi,
             opts.golden_iters,
@@ -462,13 +643,15 @@ pub fn run_kalman_local_level(
 
 #[cfg(test)]
 mod tests {
-    use helio_scan::Scan;
+    use helio_scan::{FallibleRestoreScan, Scan};
 
     use super::*;
 
     #[test]
     fn snapshot_resume_matches_continuous() {
-        let y: Vec<f64> = (0..5000).map(|i| (i as f64).sin() * 0.01 + (i as f64) * 1e-5).collect();
+        let y: Vec<f64> = (0..5000)
+            .map(|i| (i as f64).sin() * 0.01 + (i as f64) * 1e-5)
+            .collect();
         let cfg = fit_local_level_mle(&y, LocalLevelMleOptions::default());
         let scan = KalmanLocalLevelScan::new(cfg);
 
@@ -525,5 +708,31 @@ mod tests {
         for (a, b) in outs.iter().zip(v2.iter()) {
             assert!((a.x_hat - b.x_hat).abs() < 1e-12);
         }
+    }
+
+    #[test]
+    fn guarded_scan_rejects_poison_values_atomically() {
+        let scan = GuardedKalmanLocalLevelScan::try_new(KalmanLocalLevelConfig::default()).unwrap();
+        let mut state = scan.init();
+        let before = state;
+        let mut emitted = VecEmitter::new();
+        scan.step(&mut state, f64::NAN, &mut emitted);
+        assert_eq!(state, before);
+        assert_eq!(emitted.0, [Err(KalmanError::NonFiniteObservation)]);
+
+        let invalid_snapshot = KalmanLocalLevelSnapshot {
+            x: f64::NAN,
+            p: 1.0,
+        };
+        assert_eq!(
+            scan.try_restore(invalid_snapshot),
+            Err(KalmanError::InvalidState)
+        );
+    }
+
+    #[test]
+    fn likelihood_fails_closed_on_non_finite_input() {
+        assert!(innovation_neg_loglik(&[0.0, f64::NAN], 1e-8, 1e-4).is_none());
+        assert!(innovation_neg_loglik(&[0.0, 1.0], f64::MAX, f64::MAX).is_none());
     }
 }

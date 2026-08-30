@@ -17,4 +17,5 @@ thiserror = "2"
 tokio = { version = "1", features = ["rt", "sync"], optional = true }
 
 [dev-dependencies]
+helio_stats = { path = "../helio_stats", default-features = false }
 serde_json = "1"

@@ -31,6 +31,13 @@ Authoritative links and how this repo uses them. Prefer **versioned files** or *
 
 See [docs/MARKET_DATA_PROVIDERS.md](docs/MARKET_DATA_PROVIDERS.md) for vendor comparison. Canonical **ticker** ids and provider symbol maps: [docs/INSTRUMENTS.md](docs/INSTRUMENTS.md).
 
+## Causal use
+
+Measurement time is not availability time. Research intended to simulate a precursor-time decision
+must retain source publication, receipt, revision, and quality timestamps. Observed Kp or Dst around
+a predicted arrival window is an outcome, not a trigger-time feature. The candidate Solar Shock
+Index excludes arrival-window Dst and reports missing trigger inputs explicitly.
+
 ## Facebook / Meta forecasting stacks (optional)
 
 | Package | Role in this repo | Install |

@@ -1,5 +1,7 @@
 //! Summary metrics on **simple returns** (e.g. per-bar or per-day fractions).
 
+use helio_stats::OnlineMoments;
+
 /// Annualized Sharpe from a **daily** simple-return series: `(mean / sample_std) * sqrt(252)`.
 ///
 /// Uses **sample** standard deviation (`n-1` denominator). Returns `None` if fewer than 2
@@ -8,19 +10,14 @@
 /// `252` is a conventional U.S. equity **trading** day count; swap scaling if your `returns`
 /// are on another cadence.
 pub fn sharpe_annualized_daily(returns: &[f64]) -> Option<f64> {
-    let n = returns.len();
-    if n < 2 {
-        return None;
+    let mut moments = OnlineMoments::new();
+    for &value in returns {
+        if moments.try_push(value).is_err() {
+            return None;
+        }
     }
-    let sum: f64 = returns.iter().sum();
-    let mean = sum / n as f64;
-    let mut acc = 0.0f64;
-    for r in returns {
-        let d = *r - mean;
-        acc += d * d;
-    }
-    let var = acc / (n - 1) as f64;
-    let std = var.sqrt();
+    let mean = moments.mean()?;
+    let std = moments.sample_stddev()?;
     if !std.is_finite() || std < 1e-12 {
         return None;
     }
@@ -43,5 +40,11 @@ mod tests {
     fn sharpe_none_on_constant() {
         let r = vec![0.01f64; 10];
         assert!(sharpe_annualized_daily(&r).is_none());
+    }
+
+    #[test]
+    fn sharpe_rejects_non_finite_and_unrepresentable_series() {
+        assert!(sharpe_annualized_daily(&[0.01, f64::NAN]).is_none());
+        assert!(sharpe_annualized_daily(&[f64::MAX, -f64::MAX]).is_none());
     }
 }

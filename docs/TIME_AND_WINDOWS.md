@@ -71,7 +71,11 @@ Additive helpers: `Samples<N>`, `Fixed<N, Days>`, `Sessions<N>`, etc. They conve
 
 `OnlineMoments` stores `(count, mean, M2)` and supports Welford updates, rolling removal, and Chan-style partial-state merges. `merge_moments_balanced` fixes a deterministic balanced merge tree for replay. Floating-point merges are associative only in exact arithmetic, so production partitioning and merge order must remain part of the pipeline fingerprint.
 
-`OnlineCovariance` provides mergeable marginal variances, covariance, and correlation. `OnlineMomentsScan`, `OnlineCovarianceScan`, and `HawkesScan` expose these states through the standard `Scan` / snapshot interfaces and reject invalid external snapshots through `FallibleRestoreScan`.
+`OnlineCovariance` provides mergeable marginal variances, covariance, and correlation.
+`CompensatedSum`, `ScaledSumSquares`, and `LogProbability` cover cancellation, stable norms, and
+conditional probability underflow. Their scan adapters, `OnlineMomentsScan`,
+`OnlineCovarianceScan`, and `HawkesScan` expose guarded state through the standard `Scan` and
+snapshot interfaces and reject invalid external snapshots through `FallibleRestoreScan`.
 
 ## Forward horizon
 

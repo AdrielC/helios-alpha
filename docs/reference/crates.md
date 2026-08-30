@@ -5,11 +5,11 @@
 | `helio_scan` | Kernel | State machines, emit sinks, controls, composition, persistence seams | Markets, bars, sessions, transports |
 | `helio_hypothesis` | Conditional runtime | Keyed lifecycle, typed model transitions, deadlines, supersession, bounded state, snapshots, actor service | Domain models, durable transactions, execution authority |
 | `helio_golem` | Durable adapter kernel | Atomic offset batches, invocation identities, shard snapshots | Golem SDK types, domain evidence, cloud deployment |
-| `helio_stats` | Statistics | Moments, covariance, Bayesian sufficient statistics, keyed Thompson decisions, Hawkes state | Hierarchical fitting, objectives, constraints, alpha claims |
+| `helio_stats` | Statistics | Stable moments, compensated sums, scaled norms, log probabilities, Bayesian state, Thompson decisions, Hawkes state | Hierarchical fitting, objectives, constraints, alpha claims |
 | `helio_time` | Semantics | Frequencies, interval bounds, bucket grids, availability | Operational buffers |
 | `helio_window` | Operations | Reorder, bucket reduction, rolling and session state | Strategy vocabulary |
 | `helio_event` | Proving ground | Event-shock model, filters, signal and simulated execution | Broker authorization |
-| `helio_backtest` | Harness | Clocks, fingerprints, Kalman research, terminal UI | Live execution guarantees |
+| `helio_backtest` | Harness | Clocks, fingerprints, guarded Kalman research, terminal UI | Live execution guarantees |
 | `helio_backtest_wasm` | Browser adapter | Browser-hosted backtest interface | Core numerical semantics |
 | `helios_signald` | Integration | Optional ZMQ signal bridge | Kernel abstractions |
 | `helio_bench` | Tooling | Criterion workloads and baselines | Runtime dependencies |

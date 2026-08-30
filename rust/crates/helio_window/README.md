@@ -15,6 +15,9 @@ If you need **time-keyed** expiry (wall clock, business calendar, watermarks), t
 
 ## Fold vs incremental summaries
 
+Use `GuardedEmaScan` for new floating-point smoothing pipelines. It validates alpha, input, live
+state, and restored snapshots, emits typed errors, and leaves state unchanged after rejection.
+
 - **`WindowState` + `EvictingWindowAggregator`** — incremental insert/evict summaries.
 - **`FoldWindowState`** — **O(window)** fold over the full buffer on each emit when the summary is not incrementally evictable.
 

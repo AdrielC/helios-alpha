@@ -4,14 +4,18 @@ version = "0.1.0"
 edition = "2021"
 description = "Mergeable, restartable online statistics for Helios stream pipelines"
 
+[features]
+default = ["bayes"]
+bayes = ["dep:hex", "dep:rand_chacha", "dep:rand_core", "dep:rand_distr", "dep:sha2"]
+
 [dependencies]
 helio_scan = { path = "../helio_scan" }
-hex = "0.4"
-rand_chacha = "=0.3.1"
-rand_core = "=0.6.4"
-rand_distr = "=0.4.3"
+hex = { version = "0.4", optional = true }
+rand_chacha = { version = "=0.3.1", optional = true }
+rand_core = { version = "=0.6.4", optional = true }
+rand_distr = { version = "=0.4.3", optional = true }
 serde = { version = "1", features = ["derive"] }
-sha2 = "0.10"
+sha2 = { version = "0.10", optional = true }
 thiserror = "2"
 
 [dev-dependencies]

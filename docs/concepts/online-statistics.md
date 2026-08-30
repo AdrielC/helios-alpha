@@ -2,6 +2,23 @@
 
 Streaming statistics must update one item at a time, merge partial partitions, and survive restart without changing their meaning.
 
+## Guarded accumulation
+
+`CompensatedSum` implements Neumaier's compensated sum, a stronger Kahan-family recurrence for
+mixed-magnitude and cancellation-heavy streams. Its correction term is part of the serialized
+state, so a checkpoint does not silently discard precision.
+
+`ScaledSumSquares` uses the scaled `xLASSQ` recurrence used by numerical linear algebra libraries.
+It can compute the norm of `[3e200, 4e200]` or `[3e-200, 4e-200]` without first forming squares that
+overflow or underflow.
+
+`LogProbability` stores the natural logarithm of a probability. Conditional products become sums.
+The ordinary probability may eventually round to zero, but the log value remains usable for
+comparison and downstream probability algebra.
+
+All three have `helio_scan` adapters, versioned snapshots, fallible restore, atomic rejection, and
+explicit non-finite or overflow errors.
+
 ## Variance: Welford locally, Chan across partitions
 
 `OnlineMoments` stores `(count, mean, M2)`, where `M2` is the sum of squared deviations from the mean.
@@ -28,6 +45,16 @@ Floating-point merging is associative only in exact arithmetic. Keep partitionin
 ## Rolling removal
 
 `try_remove` supports bounded windows. Removal is less robust than immutable block merges for long-lived, high-dynamic-range series. Rebuild periodically from the owned ring buffer or use a block merge tree when that error profile matters.
+
+## Forecast state
+
+`GuardedKalmanLocalLevelScan` is the fallible streaming adapter for the local-level forecast. It
+validates configuration, observations, live state, and restored snapshots. The covariance update
+uses Joseph form to preserve non-negativity under rounding. A rejected observation leaves the
+previous state unchanged.
+
+`GuardedEmaScan` applies the same policy to exponential smoothing: finite alpha in `[0, 1]`, finite
+input, finite restored state, fused multiply-add for the update, and no mutation after rejection.
 
 ## Covariance
 

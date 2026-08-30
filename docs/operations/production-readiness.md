@@ -11,7 +11,8 @@ orders. Treat the table below as an evidence ledger, not a maturity label.
 | Conditional inference | Keyed, bounded, atomic hypothesis runtime with deterministic deadlines and validated restore |
 | Service ownership | Single-owner engine or bounded Tokio actor; explicit mutex adapter for integration |
 | Event ordering | Capacity-bounded with typed late and overflow outcomes |
-| Online statistics | Stable updates, deterministic merge utility, validated snapshots |
+| Online statistics | Stable moments, compensated sums, scaled norms, log probabilities, validated snapshots |
+| Streaming forecasts | Atomic guarded Kalman adapter with explicit numerical rejection |
 | Restart | Versioned checkpoint, fingerprint, offset, watermark, fallible restore |
 | Replay | Incremental, batch, and checkpoint-resume equivalence tests |
 | Trading vertical | Research proving ground with simulated execution |
@@ -53,6 +54,10 @@ Model spread, fees, slippage, queue position, partial fills, latency, and capaci
 
 Expose source lag, watermark lag, pending reorder depth, rejected input, open buckets, checkpoint age, restore outcomes, signal counts, and sink acknowledgements. Alert on invariant violations, not only process liveness.
 
+For physical-event strategies, also expose source quality flags, publication-to-receipt latency,
+model version, revision count, probability-space conversion, and every numerical rejection. A
+non-finite forecast must stop the affected hypothesis transition without changing durable state.
+
 ### Deployment proof
 
 Run deterministic shadow mode, restart drills, corrupt-checkpoint tests, backpressure tests, and staged incident exercises before enabling order authorization.
@@ -66,6 +71,8 @@ Do not enable capital until the system can answer, from durable evidence:
 3. Which state was restored after the last failure?
 4. Which risk control authorized the order?
 5. Which market and cost assumptions supported the expected return?
+6. Which source revisions and availability timestamps formed the physical forecast?
+7. Did the strategy pass shadow execution using real publication latency and source outages?
 
 For the implemented durable shard and its remaining admission gates, read
 [Durable hypothesis execution on Golem](./golem-cloud).

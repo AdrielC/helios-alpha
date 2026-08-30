@@ -675,6 +675,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "helio_scan",
+ "helio_stats",
  "hex",
  "ratatui",
  "serde",
@@ -712,6 +713,7 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "helio_scan",
+ "helio_stats",
  "helio_time",
  "helio_window",
  "serde",
@@ -735,6 +737,7 @@ name = "helio_hypothesis"
 version = "0.1.0"
 dependencies = [
  "helio_scan",
+ "helio_stats",
  "helio_time",
  "serde",
  "serde_json",
@@ -787,6 +790,7 @@ dependencies = [
  "helio_time",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]

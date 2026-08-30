@@ -1,6 +1,7 @@
 //! Summary statistics over [`TradeResult`](crate::TradeResult).
 
 use helio_scan::{Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot};
+use helio_stats::{CompensatedSum, OnlineMoments};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -42,18 +43,26 @@ pub enum LabeledTradeResult {
 }
 
 fn mean(xs: &[f64]) -> f64 {
-    if xs.is_empty() {
-        return f64::NAN;
+    let mut moments = OnlineMoments::new();
+    for &value in xs {
+        if moments.try_push(value).is_err() {
+            return f64::NAN;
+        }
     }
-    xs.iter().sum::<f64>() / xs.len() as f64
+    moments.mean().unwrap_or(f64::NAN)
 }
 
-fn std_sample(xs: &[f64], m: f64) -> f64 {
+fn std_sample(xs: &[f64]) -> f64 {
     if xs.len() < 2 {
         return 0.0;
     }
-    let v = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / (xs.len() - 1) as f64;
-    v.sqrt()
+    let mut moments = OnlineMoments::new();
+    for &value in xs {
+        if moments.try_push(value).is_err() {
+            return f64::NAN;
+        }
+    }
+    moments.sample_stddev().unwrap_or(f64::NAN)
 }
 
 fn median(mut xs: Vec<f64>) -> f64 {
@@ -65,7 +74,7 @@ fn median(mut xs: Vec<f64>) -> f64 {
     if n % 2 == 1 {
         xs[n / 2]
     } else {
-        (xs[n / 2 - 1] + xs[n / 2]) / 2.0
+        0.5 * xs[n / 2 - 1] + 0.5 * xs[n / 2]
     }
 }
 
@@ -83,14 +92,16 @@ fn bootstrap_paired_diff_mean(pairs: &[(f64, f64)], seed: u64, iterations: u32) 
         return f64::NAN;
     }
     let mut s = Wrapping(seed);
-    let mut sum = 0.0f64;
+    let mut sum = CompensatedSum::new();
     let n = pairs.len();
     for _ in 0..iterations {
         s = s * Wrapping(6364136223846793005) + Wrapping(1);
         let i = (s.0 as usize) % n;
-        sum += pairs[i].0 - pairs[i].1;
+        if sum.try_push(pairs[i].0 - pairs[i].1).is_err() {
+            return f64::NAN;
+        }
     }
-    sum / iterations as f64
+    sum.try_total().unwrap_or(f64::NAN) / iterations as f64
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -139,7 +150,7 @@ impl Scan for EventShockMetricsFoldScan {
         let m = mean(&state.treatment_returns);
         let med = median(state.treatment_returns.clone());
         let hr = hit_rate(&state.treatment_returns);
-        let sd = std_sample(&state.treatment_returns, m);
+        let sd = std_sample(&state.treatment_returns);
         let boot = if !state.pairs.is_empty() {
             Some(bootstrap_paired_diff_mean(
                 &state.pairs,

@@ -117,4 +117,8 @@ impl<T: Clone, S: Clone, F: Fn(&[T]) -> S> FoldWindowState<T, S, F> {
     pub fn len(&self) -> usize {
         self.buf.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.buf.is_empty()
+    }
 }

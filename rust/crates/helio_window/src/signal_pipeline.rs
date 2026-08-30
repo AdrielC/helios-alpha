@@ -17,9 +17,13 @@
 use std::marker::PhantomData;
 use std::ops::Sub;
 
-use helio_scan::{Emit, FlushReason, FlushableScan, Scan, SnapshottingScan, VersionedSnapshot};
+use helio_scan::{
+    Emit, FallibleRestoreScan, FlushReason, FlushableScan, Scan, SnapshottingScan,
+    VersionedSnapshot,
+};
 use helio_time::{AvailableAt, NanosecondWallBucket, Timed, WallBucketGrid};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use thiserror::Error;
 
 // --- Event side: generic over bucket grid ---
 
@@ -260,9 +264,116 @@ pub struct EmaSnapshot {
     pub ema: Option<f64>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum EmaError {
+    #[error("EMA alpha must be finite and between zero and one")]
+    InvalidAlpha,
+    #[error("EMA input must be finite")]
+    NonFiniteInput,
+    #[error("EMA state or snapshot must be finite")]
+    InvalidState,
+    #[error("EMA arithmetic produced a non-finite result")]
+    NumericalOverflow,
+}
+
 impl EmaScan {
     pub fn new(alpha: f64) -> Self {
         Self { alpha }
+    }
+
+    pub fn try_new(alpha: f64) -> Result<Self, EmaError> {
+        if alpha.is_finite() && (0.0..=1.0).contains(&alpha) {
+            Ok(Self { alpha })
+        } else {
+            Err(EmaError::InvalidAlpha)
+        }
+    }
+
+    pub fn try_step(&self, state: &mut EmaState, input: f64) -> Result<f64, EmaError> {
+        if !self.alpha.is_finite() || !(0.0..=1.0).contains(&self.alpha) {
+            return Err(EmaError::InvalidAlpha);
+        }
+        if !input.is_finite() {
+            return Err(EmaError::NonFiniteInput);
+        }
+        if state.ema.is_some_and(|value| !value.is_finite()) {
+            return Err(EmaError::InvalidState);
+        }
+        let next = match state.ema {
+            None => input,
+            Some(previous) => self.alpha.mul_add(input, (1.0 - self.alpha) * previous),
+        };
+        if !next.is_finite() {
+            return Err(EmaError::NumericalOverflow);
+        }
+        state.ema = Some(next);
+        Ok(next)
+    }
+}
+
+/// Atomic, fallible EMA adapter for pipelines that cannot admit poison values.
+#[derive(Debug, Clone, Copy)]
+pub struct GuardedEmaScan {
+    inner: EmaScan,
+}
+
+impl GuardedEmaScan {
+    pub fn try_new(alpha: f64) -> Result<Self, EmaError> {
+        Ok(Self {
+            inner: EmaScan::try_new(alpha)?,
+        })
+    }
+}
+
+impl Scan for GuardedEmaScan {
+    type In = f64;
+    type Out = Result<f64, EmaError>;
+    type State = EmaState;
+
+    fn init(&self) -> Self::State {
+        EmaState { ema: None }
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        emit.emit(self.inner.try_step(state, input));
+    }
+}
+
+impl FlushableScan for GuardedEmaScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for GuardedEmaScan {
+    type Snapshot = EmaSnapshot;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        EmaSnapshot { ema: state.ema }
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        EmaState { ema: snapshot.ema }
+    }
+}
+
+impl FallibleRestoreScan for GuardedEmaScan {
+    type RestoreError = EmaError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        let state = self.restore(snapshot);
+        if state.ema.is_some_and(|value| !value.is_finite()) {
+            Err(EmaError::InvalidState)
+        } else {
+            Ok(state)
+        }
     }
 }
 
@@ -393,7 +504,7 @@ pub type SequentialDiffF64 = SequentialDiffScan<f64>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use helio_scan::VecEmitter;
+    use helio_scan::{FallibleRestoreScan, VecEmitter};
     use helio_time::SecondWallBucket;
 
     const MIN_NS: i64 = 60_000_000_000;
@@ -413,6 +524,24 @@ mod tests {
         fn mean_sample(&self) -> f64 {
             self.vol as f64
         }
+    }
+
+    #[test]
+    fn guarded_ema_rejects_non_finite_input_and_snapshot_atomically() {
+        let scan = GuardedEmaScan::try_new(0.25).unwrap();
+        let mut state = scan.init();
+        let mut emitted = VecEmitter::new();
+        scan.step(&mut state, 10.0, &mut emitted);
+        let before = state.clone();
+        scan.step(&mut state, f64::NAN, &mut emitted);
+        assert_eq!(state, before);
+        assert_eq!(emitted.0[1], Err(EmaError::NonFiniteInput));
+        assert_eq!(
+            scan.try_restore(EmaSnapshot {
+                ema: Some(f64::INFINITY),
+            }),
+            Err(EmaError::InvalidState)
+        );
     }
 
     #[test]

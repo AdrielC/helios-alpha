@@ -189,3 +189,9 @@ measurements, then benchmark the complete strategy with real state and sinks.
 
 The complete hypothetical conditional chain is executable in
 `rust/crates/helio_hypothesis/examples/conditional_shock.rs`.
+
+The motivating space-weather chain is executable in
+`rust/crates/helio_hypothesis/examples/space_weather.rs` and verified by
+`rust/crates/helio_hypothesis/tests/space_weather_reference.rs`. Read the
+[space-weather reference guide](../guide/space-weather-reference) for its causal and production
+boundaries.

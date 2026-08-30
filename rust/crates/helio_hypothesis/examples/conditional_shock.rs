@@ -8,6 +8,7 @@ use helio_hypothesis::{
     CausalEvidence, HypothesisConfig, HypothesisEngine, HypothesisEvent, HypothesisInput,
     HypothesisModel, HypothesisTransition, KeyedHypothesisMachine, TimerId,
 };
+use helio_stats::LogProbability;
 use helio_time::{AvailableAt, EffectiveAt};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -33,7 +34,7 @@ enum Stage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct State {
     stage: Stage,
-    joint_probability: f64,
+    joint_probability: LogProbability,
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +44,7 @@ enum Action {
     RequestMarketModel,
     Candidate {
         joint_probability: f64,
+        log_joint_probability: f64,
         expected_net_effect: f64,
     },
     Expired,
@@ -85,7 +87,8 @@ impl HypothesisModel<String> for ConditionalShockModel {
         let Evidence::Precursor { probability } = evidence.payload else {
             return Err(ModelError::UnexpectedEvidence);
         };
-        let probability = Self::probability(probability)?;
+        let probability = LogProbability::try_from_probability(Self::probability(probability)?)
+            .map_err(|_| ModelError::InvalidProbability)?;
         Ok(HypothesisTransition::new(State {
             stage: Stage::AwaitingPropagation,
             joint_probability: probability,
@@ -108,7 +111,10 @@ impl HypothesisModel<String> for ConditionalShockModel {
                     intersection_probability,
                 },
             ) => {
-                state.joint_probability *= Self::probability(intersection_probability)?;
+                state.joint_probability = state
+                    .joint_probability
+                    .try_multiply_probability(Self::probability(intersection_probability)?)
+                    .map_err(|_| ModelError::InvalidProbability)?;
                 state.stage = Stage::AwaitingImpact;
                 Ok(HypothesisTransition::new(state)
                     .cancel(RESPONSE_DEADLINE)
@@ -121,7 +127,10 @@ impl HypothesisModel<String> for ConditionalShockModel {
                     disruption_probability,
                 },
             ) => {
-                state.joint_probability *= Self::probability(disruption_probability)?;
+                state.joint_probability = state
+                    .joint_probability
+                    .try_multiply_probability(Self::probability(disruption_probability)?)
+                    .map_err(|_| ModelError::InvalidProbability)?;
                 state.stage = Stage::AwaitingMarketResponse;
                 Ok(HypothesisTransition::new(state)
                     .cancel(RESPONSE_DEADLINE)
@@ -135,10 +144,12 @@ impl HypothesisModel<String> for ConditionalShockModel {
                 },
             ) if expected_net_effect.is_finite() => {
                 state.stage = Stage::Candidate;
-                let joint_probability = state.joint_probability;
+                let joint_probability = state.joint_probability.probability();
+                let log_joint_probability = state.joint_probability.ln_probability();
                 Ok(HypothesisTransition::new(state)
                     .emit(Action::Candidate {
                         joint_probability,
+                        log_joint_probability,
                         expected_net_effect,
                     })
                     .complete())
@@ -160,11 +171,10 @@ impl HypothesisModel<String> for ConditionalShockModel {
     }
 
     fn validate(&self, _key: &String, state: &Self::State) -> Result<(), Self::Error> {
-        if state.joint_probability.is_finite() && (0.0..=1.0).contains(&state.joint_probability) {
-            Ok(())
-        } else {
-            Err(ModelError::InvalidState)
-        }
+        state
+            .joint_probability
+            .validate()
+            .map_err(|_| ModelError::InvalidState)
     }
 }
 
@@ -229,11 +239,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     output:
                         Action::Candidate {
                             joint_probability,
+                            log_joint_probability,
                             expected_net_effect,
                         },
                     ..
                 } => println!(
-                    "candidate probability={joint_probability:.3} net_effect={expected_net_effect:.4}"
+                    "candidate probability={joint_probability:.3} log_probability={log_joint_probability:.3} net_effect={expected_net_effect:.4}"
                 ),
                 other => println!("{other:?}"),
             }

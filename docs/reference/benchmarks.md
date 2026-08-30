@@ -14,6 +14,8 @@ The following figures are development-machine observations from the August 2026 
 | Workload | Observed local throughput |
 |---|---:|
 | Welford moments update | about 108 million samples/s |
+| Neumaier-compensated sum | about 145 million samples/s |
+| Scaled sum-of-squares norm | about 127 million samples/s |
 | Online covariance update | about 131 to 137 million pairs/s |
 | Normal-Inverse-Gamma update | about 105 million samples/s |
 | Keyed Gamma-Poisson posterior draw | about 221 ns per draw, or 4.5 million draws/s |

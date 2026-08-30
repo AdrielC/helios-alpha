@@ -6,6 +6,7 @@ description = "Event-study and event-shock strategy pipelines on helio_scan (dom
 
 [dependencies]
 helio_scan = { path = "../helio_scan" }
+helio_stats = { path = "../helio_stats", default-features = false }
 helio_time = { path = "../helio_time" }
 helio_window = { path = "../helio_window" }
 serde = { version = "1", features = ["derive"] }

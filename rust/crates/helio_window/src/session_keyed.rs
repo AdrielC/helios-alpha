@@ -69,6 +69,10 @@ impl<T: Clone, A: EvictingWindowAggregator<T>, C: TradingCalendar + Copy>
         self.deque.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.deque.is_empty()
+    }
+
     pub fn clear(&mut self) {
         self.deque.clear();
         self.agg.clear();

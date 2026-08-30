@@ -6,6 +6,7 @@ description = "Deterministic backtest harness: clock abstraction, pipeline finge
 
 [dependencies]
 helio_scan = { path = "../helio_scan" }
+helio_stats = { path = "../helio_stats", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

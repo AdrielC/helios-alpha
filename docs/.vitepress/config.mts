@@ -43,6 +43,10 @@ export default defineConfig({
         items: [
           { text: "Start with a question", link: "/guide/quickstart" },
           {
+            text: "Trade space weather",
+            link: "/guide/space-weather-reference",
+          },
+          {
             text: "Build a 10-minute signal",
             link: "/guide/compose-a-strategy",
           },

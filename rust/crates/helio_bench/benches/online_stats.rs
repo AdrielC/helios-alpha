@@ -2,8 +2,8 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use helio_stats::{
-    merge_moments_balanced, GammaPoisson, NormalInverseGamma, OnlineCovariance, OnlineMoments,
-    ScalarPosterior, StrategyFingerprint, ThompsonKey,
+    merge_moments_balanced, CompensatedSum, GammaPoisson, NormalInverseGamma, OnlineCovariance,
+    OnlineMoments, ScalarPosterior, ScaledSumSquares, StrategyFingerprint, ThompsonKey,
 };
 
 const N: usize = 65_536;
@@ -70,6 +70,31 @@ fn online_covariance(c: &mut Criterion) {
     group.finish();
 }
 
+fn guarded_accumulators(c: &mut Criterion) {
+    let values = values();
+    let mut group = c.benchmark_group("guarded_accumulators");
+    group.throughput(Throughput::Elements(N as u64));
+    group.bench_function("neumaier_sum_65536", |b| {
+        b.iter(|| {
+            let mut state = CompensatedSum::new();
+            for &value in &values {
+                state.try_push(black_box(value)).unwrap();
+            }
+            black_box(state.try_total().unwrap())
+        });
+    });
+    group.bench_function("scaled_norm_65536", |b| {
+        b.iter(|| {
+            let mut state = ScaledSumSquares::new();
+            for &value in &values {
+                state.try_push(black_box(value)).unwrap();
+            }
+            black_box(state.try_norm().unwrap())
+        });
+    });
+    group.finish();
+}
+
 fn bayesian_updates(c: &mut Criterion) {
     let effect = NormalInverseGamma::try_new(0.0, 1.0, 2.0, 1.0).unwrap();
     let observations: Vec<f64> = (0..N)
@@ -115,6 +140,7 @@ criterion_group!(
     online_moments,
     balanced_merge,
     online_covariance,
+    guarded_accumulators,
     bayesian_updates
 );
 criterion_main!(benches);

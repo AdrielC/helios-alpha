@@ -82,7 +82,13 @@ Run the complete illustrative chain:
 
 ```bash
 cargo run -p helio_hypothesis --example conditional_shock
+cargo run -p helio_hypothesis --example space_weather
+cargo test -p helio_hypothesis --test space_weather_reference
 ```
+
+The space-weather example is the reference vertical. It carries a trigger through CME propagation,
+infrastructure impact, and market assessment, multiplies conditional probabilities in log space,
+survives checkpoint restore exactly, and emits a candidate with no order authority.
 
 The example is hypothetical and demonstrates control flow, not scientific calibration.
 

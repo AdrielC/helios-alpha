@@ -6,11 +6,189 @@ use helio_scan::{
 };
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "bayes")]
 use crate::{
-    BayesError, ExponentialHawkes, GammaPoisson, GammaPoissonPosterior, GammaPoissonState,
-    HawkesError, HawkesState, HawkesUpdate, NormalInverseGamma, NormalInverseGammaPosterior,
-    NormalInverseGammaState, OnlineCovariance, OnlineMoments, StatsError,
+    BayesError, GammaPoisson, GammaPoissonPosterior, GammaPoissonState, NormalInverseGamma,
+    NormalInverseGammaPosterior, NormalInverseGammaState,
 };
+use crate::{
+    CompensatedSum, ExponentialHawkes, HawkesError, HawkesState, HawkesUpdate, LogProbability,
+    NumericalError, OnlineCovariance, OnlineMoments, ScaledSumSquares, StatsError,
+};
+
+/// Restartable Neumaier-compensated sum.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CompensatedSumScan;
+
+impl Scan for CompensatedSumScan {
+    type In = f64;
+    type Out = Result<f64, NumericalError>;
+    type State = CompensatedSum;
+
+    fn init(&self) -> Self::State {
+        CompensatedSum::new()
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        let result = state.try_push(input).and_then(|()| state.try_total());
+        emit.emit(result);
+    }
+}
+
+impl FlushableScan for CompensatedSumScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for CompensatedSumScan {
+    type Snapshot = CompensatedSum;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        *state
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        snapshot
+    }
+}
+
+impl FallibleRestoreScan for CompensatedSumScan {
+    type RestoreError = NumericalError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        snapshot.validate()?;
+        Ok(snapshot)
+    }
+}
+
+impl VersionedSnapshot for CompensatedSum {
+    const VERSION: u32 = 1;
+}
+
+/// Restartable scaled sum of squares. Emits the stable Euclidean norm.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ScaledSumSquaresScan;
+
+impl Scan for ScaledSumSquaresScan {
+    type In = f64;
+    type Out = Result<f64, NumericalError>;
+    type State = ScaledSumSquares;
+
+    fn init(&self) -> Self::State {
+        ScaledSumSquares::new()
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        let result = state.try_push(input).and_then(|()| state.try_norm());
+        emit.emit(result);
+    }
+}
+
+impl FlushableScan for ScaledSumSquaresScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for ScaledSumSquaresScan {
+    type Snapshot = ScaledSumSquares;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        *state
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        snapshot
+    }
+}
+
+impl FallibleRestoreScan for ScaledSumSquaresScan {
+    type RestoreError = NumericalError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        snapshot.validate()?;
+        Ok(snapshot)
+    }
+}
+
+impl VersionedSnapshot for ScaledSumSquares {
+    const VERSION: u32 = 1;
+}
+
+/// Restartable product of conditional probabilities in log space.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LogProbabilityProductScan;
+
+impl Scan for LogProbabilityProductScan {
+    type In = f64;
+    type Out = Result<LogProbability, NumericalError>;
+    type State = LogProbability;
+
+    fn init(&self) -> Self::State {
+        LogProbability::one()
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        let result = state.try_multiply_probability(input);
+        if let Ok(next) = result {
+            *state = next;
+        }
+        emit.emit(result);
+    }
+}
+
+impl FlushableScan for LogProbabilityProductScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for LogProbabilityProductScan {
+    type Snapshot = LogProbability;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        *state
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        snapshot
+    }
+}
+
+impl FallibleRestoreScan for LogProbabilityProductScan {
+    type RestoreError = NumericalError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        snapshot.validate()?;
+        Ok(snapshot)
+    }
+}
+
+impl VersionedSnapshot for LogProbability {
+    const VERSION: u32 = 1;
+}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct OnlineMomentsScan;
@@ -128,23 +306,27 @@ impl VersionedSnapshot for OnlineCovariance {
     const VERSION: u32 = 1;
 }
 
+#[cfg(feature = "bayes")]
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct CountExposure {
     pub count: u64,
     pub exposure: f64,
 }
 
+#[cfg(feature = "bayes")]
 #[derive(Debug, Clone, Copy)]
 pub struct GammaPoissonScan {
     pub model: GammaPoisson,
 }
 
+#[cfg(feature = "bayes")]
 impl GammaPoissonScan {
     pub const fn new(model: GammaPoisson) -> Self {
         Self { model }
     }
 }
 
+#[cfg(feature = "bayes")]
 impl Scan for GammaPoissonScan {
     type In = CountExposure;
     type Out = Result<GammaPoissonPosterior, BayesError>;
@@ -169,6 +351,7 @@ impl Scan for GammaPoissonScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl FlushableScan for GammaPoissonScan {
     type Offset = u64;
 
@@ -179,6 +362,7 @@ impl FlushableScan for GammaPoissonScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl SnapshottingScan for GammaPoissonScan {
     type Snapshot = GammaPoissonState;
 
@@ -191,6 +375,7 @@ impl SnapshottingScan for GammaPoissonScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl FallibleRestoreScan for GammaPoissonScan {
     type RestoreError = BayesError;
 
@@ -201,21 +386,25 @@ impl FallibleRestoreScan for GammaPoissonScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl VersionedSnapshot for GammaPoissonState {
     const VERSION: u32 = 1;
 }
 
+#[cfg(feature = "bayes")]
 #[derive(Debug, Clone, Copy)]
 pub struct NormalInverseGammaScan {
     pub model: NormalInverseGamma,
 }
 
+#[cfg(feature = "bayes")]
 impl NormalInverseGammaScan {
     pub const fn new(model: NormalInverseGamma) -> Self {
         Self { model }
     }
 }
 
+#[cfg(feature = "bayes")]
 impl Scan for NormalInverseGammaScan {
     type In = f64;
     type Out = Result<NormalInverseGammaPosterior, BayesError>;
@@ -240,6 +429,7 @@ impl Scan for NormalInverseGammaScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl FlushableScan for NormalInverseGammaScan {
     type Offset = u64;
 
@@ -250,6 +440,7 @@ impl FlushableScan for NormalInverseGammaScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl SnapshottingScan for NormalInverseGammaScan {
     type Snapshot = NormalInverseGammaState;
 
@@ -262,6 +453,7 @@ impl SnapshottingScan for NormalInverseGammaScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl FallibleRestoreScan for NormalInverseGammaScan {
     type RestoreError = BayesError;
 
@@ -272,6 +464,7 @@ impl FallibleRestoreScan for NormalInverseGammaScan {
     }
 }
 
+#[cfg(feature = "bayes")]
 impl VersionedSnapshot for NormalInverseGammaState {
     const VERSION: u32 = 1;
 }
@@ -364,6 +557,30 @@ mod tests {
     }
 
     #[test]
+    fn guarded_numeric_scans_resume_without_losing_hidden_state() {
+        let sum_scan = CompensatedSumScan;
+        let mut sum = sum_scan.init();
+        let mut emitted = VecEmitter::new();
+        sum_scan.step(&mut sum, 1e16, &mut emitted);
+        sum_scan.step(&mut sum, 1.0, &mut emitted);
+        sum = sum_scan.try_restore(sum_scan.snapshot(&sum)).unwrap();
+        sum_scan.step(&mut sum, -1e16, &mut emitted);
+        assert_eq!(emitted.0.last(), Some(&Ok(1.0)));
+
+        let probability_scan = LogProbabilityProductScan;
+        let mut probability = probability_scan.init();
+        let mut products = VecEmitter::new();
+        probability_scan.step(&mut probability, 1e-200, &mut products);
+        probability = probability_scan
+            .try_restore(probability_scan.snapshot(&probability))
+            .unwrap();
+        probability_scan.step(&mut probability, 1e-200, &mut products);
+        let product = products.0.last().copied().unwrap().unwrap();
+        assert_eq!(product.probability(), 0.0);
+        assert!(product.ln_probability().is_finite());
+    }
+
+    #[test]
     fn hawkes_scan_snapshot_resume_matches_continuous() {
         let model = ExponentialHawkes::try_new(0.1, 0.2, 1.0).unwrap();
         let scan = HawkesScan::new(model);
@@ -389,6 +606,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "bayes")]
     fn bayesian_scans_resume_with_identical_posteriors() {
         let model = NormalInverseGamma::try_new(0.0, 1.0, 2.0, 3.0).unwrap();
         let scan = NormalInverseGammaScan::new(model);
@@ -439,12 +657,15 @@ mod tests {
             Err(HawkesError::InvalidSnapshot)
         );
 
-        let invalid: GammaPoissonState =
-            serde_json::from_str(r#"{"event_count":1,"exposure":0.0}"#).unwrap();
-        let model = GammaPoisson::try_new(1.0, 1.0).unwrap();
-        assert_eq!(
-            GammaPoissonScan::new(model).try_restore(invalid),
-            Err(BayesError::InvalidSnapshot)
-        );
+        #[cfg(feature = "bayes")]
+        {
+            let invalid: GammaPoissonState =
+                serde_json::from_str(r#"{"event_count":1,"exposure":0.0}"#).unwrap();
+            let model = GammaPoisson::try_new(1.0, 1.0).unwrap();
+            assert_eq!(
+                GammaPoissonScan::new(model).try_restore(invalid),
+                Err(BayesError::InvalidSnapshot)
+            );
+        }
     }
 }
