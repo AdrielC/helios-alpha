@@ -7,8 +7,9 @@ use helio_scan::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ExponentialHawkes, HawkesError, HawkesState, HawkesUpdate, OnlineCovariance, OnlineMoments,
-    StatsError,
+    BayesError, ExponentialHawkes, GammaPoisson, GammaPoissonPosterior, GammaPoissonState,
+    HawkesError, HawkesState, HawkesUpdate, NormalInverseGamma, NormalInverseGammaPosterior,
+    NormalInverseGammaState, OnlineCovariance, OnlineMoments, StatsError,
 };
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -128,6 +129,154 @@ impl VersionedSnapshot for OnlineCovariance {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct CountExposure {
+    pub count: u64,
+    pub exposure: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct GammaPoissonScan {
+    pub model: GammaPoisson,
+}
+
+impl GammaPoissonScan {
+    pub const fn new(model: GammaPoisson) -> Self {
+        Self { model }
+    }
+}
+
+impl Scan for GammaPoissonScan {
+    type In = CountExposure;
+    type Out = Result<GammaPoissonPosterior, BayesError>;
+    type State = GammaPoissonState;
+
+    fn init(&self) -> Self::State {
+        self.model.init()
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        let mut next = *state;
+        let result = next
+            .try_observe(input.count, input.exposure)
+            .and_then(|()| self.model.try_posterior(&next));
+        if result.is_ok() {
+            *state = next;
+        }
+        emit.emit(result);
+    }
+}
+
+impl FlushableScan for GammaPoissonScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for GammaPoissonScan {
+    type Snapshot = GammaPoissonState;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        *state
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        snapshot
+    }
+}
+
+impl FallibleRestoreScan for GammaPoissonScan {
+    type RestoreError = BayesError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        snapshot.validate()?;
+        self.model.try_posterior(&snapshot)?;
+        Ok(snapshot)
+    }
+}
+
+impl VersionedSnapshot for GammaPoissonState {
+    const VERSION: u32 = 1;
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct NormalInverseGammaScan {
+    pub model: NormalInverseGamma,
+}
+
+impl NormalInverseGammaScan {
+    pub const fn new(model: NormalInverseGamma) -> Self {
+        Self { model }
+    }
+}
+
+impl Scan for NormalInverseGammaScan {
+    type In = f64;
+    type Out = Result<NormalInverseGammaPosterior, BayesError>;
+    type State = NormalInverseGammaState;
+
+    fn init(&self) -> Self::State {
+        self.model.init()
+    }
+
+    fn step<E>(&self, state: &mut Self::State, input: Self::In, emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+        let mut next = *state;
+        let result = next
+            .try_observe(input)
+            .and_then(|()| self.model.try_posterior(&next));
+        if result.is_ok() {
+            *state = next;
+        }
+        emit.emit(result);
+    }
+}
+
+impl FlushableScan for NormalInverseGammaScan {
+    type Offset = u64;
+
+    fn flush<E>(&self, _state: &mut Self::State, _signal: FlushReason<Self::Offset>, _emit: &mut E)
+    where
+        E: Emit<Self::Out>,
+    {
+    }
+}
+
+impl SnapshottingScan for NormalInverseGammaScan {
+    type Snapshot = NormalInverseGammaState;
+
+    fn snapshot(&self, state: &Self::State) -> Self::Snapshot {
+        *state
+    }
+
+    fn restore(&self, snapshot: Self::Snapshot) -> Self::State {
+        snapshot
+    }
+}
+
+impl FallibleRestoreScan for NormalInverseGammaScan {
+    type RestoreError = BayesError;
+
+    fn try_restore(&self, snapshot: Self::Snapshot) -> Result<Self::State, Self::RestoreError> {
+        snapshot.validate()?;
+        self.model.try_posterior(&snapshot)?;
+        Ok(snapshot)
+    }
+}
+
+impl VersionedSnapshot for NormalInverseGammaState {
+    const VERSION: u32 = 1;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct HawkesEvent {
     pub timestamp: i64,
     pub mark: f64,
@@ -240,6 +389,37 @@ mod tests {
     }
 
     #[test]
+    fn bayesian_scans_resume_with_identical_posteriors() {
+        let model = NormalInverseGamma::try_new(0.0, 1.0, 2.0, 3.0).unwrap();
+        let scan = NormalInverseGammaScan::new(model);
+        let mut continuous = scan.init();
+        let mut resumed = scan.init();
+        let mut left = VecEmitter::new();
+        let mut right = VecEmitter::new();
+        scan.step(&mut continuous, 0.5, &mut left);
+        scan.step(&mut resumed, 0.5, &mut right);
+        resumed = scan.try_restore(scan.snapshot(&resumed)).unwrap();
+        scan.step(&mut continuous, 1.25, &mut left);
+        scan.step(&mut resumed, 1.25, &mut right);
+        assert_eq!(continuous, resumed);
+        assert_eq!(left.0, right.0);
+
+        let rate = GammaPoisson::try_new(1.0, 1.0).unwrap();
+        let scan = GammaPoissonScan::new(rate);
+        let mut state = scan.init();
+        let mut emit = VecEmitter::new();
+        scan.step(
+            &mut state,
+            CountExposure {
+                count: 2,
+                exposure: 4.0,
+            },
+            &mut emit,
+        );
+        assert_eq!(emit.0[0].unwrap().mean_rate(), 3.0 / 5.0);
+    }
+
+    #[test]
     fn fallible_restore_rejects_corrupt_statistical_state() {
         let invalid: OnlineMoments =
             serde_json::from_str(r#"{"count":1,"mean":0.0,"m2":-1.0}"#).unwrap();
@@ -257,6 +437,14 @@ mod tests {
         assert_eq!(
             HawkesScan::new(model).try_restore(invalid),
             Err(HawkesError::InvalidSnapshot)
+        );
+
+        let invalid: GammaPoissonState =
+            serde_json::from_str(r#"{"event_count":1,"exposure":0.0}"#).unwrap();
+        let model = GammaPoisson::try_new(1.0, 1.0).unwrap();
+        assert_eq!(
+            GammaPoissonScan::new(model).try_restore(invalid),
+            Err(BayesError::InvalidSnapshot)
         );
     }
 }

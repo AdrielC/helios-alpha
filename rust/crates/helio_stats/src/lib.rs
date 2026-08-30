@@ -10,9 +10,11 @@ use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod bayes;
 mod hawkes;
 mod scans;
 
+pub use bayes::*;
 pub use hawkes::*;
 pub use scans::*;
 

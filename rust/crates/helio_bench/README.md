@@ -28,6 +28,7 @@ cargo bench -p helio_bench --no-run
 | `event_shock_vertical.rs` | event-shock ingest → align → signal → e2e replay + checkpoint restart |
 | `time_keyed_windows.rs` | time-keyed + session-keyed rolling vs sample-count baseline |
 | `checkpoint_cadence.rs` | vertical replay with snapshot/restore every 1 / 64 / 256 / 1024 steps |
+| `online_stats.rs` | Welford and covariance updates, balanced merges, Bayesian updates, and keyed posterior draws |
 
 Documented medians and **manual triage thresholds** (not CI-enforced yet): repo root `docs/EVENT_SHOCK_BENCHMARKS.md`.
 

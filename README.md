@@ -23,7 +23,7 @@ Under `rust/` lives a **Cargo workspace** of small crates with strict boundaries
 | Crate | Responsibility |
 |-------|------------------|
 | **`helio_scan`** | **Domain-free algebra**: `Scan` / `FlushableScan` / `SnapshottingScan`, combinators, checkpoints, **opaque batching by default** (`ScanBatchExt`), **opt-in** `BatchOptimizedScan`, **runners** (`run_iter`, `run_batch`, `run_receiver`, optional async `run_stream`) — transports stay *outside* the core traits. |
-| **`helio_stats`** | **Domain-free online statistics**: mergeable moments/covariance, deterministic balanced reduction, rolling removal, and a restartable exponential Hawkes intensity scan. |
+| **`helio_stats`** | **Domain-free online statistics**: mergeable moments/covariance, Gamma-Poisson arrivals, Normal-Inverse-Gamma effects, keyed constrained Thompson decisions, deterministic balanced reduction, and restartable Hawkes intensity. |
 | **`helio_time`** | **Semantics only**: `Frequency`, `Bounds`, `BucketSpec`, `WindowSpec`, `Timed<T>`, `AvailableAt`, availability gates — *what* a window means in domain language, **not** automatic eviction of every variant. |
 | **`helio_window`** | **Operational machinery**: ring buffers, aggregators, rolling/session/horizon scans — **today many rolling paths are sample-count-driven**; rich `WindowSpec` can describe more than the ring buffer enforces until time-keyed expiry is implemented (see [docs/TIME_AND_WINDOWS.md](docs/TIME_AND_WINDOWS.md)). |
 | **`helio_event`** | **Event-shock strategies** on the scan stack: causal **event-study** harnesses *and* a domain-agnostic **event-shock vertical** (`EventShock`, lead-time filters, signal generation, replay). Intended to **stress-test** the stack; may split later if it grows. |
@@ -31,6 +31,8 @@ Under `rust/` lives a **Cargo workspace** of small crates with strict boundaries
 | **`helios_signald`** | Optional **ZMQ** bridge toward live signals (needs system **libzmq** and a C++ toolchain to build). |
 
 **Design invariants** worth preserving: **one step at a time** in the kernel; **batching as adapters** unless a lawful optimized batch exists; **semantic time** in `helio_time` vs **rolling operations** in `helio_window`; **replay and snapshot tests** in `helio_event` to lock determinism.
+
+The Bayesian path is documented in [Bayesian streams](docs/concepts/bayesian-streams.md) and [Bayesian event portfolios](docs/research/bayesian-event-portfolios.md). It produces replayable research candidates under injected constraints. It does not provide order authority or evidence of profitable alpha.
 
 ### How the two sides connect
 

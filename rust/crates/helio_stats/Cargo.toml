@@ -6,6 +6,9 @@ description = "Mergeable, restartable online statistics for Helios stream pipeli
 
 [dependencies]
 helio_scan = { path = "../helio_scan" }
+rand_chacha = "=0.3.1"
+rand_core = "=0.6.4"
+rand_distr = "=0.4.3"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 

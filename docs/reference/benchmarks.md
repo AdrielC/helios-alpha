@@ -15,6 +15,8 @@ The following figures are development-machine observations from the August 2026 
 |---|---:|
 | Welford moments update | about 108 million samples/s |
 | Online covariance update | about 131 to 137 million pairs/s |
+| Normal-Inverse-Gamma update | about 105 million samples/s |
+| Keyed Gamma-Poisson posterior draw | about 221 ns per draw, or 4.5 million draws/s |
 | Rolling moments | about 49 to 51 million samples/s |
 | Allocation-free `Then` composition | about 1.87 billion items/s |
 | Event vertical fixture | about 5.3 ms per workload |

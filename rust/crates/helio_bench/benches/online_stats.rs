@@ -1,7 +1,10 @@
 //! Online update and deterministic parallel-merge costs.
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use helio_stats::{merge_moments_balanced, OnlineCovariance, OnlineMoments};
+use helio_stats::{
+    merge_moments_balanced, GammaPoisson, NormalInverseGamma, OnlineCovariance, OnlineMoments,
+    ScalarPosterior, ThompsonKey,
+};
 
 const N: usize = 65_536;
 
@@ -67,5 +70,47 @@ fn online_covariance(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, online_moments, balanced_merge, online_covariance);
+fn bayesian_updates(c: &mut Criterion) {
+    let effect = NormalInverseGamma::try_new(0.0, 1.0, 2.0, 1.0).unwrap();
+    let observations: Vec<f64> = (0..N)
+        .map(|index| (index as f64 * 0.013).sin() * 0.02)
+        .collect();
+    let mut group = c.benchmark_group("bayesian_streams");
+    group.throughput(Throughput::Elements(N as u64));
+    group.bench_function("normal_inverse_gamma_push_65536", |b| {
+        b.iter(|| {
+            let mut state = effect.init();
+            for &value in &observations {
+                state.try_observe(black_box(value)).unwrap();
+            }
+            black_box(effect.try_posterior(&state).unwrap())
+        });
+    });
+
+    let arrivals = GammaPoisson::try_new(1.0, 60.0).unwrap();
+    let mut state = arrivals.init();
+    state.try_observe(37, 3_600.0).unwrap();
+    let posterior = arrivals.try_posterior(&state).unwrap();
+    group.throughput(Throughput::Elements(1));
+    group.bench_function("keyed_gamma_poisson_draw", |b| {
+        let mut decision = 0_u64;
+        b.iter(|| {
+            decision = decision.wrapping_add(1);
+            black_box(
+                posterior
+                    .try_draw(ThompsonKey::new(7, black_box(decision), 11))
+                    .unwrap(),
+            )
+        });
+    });
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    online_moments,
+    balanced_merge,
+    online_covariance,
+    bayesian_updates
+);
 criterion_main!(benches);

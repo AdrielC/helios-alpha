@@ -42,3 +42,9 @@ Floating-point merging is associative only in exact arithmetic. Keep partitionin
 ```
 
 This is an online filter, not a fitting procedure and not evidence of predictability. Fit parameters out of sample, validate residuals, and include mark and regime assumptions before using intensity as a research feature.
+
+## Bayesian sufficient statistics
+
+`helio_stats` also provides Gamma-Poisson arrival-rate state, Normal-Inverse-Gamma effect state, and a constrained Thompson selector with deterministic keyed draws. The Bayesian states reuse the same merge, snapshot, validation, and scan contracts described above.
+
+Read [Bayesian streams](./bayesian-streams) for the formulas and replay contract, then [Build a constrained Thompson portfolio](../guide/build-a-thompson-portfolio) for a multi-frequency composition.

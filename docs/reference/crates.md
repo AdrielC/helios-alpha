@@ -3,7 +3,7 @@
 | Crate | Layer | Owns | Does not own |
 |---|---|---|---|
 | `helio_scan` | Kernel | State machines, emit sinks, controls, composition, persistence seams | Markets, bars, sessions, transports |
-| `helio_stats` | Statistics | Moments, covariance, deterministic merge utility, Hawkes state | Parameter fitting, alpha claims |
+| `helio_stats` | Statistics | Moments, covariance, Bayesian sufficient statistics, keyed Thompson decisions, Hawkes state | Hierarchical fitting, objectives, constraints, alpha claims |
 | `helio_time` | Semantics | Frequencies, interval bounds, bucket grids, availability | Operational buffers |
 | `helio_window` | Operations | Reorder, bucket reduction, rolling and session state | Strategy vocabulary |
 | `helio_event` | Proving ground | Event-shock model, filters, signal and simulated execution | Broker authorization |

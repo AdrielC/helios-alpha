@@ -16,6 +16,7 @@
   --atlas-ground: #f9f9f9;
   --atlas-ink: #14223d;
   --atlas-muted: #5d687b;
+  --atlas-axis: #87909e;
   --atlas-blue: #0b4cb6;
   --atlas-blue-soft: #e4ecf8;
   --atlas-oxide: #b8535c;
@@ -739,7 +740,7 @@ textarea,
 }
 
 .axis {
-  stroke: #87909e;
+  stroke: var(--atlas-axis);
   stroke-width: 1;
 }
 
@@ -1027,6 +1028,573 @@ textarea,
   color: var(--atlas-oxide);
 }
 
+.plot-pan-note,
+.posterior-pan-note {
+  display: none;
+}
+
+.posterior-observatory {
+  padding: 30px 42px 26px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--atlas-rule);
+  background:
+    linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), var(--atlas-rule-soft) calc(100% - 1px)),
+    var(--atlas-ground);
+}
+
+.posterior-heading {
+  display: flex;
+  gap: 36px;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.posterior-heading h2 {
+  max-width: 17ch;
+  margin: 0;
+  font-size: clamp(30px, 3.5vw, 52px);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.posterior-heading p {
+  max-width: 67ch;
+  margin: 14px 0 0;
+  color: var(--atlas-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.posterior-heading > a {
+  flex: 0 0 auto;
+  padding-bottom: 3px;
+  color: var(--atlas-blue) !important;
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid currentColor;
+}
+
+.posterior-heading > a:hover {
+  color: var(--atlas-oxide) !important;
+  text-decoration: none;
+}
+
+.posterior-sequence {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 28px;
+  overflow: hidden;
+  border-top: 1px solid var(--atlas-rule);
+  border-bottom: 1px solid var(--atlas-rule);
+}
+
+.posterior-sequence button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 8px;
+  align-items: center;
+  min-height: 45px;
+  padding: 0 14px;
+  color: var(--atlas-muted);
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--atlas-rule-soft);
+}
+
+.posterior-sequence button:first-child {
+  border-left: 0;
+}
+
+.posterior-sequence button span {
+  font-family: var(--vp-font-family-mono);
+  font-size: 9px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.posterior-sequence button strong {
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.posterior-sequence button:hover,
+.posterior-sequence button.is-active {
+  color: var(--atlas-blue);
+}
+
+.posterior-sequence button.is-complete {
+  color: var(--atlas-ink);
+}
+
+.posterior-sequence button:focus-visible {
+  z-index: 3;
+  outline: 2px solid var(--atlas-oxide);
+  outline-offset: -4px;
+}
+
+.posterior-sweep {
+  position: absolute;
+  z-index: 0;
+  bottom: 0;
+  left: 0;
+  width: 20%;
+  height: 100%;
+  pointer-events: none;
+  background: var(--atlas-blue-soft);
+  border-bottom: 2px solid var(--atlas-blue);
+  transition: transform 560ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.phase-pool .posterior-sweep {
+  transform: translateX(100%);
+}
+
+.phase-constrain .posterior-sweep {
+  transform: translateX(200%);
+}
+
+.phase-draw .posterior-sweep {
+  transform: translateX(300%);
+}
+
+.phase-select .posterior-sweep {
+  transform: translateX(400%);
+}
+
+.posterior-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  margin-top: 18px;
+  border: 1px solid var(--atlas-rule);
+}
+
+.posterior-lanes-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--atlas-blue) var(--atlas-blue-soft);
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.posterior-lanes-scroll:focus-visible {
+  outline: 2px solid var(--atlas-oxide);
+  outline-offset: -4px;
+}
+
+.posterior-lane {
+  display: grid;
+  grid-template-columns: 134px minmax(410px, 1fr) 112px;
+  min-height: 154px;
+  border-bottom: 1px solid var(--atlas-rule);
+  transition: background 240ms ease, opacity 240ms ease;
+}
+
+.posterior-lane:last-child {
+  border-bottom: 0;
+}
+
+.posterior-lane > header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px;
+  border-right: 1px solid var(--atlas-rule-soft);
+}
+
+.posterior-lane > header span {
+  color: var(--atlas-ink);
+  font-size: 17px;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.posterior-lane > header small {
+  margin-top: 5px;
+  color: var(--atlas-muted);
+  font-size: 10px;
+}
+
+.posterior-lane > header b {
+  margin-top: 16px;
+  color: var(--atlas-blue);
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.density-frame {
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) 160px;
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.density-frame svg {
+  display: block;
+  width: 100%;
+  min-width: 300px;
+  height: auto;
+  overflow: visible;
+}
+
+.density-axis {
+  stroke: var(--atlas-axis);
+  stroke-width: 1;
+}
+
+.density-zero {
+  stroke: var(--atlas-rule);
+  stroke-dasharray: 3 4;
+}
+
+.observation-marks circle {
+  fill: var(--atlas-oxide);
+  opacity: 0.16;
+  transform: translateY(7px);
+  transition:
+    opacity 380ms ease calc(var(--mark-index) * 45ms),
+    transform 420ms cubic-bezier(0.16, 1, 0.3, 1) calc(var(--mark-index) * 45ms);
+}
+
+.density-shape {
+  fill: color-mix(in srgb, var(--atlas-blue-soft) 80%, transparent);
+  stroke: var(--atlas-blue);
+  stroke-width: 1.8;
+  clip-path: inset(0 100% 0 0);
+  filter: blur(2px);
+  opacity: 0.28;
+  transition:
+    clip-path 720ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 720ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms ease;
+}
+
+.credible-line,
+.credible-cap {
+  fill: none;
+  stroke: var(--atlas-blue);
+  stroke-width: 1.3;
+  opacity: 0;
+  transition: opacity 260ms ease 180ms;
+}
+
+.sample-needle {
+  color: var(--atlas-oxide);
+  opacity: 0;
+  transform: translateY(-14px);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    opacity 220ms ease,
+    transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sample-needle line {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+.sample-needle circle {
+  fill: currentColor;
+}
+
+.density-labels text {
+  fill: var(--atlas-muted);
+  font-family: var(--vp-font-family-mono);
+  font-size: 8px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+}
+
+.posterior-measures {
+  display: grid;
+  gap: 7px;
+  padding-left: 14px;
+  border-left: 1px solid var(--atlas-rule-soft);
+}
+
+.posterior-measures span {
+  color: var(--atlas-muted);
+  font-family: var(--vp-font-family-mono);
+  font-size: 8px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.posterior-measures b {
+  display: block;
+  margin-top: 2px;
+  color: var(--atlas-ink);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.draw-measure {
+  opacity: 0.26;
+  transition: opacity 220ms ease;
+}
+
+.constraint-result {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 14px;
+  color: var(--atlas-muted);
+  border-left: 1px solid var(--atlas-rule-soft);
+  opacity: 0.22;
+  transition:
+    color 240ms ease,
+    background 240ms ease,
+    opacity 240ms ease;
+}
+
+.constraint-result span,
+.constraint-result b {
+  font-family: var(--vp-font-family-mono);
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  text-transform: uppercase;
+}
+
+.constraint-result span {
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.constraint-result b {
+  margin-top: 5px;
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.phase-observe .observation-marks circle,
+.phase-pool .observation-marks circle,
+.phase-draw .observation-marks circle,
+.phase-constrain .observation-marks circle,
+.phase-select .observation-marks circle {
+  opacity: 0.85;
+  transform: translateY(0);
+}
+
+.phase-pool .density-shape,
+.phase-draw .density-shape,
+.phase-constrain .density-shape,
+.phase-select .density-shape {
+  clip-path: inset(0);
+  filter: blur(0);
+  opacity: 1;
+}
+
+.phase-pool .credible-line,
+.phase-pool .credible-cap,
+.phase-draw .credible-line,
+.phase-draw .credible-cap,
+.phase-constrain .credible-line,
+.phase-constrain .credible-cap,
+.phase-select .credible-line,
+.phase-select .credible-cap {
+  opacity: 1;
+}
+
+.phase-draw .sample-needle,
+.phase-select .sample-needle {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.phase-draw .draw-measure,
+.phase-select .draw-measure {
+  opacity: 1;
+}
+
+.phase-constrain .constraint-result,
+.phase-draw .constraint-result,
+.phase-select .constraint-result {
+  opacity: 1;
+}
+
+.phase-constrain .posterior-lane.is-rejected,
+.phase-draw .posterior-lane.is-rejected,
+.phase-select .posterior-lane.is-rejected {
+  background: color-mix(in srgb, var(--atlas-oxide) 5%, var(--atlas-ground));
+  opacity: 0.67;
+}
+
+.phase-constrain .constraint-result.is-rejected,
+.phase-draw .constraint-result.is-rejected,
+.phase-select .constraint-result.is-rejected {
+  color: var(--atlas-oxide);
+}
+
+.phase-select .posterior-lane.is-selected {
+  background: color-mix(in srgb, var(--atlas-green) 8%, var(--atlas-ground));
+}
+
+.phase-select .constraint-result.is-selected {
+  color: #527d14;
+  background: color-mix(in srgb, var(--atlas-green) 13%, var(--atlas-ground));
+}
+
+.decision-ledger {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-left: 1px solid var(--atlas-rule);
+}
+
+.decision-state {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--atlas-rule);
+}
+
+.decision-lamp {
+  width: 7px;
+  height: 7px;
+  background: var(--atlas-rule);
+  border-radius: 50%;
+}
+
+.decision-lamp.is-playing {
+  background: var(--atlas-oxide);
+}
+
+.decision-state p {
+  margin: 0;
+  color: var(--atlas-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.decision-state > b {
+  color: var(--atlas-blue);
+  font-family: var(--vp-font-family-mono);
+  font-size: 9px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.decision-ledger dl {
+  margin: 0;
+}
+
+.decision-ledger dl > div {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--atlas-rule-soft);
+}
+
+.decision-ledger dt,
+.decision-ledger dd {
+  font-family: var(--vp-font-family-mono);
+  font-size: 9px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+}
+
+.decision-ledger dt {
+  color: var(--atlas-muted);
+  text-transform: uppercase;
+}
+
+.decision-ledger dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--atlas-ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decision-ledger .selected-value {
+  transition: color 240ms ease;
+}
+
+.phase-select .decision-ledger .selected-value {
+  color: #527d14;
+  font-weight: 700;
+}
+
+.decision-ledger > p {
+  margin: auto 0 0;
+  padding: 16px;
+  color: var(--atlas-muted);
+  font-size: 11px;
+  line-height: 1.48;
+  border-top: 1px solid var(--atlas-rule);
+}
+
+.posterior-controls {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 39px;
+  border-right: 1px solid var(--atlas-rule);
+  border-bottom: 1px solid var(--atlas-rule);
+  border-left: 1px solid var(--atlas-rule);
+}
+
+.posterior-controls button {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 13px;
+  color: var(--atlas-blue);
+  font-family: var(--vp-font-family-mono);
+  font-size: 9px;
+  font-variation-settings: "MONO" 1, "CASL" 0;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--atlas-rule);
+}
+
+.posterior-controls button:hover {
+  color: var(--atlas-oxide);
+  background: var(--atlas-blue-soft);
+}
+
+.posterior-controls button:focus-visible {
+  position: relative;
+  z-index: 2;
+  outline: 2px solid var(--atlas-oxide);
+  outline-offset: -4px;
+}
+
+.posterior-controls svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
 .atlas-section {
   display: grid;
   grid-template-columns: 84px minmax(250px, 0.78fr) minmax(420px, 1.42fr);
@@ -1300,6 +1868,27 @@ textarea,
     border-left: 0;
   }
 
+  .posterior-console {
+    grid-template-columns: 1fr;
+  }
+
+  .decision-ledger {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.8fr) minmax(420px, 1.2fr);
+    border-top: 1px solid var(--atlas-rule);
+    border-left: 0;
+  }
+
+  .decision-state {
+    grid-column: 1 / -1;
+  }
+
+  .decision-ledger > p {
+    margin: 0;
+    border-top: 0;
+    border-left: 1px solid var(--atlas-rule);
+  }
+
   .ledger-section {
     border-right: 1px solid var(--atlas-rule);
     border-bottom: 0;
@@ -1491,6 +2080,21 @@ textarea,
 
   .plot-panel {
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .plot-pan-note,
+  .posterior-pan-note {
+    display: block;
+    margin: 10px 0 0;
+    color: var(--atlas-blue);
+    font-family: var(--vp-font-family-mono);
+    font-size: 9px;
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
   }
 
   .plot-stats {
@@ -1516,6 +2120,85 @@ textarea,
 
   .evidence-boundary {
     margin-top: 4px;
+  }
+
+  .posterior-observatory {
+    padding: 26px 20px 22px;
+  }
+
+  .posterior-heading {
+    display: block;
+  }
+
+  .posterior-heading h2 {
+    font-size: 34px;
+  }
+
+  .posterior-heading > a {
+    display: inline-flex;
+    margin-top: 18px;
+  }
+
+  .posterior-sequence {
+    grid-template-columns: repeat(5, 132px);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .posterior-sequence button {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .posterior-sweep {
+    width: 132px;
+  }
+
+  .posterior-console {
+    display: block;
+  }
+
+  .posterior-lanes {
+    min-width: 790px;
+  }
+
+  .posterior-lane {
+    grid-template-columns: 125px minmax(520px, 1fr) 110px;
+  }
+
+  .density-frame {
+    grid-template-columns: minmax(330px, 1fr) 160px;
+  }
+
+  .posterior-pan-note {
+    margin-bottom: 12px;
+  }
+
+  .decision-ledger {
+    display: block;
+    border-top: 1px solid var(--atlas-rule);
+  }
+
+  .decision-ledger > p {
+    border-top: 1px solid var(--atlas-rule);
+    border-left: 0;
+  }
+
+  .posterior-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .posterior-controls button {
+    justify-content: center;
+    min-width: 0;
+    padding: 8px 7px;
+    text-align: center;
+  }
+
+  .posterior-controls button:last-child {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--atlas-rule);
   }
 
   .atlas-section,
@@ -1608,5 +2291,18 @@ textarea,
   .evidence-grid.is-signal-ready .response-line,
   .evidence-grid.is-signal-ready .event-dot {
     animation: none;
+  }
+
+  .posterior-observatory .observation-marks circle,
+  .posterior-observatory .density-shape,
+  .posterior-observatory .credible-line,
+  .posterior-observatory .credible-cap,
+  .posterior-observatory .sample-needle,
+  .posterior-observatory .draw-measure,
+  .posterior-observatory .constraint-result {
+    clip-path: inset(0);
+    filter: none;
+    opacity: 1;
+    transform: none;
   }
 }

@@ -34,6 +34,12 @@
         "canonical": "#5d687b",
         "tonalRamp": ["oklch(15% 0.033 261.4)", "oklch(27% 0.033 261.4)", "oklch(39% 0.033 261.4)", "oklch(51% 0.033 261.4)", "oklch(63% 0.033 261.4)", "oklch(75% 0.033 261.4)", "oklch(87% 0.033 261.4)", "oklch(95% 0.033 261.4)"]
       },
+      "axis-muted": {
+        "role": "neutral",
+        "displayName": "Measured Axis",
+        "canonical": "#87909e",
+        "tonalRamp": ["oklch(15% 0.021 253.4)", "oklch(27% 0.021 253.4)", "oklch(39% 0.021 253.4)", "oklch(51% 0.021 253.4)", "oklch(63% 0.021 253.4)", "oklch(75% 0.021 253.4)", "oklch(87% 0.021 253.4)", "oklch(95% 0.021 253.4)"]
+      },
       "action-cobalt": {
         "role": "primary",
         "displayName": "Action Cobalt",
@@ -111,10 +117,16 @@
       "statement": { "displayName": "Atlas Statement", "purpose": "Large section arguments on wide atlas sheets." },
       "thesis": { "displayName": "Compact Thesis", "purpose": "The primary proposition in a specification band." },
       "section-title": { "displayName": "Plate Title", "purpose": "Plot, pipeline, and evidence-region headings." },
+      "observatory-statement": { "displayName": "Observatory Statement", "purpose": "The major uncertainty argument above the posterior lanes." },
+      "mobile-statement": { "displayName": "Mobile Statement", "purpose": "The compact display size for narrow atlas sheets." },
+      "supporting": { "displayName": "Supporting Research Prose", "purpose": "Compact explanatory text attached to major diagrams." },
+      "lane-title": { "displayName": "Frequency Lane Title", "purpose": "Primary labels for aligned posterior frequencies." },
       "body": { "displayName": "Research Prose", "purpose": "Explanations, boundaries, and operational context." },
       "nav-title": { "displayName": "Instrument Wordmark", "purpose": "The restrained text-only product title." },
       "data": { "displayName": "State Data", "purpose": "Metrics, runtime facts, and checkpoint values." },
       "label": { "displayName": "Atlas Label", "purpose": "Navigation, metadata, methods, legends, and state names." },
+      "compact-label": { "displayName": "Compact Atlas Label", "purpose": "Dense controls, phase labels, and ledger keys." },
+      "micro-label": { "displayName": "Micro Measurement Label", "purpose": "Axis endpoints and dense quantitative annotations only." },
       "code": { "displayName": "Executable Code", "purpose": "Rust composition examples and executable material." }
     },
     "shadows": [],
@@ -124,6 +136,9 @@
       { "name": "trace-interval", "value": "1350ms", "purpose": "Advances one stage while the synthetic replay is visible and playing." },
       { "name": "connector-register", "value": "360ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Registers a completed stage connector." },
       { "name": "plot-register", "value": "720ms to 760ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Reveals the synthetic confidence band and response after the signal stage." },
+      { "name": "posterior-phase", "value": "560ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Moves the active field through observe, pool, constrain, draw, and select." },
+      { "name": "posterior-register", "value": "720ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Resolves posterior densities with clip and blur before keyed draw needles register." },
+      { "name": "posterior-interval", "value": "1650ms", "purpose": "Advances one posterior phase while the observatory is visible and playing." },
       { "name": "reduced-motion", "value": "0.01ms 1", "purpose": "Pauses autoplay and removes traversal while preserving a static selected state." }
     ],
     "breakpoints": [
@@ -173,6 +188,14 @@
       "css": ".ds-replay-controls { display: flex; color: var(--atlas-blue, #0b4cb6); border: 1px solid var(--atlas-rule, #cdcdcf); } .ds-replay-controls button { min-height: 36px; padding: 0 13px; color: inherit; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 9px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; background: transparent; border: 0; border-right: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-replay-controls button:hover, .ds-replay-controls button:focus-visible { color: var(--atlas-oxide, #b8535c); background: var(--atlas-blue-soft, #eef2f6); } .ds-replay-controls button:focus-visible { outline: 2px solid var(--atlas-oxide, #b8535c); outline-offset: -4px; }"
     },
     {
+      "name": "Posterior Observatory",
+      "kind": "custom",
+      "refersTo": "posterior-frequency-lane",
+      "description": "Three aligned frequency lanes animate from admitted outcomes through partial pooling, feasibility gates, keyed draws, and one selected research candidate.",
+      "html": "<section class=\"ds-posterior-observatory\" aria-label=\"Synthetic posterior observatory\"><nav><button>Observe</button><button>Pool</button><button>Constrain</button><button>Draw</button><button aria-pressed=\"true\">Select</button></nav><article><h3>10 minutes</h3><svg viewBox=\"0 0 240 70\" role=\"img\" aria-label=\"Synthetic posterior density\"><path d=\"M10 60 C70 60 80 12 125 12 S180 60 230 60\"/><line x1=\"160\" y1=\"8\" x2=\"160\" y2=\"60\"/></svg><p>Selected · highest eligible draw</p></article></section>",
+      "css": ".ds-posterior-observatory { color: var(--atlas-ink, #14223d); background: var(--atlas-ground, #f9f9f9); border: 1px solid var(--atlas-rule, #cdcdcf); border-radius: 0; } .ds-posterior-observatory nav { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--atlas-rule, #cdcdcf); } .ds-posterior-observatory button { min-height: 45px; color: var(--atlas-blue, #0b4cb6); font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; text-transform: uppercase; background: transparent; border: 0; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); } .ds-posterior-observatory article { display: grid; grid-template-columns: 120px 1fr 190px; align-items: center; min-height: 120px; background: color-mix(in srgb, var(--atlas-green, #83b844) 8%, var(--atlas-ground, #f9f9f9)); } .ds-posterior-observatory h3, .ds-posterior-observatory p { padding: 16px; margin: 0; } .ds-posterior-observatory svg { width: 100%; fill: var(--atlas-blue-soft, #e4ecf8); stroke: var(--atlas-blue, #0b4cb6); } .ds-posterior-observatory line { stroke: var(--atlas-oxide, #b8535c); stroke-dasharray: 3 3; } .ds-posterior-observatory p { color: #527d14; font-family: var(--vp-font-family-mono, \"Recursive Variable\", monospace); font-size: 10px; text-transform: uppercase; border-left: 1px solid var(--atlas-rule-soft, #e2e3e5); }"
+    },
+    {
       "name": "Research Contract Ledger",
       "kind": "custom",
       "refersTo": "research-contract-row",
@@ -215,7 +238,7 @@
   ],
   "narrative": {
     "northStar": "The Annotated Event Atlas",
-    "overview": "Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.\n\nThe world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.\n\nThe primary reader is a quantitatively literate researcher. Pages follow the causal computation first: what is observed, when it is knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.",
+    "overview": "Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.\n\nThe world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.\n\nThe Posterior Observatory extends this world into uncertainty. Related frequency lanes share one ruled frame, posterior densities register from left to right, oxide needles mark keyed samples, and the selected eligible lane receives the only green field.\n\nThe primary reader is a quantitatively literate researcher. Pages follow the causal computation first: what is observed, when it is knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.",
     "keyCharacteristics": [
       "Continuous cool-white atlas sheets divided by one-pixel rules.",
       "Dense but readable evidence, aligned to a shared temporal or structural axis.",

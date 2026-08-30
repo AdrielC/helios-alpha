@@ -7,6 +7,7 @@ colors:
   surface-soft: "#eef2f6"
   ink: "#14223d"
   muted-ink: "#5d687b"
+  axis-muted: "#87909e"
   action-cobalt: "#0b4cb6"
   action-cobalt-deep: "#173f89"
   action-cobalt-dark: "#142f68"
@@ -35,6 +36,25 @@ typography:
     fontSize: "18px"
     lineHeight: 1.2
     letterSpacing: "-0.02em"
+  observatory-statement:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "clamp(30px, 3.5vw, 52px)"
+    lineHeight: 0.98
+    letterSpacing: "-0.04em"
+  mobile-statement:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "34px"
+    lineHeight: 0.98
+    letterSpacing: "-0.04em"
+  supporting:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "14px"
+    lineHeight: 1.55
+  lane-title:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "17px"
+    fontWeight: 720
+    lineHeight: 1.2
   body:
     fontFamily: "Archivo Variable, sans-serif"
     fontSize: "15px"
@@ -57,6 +77,14 @@ typography:
     fontWeight: 650
     letterSpacing: "0.06em"
     fontVariation: '"MONO" 1, "CASL" 0'
+  compact-label:
+    fontFamily: "Recursive Variable, monospace"
+    fontSize: "10px"
+    fontVariation: '"MONO" 1, "CASL" 0'
+  micro-label:
+    fontFamily: "Recursive Variable, monospace"
+    fontSize: "8px"
+    fontVariation: '"MONO" 1, "CASL" 0'
   code:
     fontFamily: "Recursive Variable, monospace"
     fontSize: "clamp(12px, 1.1vw, 15px)"
@@ -73,6 +101,10 @@ spacing:
   plate: "20px"
   section: "38px"
   atlas-gutter: "42px"
+motion:
+  posterior-phase: "560ms cubic-bezier(0.16, 1, 0.3, 1)"
+  posterior-observe: "380ms to 650ms staggered ease-out"
+  posterior-register: "720ms cubic-bezier(0.16, 1, 0.3, 1)"
 components:
   nav-title:
     textColor: "{colors.ink}"
@@ -111,6 +143,16 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.square}"
     padding: "0 13px"
+  posterior-frequency-lane:
+    backgroundColor: "{colors.atlas-ground}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.square}"
+    padding: "10px 14px"
+  posterior-selected-lane:
+    backgroundColor: "{colors.surface-soft}"
+    textColor: "{colors.evidence-green-ink}"
+    rounded: "{rounded.square}"
+    padding: "10px 14px"
   research-contract-row:
     backgroundColor: "transparent"
     textColor: "{colors.ink}"
@@ -150,6 +192,8 @@ components:
 Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.
 
 The world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.
+
+The Posterior Observatory extends that world into uncertainty. Related frequency lanes share one ruled frame, posterior densities register from left to right, oxide needles mark keyed samples, and the selected eligible lane receives the only green field. The sequence is explanatory: observe, pool, constrain, draw, select.
 
 The primary reader is a quantitatively literate researcher who understands returns, variance, event studies, and backtests but should not need prior knowledge of Helios crate boundaries. Every page should first answer what is observed, when it becomes knowable, which operator owns state, what can emit, how replay works, and which claim remains unproven.
 
@@ -225,7 +269,7 @@ The atlas uses one continuous bounded sheet, up to 1800px wide, with major regio
 
 Spacing is compact near data and generous around arguments. Plate interiors use 20px to 42px gutters, while long-form sections use approximately 38px vertical padding. Registration crosses may mark major joins or boundaries, but never float as unrelated decoration.
 
-At 1100px, multi-column regions simplify, the pipeline rail may form three columns, and evidence panels stack. At 760px, the rail becomes a vertical sequence, specification facts use two columns, and plot overflow stays inside its own panel so the page never scrolls horizontally. Controls remain keyboard reachable and their labels remain legible.
+At 1100px, multi-column regions simplify, the pipeline rail may form three columns, and evidence panels stack. At 760px, the rail becomes a vertical sequence, specification facts use two columns, and plot overflow stays inside its own panel so the page never scrolls horizontally. Time plots and posterior lanes may pan locally when their shared axis needs more width; a visible swipe instruction names that behavior. Controls remain keyboard reachable and their labels remain legible.
 
 **The Shared Axis Rule.** Related evidence must align to the same ruled grid, temporal axis, or state boundary. Do not scatter facts into independent cards.
 
@@ -276,6 +320,14 @@ Major surfaces and code plates are square. Interactive text links and search she
 - **Actions:** Play or pause the trace, advance exactly one stage, and restore from the synthetic checkpoint.
 - **State:** The status line reports replay pass, selected position, and restore validation. Labels remain explicit on desktop and mobile.
 - **Layout:** Controls share the pipeline rules. On mobile, play and advance occupy the first row while restore spans the second row.
+
+### Posterior Observatory
+
+- **Structure:** Five explicit phases sit above three aligned frequency lanes and one decision ledger. Each lane contains observations, a posterior density, a credible interval, a feasibility result, and a keyed draw only when eligible.
+- **Sequence:** Observe reveals admitted outcomes. Pool resolves the posterior field. Constrain removes infeasible lanes before sampling. Draw drops one oxide sample needle for each eligible lane. Select gives evidence green only to the largest eligible draw.
+- **Language:** Values are always labeled synthetic. A posterior sample is described as a decision input, never a guarantee. The final output is a research candidate with no order authority.
+- **Motion:** The active phase field traverses with a 560ms exponential ease-out. Density registration uses clip and blur over 720ms. Animation pauses offscreen, pauses while the page is hidden, and resolves to the final static state for reduced-motion users.
+- **Mobile:** The phase rail and density lanes pan inside their own ruled frames. The page itself never gains horizontal overflow, and a visible instruction tells the researcher to swipe.
 
 ### Research Contract Ledger
 

@@ -7,6 +7,7 @@ import {
   ref,
   watch,
 } from "vue";
+import PosteriorObservatory from "./PosteriorObservatory.vue";
 
 type Stage = {
   key: string;
@@ -404,6 +405,7 @@ onBeforeUnmount(() => {
             <div><dt class="legend-event"></dt><dd>Event at t = 0</dd></div>
           </dl>
         </div>
+        <p class="plot-pan-note">Swipe horizontally to inspect the full time axis.</p>
 
         <svg
           class="event-plot"
@@ -545,6 +547,8 @@ onBeforeUnmount(() => {
         Mechanics <b>tested</b> · Alpha <b>unproven</b>
       </span>
     </section>
+
+    <PosteriorObservatory />
 
     <section class="atlas-section premise" aria-labelledby="premise-title">
       <div class="section-number" aria-hidden="true">01</div>

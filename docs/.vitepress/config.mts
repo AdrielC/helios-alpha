@@ -47,6 +47,10 @@ export default defineConfig({
             link: "/guide/compose-a-strategy",
           },
           {
+            text: "Build a Thompson portfolio",
+            link: "/guide/build-a-thompson-portfolio",
+          },
+          {
             text: "Restart a pipeline",
             link: "/guide/restart-a-pipeline",
           },
@@ -61,6 +65,10 @@ export default defineConfig({
             text: "Online statistics",
             link: "/concepts/online-statistics",
           },
+          {
+            text: "Bayesian streams",
+            link: "/concepts/bayesian-streams",
+          },
           { text: "Checkpoints", link: "/concepts/checkpoints" },
         ],
       },
@@ -68,6 +76,10 @@ export default defineConfig({
         text: "Research",
         items: [
           { text: "Rare events", link: "/research/rare-events" },
+          {
+            text: "Bayesian event portfolios",
+            link: "/research/bayesian-event-portfolios",
+          },
           { text: "Evidence standard", link: "/research/evidence-standard" },
         ],
       },
