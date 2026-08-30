@@ -51,9 +51,12 @@ conformance authority for production refreshes.
 - disabled live mode; and
 - an active kill switch.
 
-An approval reserves capacity before a second proposal can be assessed. `OrderGateway` separately
-requires an allowed risk-policy version, a fresh risk decision, and a current production capital
-authorization.
+An approval reserves capacity before a second proposal can be assessed. An ordinary portfolio
+refresh leaves every reservation in place. `refresh_portfolio_covering` releases a reservation only
+when the caller explicitly states that the authoritative snapshot includes that order's exposure,
+position, and daily-order accounting. Unknown identities reject the whole refresh, and partial fills
+remain fully reserved until covered after terminal reconciliation. `OrderGateway` separately requires
+an allowed risk-policy version, a fresh risk decision, and a current production capital authorization.
 
 ### 3. Costs, slippage, and capacity
 

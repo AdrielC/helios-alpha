@@ -19,11 +19,13 @@ other event shocks without putting space-weather or trading vocabulary in the co
 [Build a Thompson portfolio](https://adrielc.github.io/helios-alpha/guide/build-a-thompson-portfolio) ·
 [Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness) ·
 [Inspect capital admission](https://adrielc.github.io/helios-alpha/operations/capital-admission) ·
+[Inspect the Robinhood boundary](https://adrielc.github.io/helios-alpha/operations/robinhood) ·
 [Review the Golem Cloud architecture](https://adrielc.github.io/helios-alpha/operations/golem-cloud)
 
 > **Status:** research infrastructure with an executable, fail-closed capital-control reference.
-> The repository has no certified live broker adapter or production evidence ledger, does not claim
-> profitable alpha, and does not have permission to trade live capital.
+> The repository has an implemented but uncertified Robinhood Crypto adapter, no production
+> evidence ledger, does not claim profitable alpha, and does not have permission to trade live
+> capital.
 
 ## What you can compose
 
@@ -167,6 +169,7 @@ still has to map that contract to its own serializable transaction.
 | `helio_stats` | Stable moments, compensated sums, scaled norms, log probabilities, Bayesian state, keyed Thompson draws, Hawkes intensity | Priors, objectives, alpha claims |
 | `helio_event` | An event-shock proving ground and simulated strategy vertical | Broker authorization |
 | `helio_execution` | Fixed-point orders, pre-trade risk, cost and capacity, broker reconciliation, incidents, operational readiness, capital admission | Research signal meaning, broker credentials, production evidence |
+| `helio_robinhood` | Official Robinhood Crypto signing, limit orders, lifecycle polling, cancellation, and decimal normalization | Credentials, rate scheduling, paper trading, equities and options, broker certification |
 | `helio_backtest` | Fixed clocks, fingerprints, guarded Kalman research, replay harnesses | Live execution guarantees |
 | `helios_signald` | Optional ZMQ integration | Kernel abstractions |
 | `helio_bench` | Criterion workloads and baselines | Runtime dependencies |
@@ -203,8 +206,9 @@ Run the capital-control crash and fault matrix:
 
 ```bash
 cd rust
-cargo test -p helio_scan -p helio_time -p helio_execution
-cargo clippy -p helio_execution -p helio_time --all-targets -- -D warnings
+cargo test -p helio_scan -p helio_time -p helio_execution -p helio_robinhood
+cargo test -p helio_robinhood --all-features
+cargo clippy -p helio_execution -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
 ```
 
 The end-to-end paper test loses both a commit acknowledgement and a broker acknowledgement, then

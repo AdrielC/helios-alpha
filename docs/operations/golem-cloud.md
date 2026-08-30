@@ -202,6 +202,11 @@ idempotent decisions, reservations, venue-session verification, data freshness, 
 order, gross, strategy, symbol-position, and daily-count limits. The Golem wrapper and durable
 production portfolio adapter remain deployment work.
 
+The portfolio adapter must release reservations through `refresh_portfolio_covering`, naming only
+terminal orders included by the new authoritative snapshot. A regular refresh intentionally keeps
+reservations. This gives a durable risk agent an explicit handoff from provisional worst-case
+capacity to broker-confirmed account truth.
+
 The risk agent produces either a typed rejection or an `OrderIntent` with a stable
 `client_order_id`. It does not accept arbitrary order commands from the research component.
 
@@ -216,6 +221,12 @@ Golem can generate a stable idempotency key for a repeated external effect, but 
 behavior still depends on the endpoint honoring that identity. The façade supplies that contract
 when the broker does not. HTTP 200 with a semantic rejection is a domain result, not a retryable
 transport failure.
+
+`helio_robinhood` is the first concrete adapter behind this boundary. Its protocol and signer are
+WASI-compatible; the native `reqwest` transport is optional. A Golem deployment should inject a
+mediated outbound HTTP transport, keep signing authority outside research agents, journal the UUID
+before placement, and poll the official Crypto API after every ambiguous outcome. The adapter is
+implemented but remains uncertified for live capital. See [Robinhood boundary](./robinhood).
 
 ## Offset, invocation, and effect identities
 
