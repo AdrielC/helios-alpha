@@ -4,7 +4,7 @@ use helio_scan::{IdempotentSink, OutputId, SinkDelivery};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{CapitalAuthorization, ExecutionMode, OrderIntent};
+use crate::{checked_notional, CapitalAuthorization, ExecutionMode, OrderIntent};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BrokerAcknowledgement {
@@ -31,6 +31,120 @@ pub trait BrokerPort {
         &mut self,
         client_order_id: &str,
     ) -> Result<Option<BrokerAcknowledgement>, BrokerError>;
+}
+
+/// Canonical, non-negative decimal returned by a broker.
+///
+/// Broker executions often carry more precision than Helios order micros. Keeping the canonical
+/// decimal text here avoids routing fills through `f64` before a venue-specific settlement policy
+/// decides how to round them.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String", into = "String")]
+pub struct BrokerDecimal(String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum BrokerDecimalError {
+    #[error("broker decimal must be a non-negative base-10 value without an exponent")]
+    Invalid,
+}
+
+impl BrokerDecimal {
+    pub fn try_new(value: impl Into<String>) -> Result<Self, BrokerDecimalError> {
+        let value = value.into();
+        let (whole, fraction) = match value.split_once('.') {
+            Some((whole, fraction)) => (whole, Some(fraction)),
+            None => (value.as_str(), None),
+        };
+        if whole.is_empty()
+            || !whole.bytes().all(|byte| byte.is_ascii_digit())
+            || fraction.is_some_and(|digits| {
+                digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
+            return Err(BrokerDecimalError::Invalid);
+        }
+
+        let whole = whole.trim_start_matches('0');
+        let whole = if whole.is_empty() { "0" } else { whole };
+        let fraction = fraction.map(|digits| digits.trim_end_matches('0'));
+        let canonical = match fraction {
+            Some("") | None => whole.to_owned(),
+            Some(digits) => format!("{whole}.{digits}"),
+        };
+        Ok(Self(canonical))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for BrokerDecimal {
+    type Error = BrokerDecimalError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::try_new(value)
+    }
+}
+
+impl From<BrokerDecimal> for String {
+    fn from(value: BrokerDecimal) -> Self {
+        value.0
+    }
+}
+
+/// Normalized broker-side order lifecycle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BrokerOrderState {
+    Pending,
+    Open,
+    PartiallyFilled,
+    Filled,
+    Canceled,
+    Failed,
+}
+
+impl BrokerOrderState {
+    pub const fn is_terminal(self) -> bool {
+        matches!(self, Self::Filled | Self::Canceled | Self::Failed)
+    }
+}
+
+/// One exact execution reported by a broker.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrokerExecution {
+    pub execution_id: String,
+    pub effective_price: BrokerDecimal,
+    pub quantity: BrokerDecimal,
+    /// Broker timestamp retained verbatim for audit and deterministic reconciliation.
+    pub occurred_at: String,
+}
+
+/// Current broker truth for one order, suitable for polling or push-update normalization.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BrokerOrderSnapshot {
+    pub acknowledgement: BrokerAcknowledgement,
+    pub state: BrokerOrderState,
+    pub executions: Vec<BrokerExecution>,
+    pub filled_quantity: BrokerDecimal,
+    pub average_price: Option<BrokerDecimal>,
+    pub updated_at: String,
+}
+
+/// Optional lifecycle surface for brokers that expose order status and cancellation.
+///
+/// This is deliberately separate from [`BrokerPort`]. The idempotent submission gateway stays
+/// minimal while execution reconciliation can require the richer contract.
+pub trait BrokerLifecyclePort: BrokerPort {
+    fn fetch_order_by_client_order_id(
+        &mut self,
+        client_order_id: &str,
+    ) -> Result<Option<BrokerOrderSnapshot>, BrokerError>;
+
+    fn cancel_by_client_order_id(
+        &mut self,
+        client_order_id: &str,
+    ) -> Result<BrokerOrderSnapshot, BrokerError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,6 +185,8 @@ pub enum GatewayError {
     RiskPolicyNotAllowed,
     #[error("order identity was replayed with different contents")]
     OrderIdentityConflict,
+    #[error("order intent notional does not match its price and quantity")]
+    InvalidAuthorizedNotional,
     #[error("output identity does not equal the order client identity")]
     OutputIdentityMismatch,
     #[error("gateway has no record for client order {0}")]
@@ -114,6 +230,12 @@ where
         capital_authorization: Option<&CapitalAuthorization>,
         now_ns: u64,
     ) -> Result<GatewayReceipt, GatewayError> {
+        if !matches!(
+            checked_notional(intent.proposal.limit_price, intent.proposal.quantity),
+            Ok(notional) if notional == intent.authorized_notional
+        ) {
+            return Err(GatewayError::InvalidAuthorizedNotional);
+        }
         if intent.proposal.mode == ExecutionMode::Live {
             if !capital_authorization.is_some_and(|authorization| {
                 authorization.permits(&self.policy.environment, now_ns)
@@ -472,5 +594,18 @@ mod tests {
         assert_eq!(first, replay);
         assert_eq!(gateway.record("order-1").unwrap().attempts, 1);
         assert_eq!(gateway.broker().accepted_order_count(), 0);
+    }
+
+    #[test]
+    fn malformed_authorized_notional_never_reaches_broker() {
+        let mut gateway = gateway(PaperBroker::new(100));
+        let mut malformed = intent(ExecutionMode::Paper);
+        malformed.authorized_notional = MoneyMicros(1);
+        assert_eq!(
+            gateway.dispatch(&malformed, None, 100),
+            Err(GatewayError::InvalidAuthorizedNotional)
+        );
+        assert_eq!(gateway.broker().accepted_order_count(), 0);
+        assert!(gateway.record("order-1").is_none());
     }
 }

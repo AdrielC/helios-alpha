@@ -5,7 +5,9 @@ use thiserror::Error;
 
 use helio_time::VenueSchedule;
 
-use crate::{checked_notional, ExecutionMode, MoneyMicros, OrderIntent, OrderProposal};
+use crate::{
+    checked_notional, ArithmeticError, ExecutionMode, MoneyMicros, OrderIntent, OrderProposal,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RiskPolicy {
@@ -97,6 +99,7 @@ pub enum RiskRejection {
     StrategyExposureLimit,
     SymbolPositionLimit,
     DailyOrderLimit,
+    ZeroOrderValue,
     InvalidProposal,
     ArithmeticOverflow,
 }
@@ -113,12 +116,26 @@ pub enum RiskAuthorityError {
     ProposalIdentityConflict,
     #[error("portfolio snapshot is older than the latest accepted snapshot")]
     SnapshotRegression,
+    #[error("portfolio snapshot claimed coverage of unknown reservation {0}")]
+    UnknownCoveredReservation(String),
+    #[error("risk reservation accounting invariant was violated")]
+    ReservationAccountingCorrupt,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct RecordedDecision {
     proposal: OrderProposal,
     decision: RiskDecision,
+}
+
+/// Exposure held between pre-trade authorization and authoritative portfolio reconciliation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RiskReservation {
+    pub client_order_id: String,
+    pub strategy_id: String,
+    pub symbol: String,
+    pub notional: MoneyMicros,
+    pub position_delta_micros: i128,
 }
 
 /// Stateful pre-trade authority. Decisions are idempotent by proposal identity.
@@ -129,6 +146,7 @@ pub struct RiskAuthority<V> {
     venue_sessions: V,
     kill_switch: bool,
     decisions: BTreeMap<String, RecordedDecision>,
+    reservations: BTreeMap<String, RiskReservation>,
     reserved_gross: u64,
     reserved_by_strategy: BTreeMap<String, u64>,
     reserved_position_delta: BTreeMap<String, i128>,
@@ -146,6 +164,7 @@ where
             venue_sessions,
             kill_switch: false,
             decisions: BTreeMap::new(),
+            reservations: BTreeMap::new(),
             reserved_gross: 0,
             reserved_by_strategy: BTreeMap::new(),
             reserved_position_delta: BTreeMap::new(),
@@ -176,6 +195,83 @@ where
         }
         self.portfolio = portfolio;
         Ok(())
+    }
+
+    /// Replaces the portfolio and releases only reservations explicitly included in it.
+    ///
+    /// Every ID in `covered_client_order_ids` must refer to an outstanding reservation, and the
+    /// caller must establish that the new snapshot includes that order's exposure, position, and
+    /// daily-order accounting. Unknown IDs and arithmetic inconsistencies reject the entire
+    /// refresh without mutating authority state. Partial fills stay fully reserved until a later
+    /// authoritative snapshot covers the terminal order, which is deliberately conservative.
+    pub fn refresh_portfolio_covering<I, S>(
+        &mut self,
+        portfolio: PortfolioRiskSnapshot,
+        covered_client_order_ids: I,
+    ) -> Result<(), RiskAuthorityError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        if portfolio.as_of_ns < self.portfolio.as_of_ns {
+            return Err(RiskAuthorityError::SnapshotRegression);
+        }
+
+        let covered = covered_client_order_ids
+            .into_iter()
+            .map(|value| value.as_ref().to_owned())
+            .collect::<BTreeSet<_>>();
+        for client_order_id in &covered {
+            if !self.reservations.contains_key(client_order_id) {
+                return Err(RiskAuthorityError::UnknownCoveredReservation(
+                    client_order_id.clone(),
+                ));
+            }
+        }
+
+        let mut reservations = self.reservations.clone();
+        let mut reserved_gross = self.reserved_gross;
+        let mut reserved_by_strategy = self.reserved_by_strategy.clone();
+        let mut reserved_position_delta = self.reserved_position_delta.clone();
+        let mut reserved_order_count = self.reserved_order_count;
+
+        for client_order_id in &covered {
+            let reservation = reservations
+                .remove(client_order_id)
+                .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
+            reserved_gross = reserved_gross
+                .checked_sub(reservation.notional.0)
+                .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
+            subtract_reservation(
+                &mut reserved_by_strategy,
+                &reservation.strategy_id,
+                reservation.notional.0,
+            )?;
+            subtract_signed_reservation(
+                &mut reserved_position_delta,
+                &reservation.symbol,
+                reservation.position_delta_micros,
+            )?;
+            reserved_order_count = reserved_order_count
+                .checked_sub(1)
+                .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
+        }
+
+        self.portfolio = portfolio;
+        self.reservations = reservations;
+        self.reserved_gross = reserved_gross;
+        self.reserved_by_strategy = reserved_by_strategy;
+        self.reserved_position_delta = reserved_position_delta;
+        self.reserved_order_count = reserved_order_count;
+        Ok(())
+    }
+
+    pub fn reservation(&self, client_order_id: &str) -> Option<&RiskReservation> {
+        self.reservations.get(client_order_id)
+    }
+
+    pub fn outstanding_reservation_count(&self) -> usize {
+        self.reservations.len()
     }
 
     pub fn authorize(
@@ -250,8 +346,10 @@ where
             return reject(RiskRejection::TradingDayMismatch);
         }
 
-        let Ok(notional) = checked_notional(proposal.limit_price, proposal.quantity) else {
-            return reject(RiskRejection::ArithmeticOverflow);
+        let notional = match checked_notional(proposal.limit_price, proposal.quantity) {
+            Ok(value) => value,
+            Err(ArithmeticError::ZeroOrderValue) => return reject(RiskRejection::ZeroOrderValue),
+            Err(ArithmeticError::Overflow) => return reject(RiskRejection::ArithmeticOverflow),
         };
         if notional > self.policy.max_order_notional {
             return reject(RiskRejection::OrderNotionalLimit);
@@ -332,6 +430,9 @@ where
     }
 
     fn try_reserve(&mut self, intent: &OrderIntent) -> Result<(), RiskRejection> {
+        if self.reservations.contains_key(&intent.client_order_id) {
+            return Err(RiskRejection::InvalidProposal);
+        }
         let reserved_gross = self
             .reserved_gross
             .checked_add(intent.authorized_notional.0)
@@ -366,8 +467,59 @@ where
         self.reserved_position_delta
             .insert(intent.proposal.symbol.clone(), position_reservation);
         self.reserved_order_count = reserved_order_count;
+        self.reservations.insert(
+            intent.client_order_id.clone(),
+            RiskReservation {
+                client_order_id: intent.client_order_id.clone(),
+                strategy_id: intent.proposal.strategy_id.clone(),
+                symbol: intent.proposal.symbol.clone(),
+                notional: intent.authorized_notional,
+                position_delta_micros: intent
+                    .proposal
+                    .side
+                    .signed_quantity(intent.proposal.quantity),
+            },
+        );
         Ok(())
     }
+}
+
+fn subtract_reservation(
+    reservations: &mut BTreeMap<String, u64>,
+    key: &str,
+    amount: u64,
+) -> Result<(), RiskAuthorityError> {
+    let remaining = reservations
+        .get(key)
+        .copied()
+        .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?
+        .checked_sub(amount)
+        .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
+    if remaining == 0 {
+        reservations.remove(key);
+    } else {
+        reservations.insert(key.to_owned(), remaining);
+    }
+    Ok(())
+}
+
+fn subtract_signed_reservation(
+    reservations: &mut BTreeMap<String, i128>,
+    key: &str,
+    amount: i128,
+) -> Result<(), RiskAuthorityError> {
+    let remaining = reservations
+        .get(key)
+        .copied()
+        .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?
+        .checked_sub(amount)
+        .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
+    if remaining == 0 {
+        reservations.remove(key);
+    } else {
+        reservations.insert(key.to_owned(), remaining);
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -452,6 +604,20 @@ mod tests {
     }
 
     #[test]
+    fn zero_quantity_is_rejected_without_a_reservation() {
+        let mut authority = RiskAuthority::new(
+            policy(),
+            PortfolioRiskSnapshot::empty(9_000, 20_696),
+            TestVenue(Some(20_696)),
+        );
+        assert_eq!(
+            authority.authorize(proposal("zero", 0), context()),
+            Ok(RiskDecision::Rejected(RiskRejection::ZeroOrderValue))
+        );
+        assert_eq!(authority.outstanding_reservation_count(), 0);
+    }
+
+    #[test]
     fn stale_closed_and_killed_paths_fail_closed() {
         let mut authority = RiskAuthority::new(
             policy(),
@@ -494,5 +660,73 @@ mod tests {
             authority.authorize(proposal("same", 2_000_000), context()),
             Err(RiskAuthorityError::ProposalIdentityConflict)
         );
+    }
+
+    #[test]
+    fn covered_terminal_order_moves_from_reservation_into_portfolio_truth() {
+        let mut authority = RiskAuthority::new(
+            policy(),
+            PortfolioRiskSnapshot::empty(9_000, 20_696),
+            TestVenue(Some(20_696)),
+        );
+        assert!(matches!(
+            authority
+                .authorize(proposal("one", 1_000_000), context())
+                .unwrap(),
+            RiskDecision::Approved(_)
+        ));
+        assert_eq!(authority.outstanding_reservation_count(), 1);
+
+        let mut portfolio = PortfolioRiskSnapshot::empty(10_000, 20_696);
+        portfolio.gross_exposure = MoneyMicros(5_000_000);
+        portfolio
+            .strategy_exposure
+            .insert("space-weather-v1".into(), MoneyMicros(5_000_000));
+        portfolio
+            .symbol_positions_micros
+            .insert("GRID".into(), 1_000_000);
+        portfolio.daily_order_count = 1;
+        authority
+            .refresh_portfolio_covering(portfolio, ["one"])
+            .unwrap();
+
+        assert_eq!(authority.outstanding_reservation_count(), 0);
+        assert!(authority.reservation("one").is_none());
+        assert!(matches!(
+            authority
+                .authorize(proposal("two", 1_000_000), context())
+                .unwrap(),
+            RiskDecision::Approved(_)
+        ));
+    }
+
+    #[test]
+    fn uncovered_refresh_keeps_reservation_and_unknown_coverage_is_atomic() {
+        let mut authority = RiskAuthority::new(
+            policy(),
+            PortfolioRiskSnapshot::empty(9_000, 20_696),
+            TestVenue(Some(20_696)),
+        );
+        authority
+            .authorize(proposal("one", 1_000_000), context())
+            .unwrap();
+        authority
+            .refresh_portfolio(PortfolioRiskSnapshot::empty(9_500, 20_696))
+            .unwrap();
+        assert_eq!(authority.outstanding_reservation_count(), 1);
+
+        let before = authority.clone();
+        assert_eq!(
+            authority.refresh_portfolio_covering(
+                PortfolioRiskSnapshot::empty(10_000, 20_696),
+                ["unknown"]
+            ),
+            Err(RiskAuthorityError::UnknownCoveredReservation(
+                "unknown".into()
+            ))
+        );
+        assert_eq!(authority.portfolio, before.portfolio);
+        assert_eq!(authority.reservations, before.reservations);
+        assert_eq!(authority.reserved_gross, before.reserved_gross);
     }
 }

@@ -103,6 +103,10 @@ export default defineConfig({
             link: "/operations/capital-admission",
           },
           {
+            text: "Robinhood boundary",
+            link: "/operations/robinhood",
+          },
+          {
             text: "Incident response",
             link: "/operations/incident-response",
           },
