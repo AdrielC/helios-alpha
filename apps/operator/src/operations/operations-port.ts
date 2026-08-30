@@ -1,7 +1,17 @@
 export type FeedMode = "demo" | "shadow" | "paper" | "live";
 export type HealthState = "healthy" | "degraded" | "stale";
 export type SignalState = "observing" | "eligible" | "blocked";
-export type OrderState = "open" | "partially_filled" | "pending_reconciliation";
+export type OrderState =
+  | "pending_submit"
+  | "working"
+  | "partially_filled"
+  | "pending_cancel"
+  | "pending_replace"
+  | "filled"
+  | "canceled"
+  | "rejected"
+  | "expired"
+  | "unknown";
 export type StrategyState = "running" | "paused" | "blocked";
 export type StageState = "running" | "paused" | "blocked" | "replaying";
 
@@ -41,6 +51,7 @@ export interface PositionView {
 
 export interface OrderView {
   readonly clientOrderId: string;
+  readonly brokerOrderId?: string;
   readonly instrument: string;
   readonly side: "buy" | "sell";
   readonly state: OrderState;
@@ -52,6 +63,9 @@ export interface OrderView {
   readonly strategy: string;
   readonly submittedAt: string;
   readonly reconciliation: "matched" | "pending";
+  readonly omsVersion?: number;
+  readonly timeInForce?: "day" | "good_till_canceled" | "immediate_or_cancel" | "fill_or_kill";
+  readonly uncertaintyReason?: string;
 }
 
 export interface FillView {
@@ -370,7 +384,7 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       clientOrderId: "55d30390-9052-4ab6-9f49-071961e80a13",
       instrument: "SMH",
       side: "buy",
-      state: "open",
+      state: "working",
       quantityMicros: "6000000",
       filledQuantityMicros: "0",
       limitPriceMicros: "268750000",
@@ -378,6 +392,9 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       strategy: "geomagnetic-semis-v2",
       submittedAt: "15:40:12.499Z",
       reconciliation: "matched",
+      brokerOrderId: "sim-xnys-88412",
+      omsVersion: 2,
+      timeInForce: "day",
     },
   ],
   fills: [
@@ -686,12 +703,37 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
       text(order[field], `orders[${index}].${field}`);
     }
     oneOf(order.side, ["buy", "sell"], `orders[${index}].side`);
-    oneOf(order.state, ["open", "partially_filled", "pending_reconciliation"], `orders[${index}].state`);
+    oneOf(
+      order.state,
+      [
+        "pending_submit",
+        "working",
+        "partially_filled",
+        "pending_cancel",
+        "pending_replace",
+        "filled",
+        "canceled",
+        "rejected",
+        "expired",
+        "unknown",
+      ],
+      `orders[${index}].state`,
+    );
     oneOf(order.reconciliation, ["matched", "pending"], `orders[${index}].reconciliation`);
     for (const field of ["quantityMicros", "filledQuantityMicros", "limitPriceMicros"] as const) {
       micros(order[field], `orders[${index}].${field}`);
     }
     if (order.averagePriceMicros !== undefined) micros(order.averagePriceMicros, `orders[${index}].averagePriceMicros`);
+    if (order.brokerOrderId !== undefined) text(order.brokerOrderId, `orders[${index}].brokerOrderId`);
+    if (order.omsVersion !== undefined) integer(order.omsVersion, `orders[${index}].omsVersion`);
+    if (order.uncertaintyReason !== undefined) text(order.uncertaintyReason, `orders[${index}].uncertaintyReason`);
+    if (order.timeInForce !== undefined) {
+      oneOf(
+        order.timeInForce,
+        ["day", "good_till_canceled", "immediate_or_cancel", "fill_or_kill"],
+        `orders[${index}].timeInForce`,
+      );
+    }
   }
 
   for (const [index, candidate] of list(snapshot.fills, "fills").entries()) {

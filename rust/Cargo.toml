@@ -9,6 +9,7 @@ members = [
     "crates/helio_window",
     "crates/helio_event",
     "crates/helio_execution",
+    "crates/helio_oms",
     "crates/helio_robinhood",
     "crates/helio_backtest",
     "crates/helio_backtest_wasm",
@@ -24,6 +25,7 @@ default-members = [
     "crates/helio_window",
     "crates/helio_event",
     "crates/helio_execution",
+    "crates/helio_oms",
     "crates/helio_robinhood",
     "crates/helio_backtest",
 ]

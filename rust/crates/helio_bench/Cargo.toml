@@ -13,6 +13,8 @@ publish = false
 criterion = "=0.4.0"
 helio_event = { path = "../helio_event" }
 helio_hypothesis = { path = "../helio_hypothesis" }
+helio_execution = { path = "../helio_execution" }
+helio_oms = { path = "../helio_oms" }
 helio_scan = { path = "../helio_scan" }
 helio_stats = { path = "../helio_stats" }
 helio_time = { path = "../helio_time" }
@@ -56,4 +58,8 @@ harness = false
 
 [[bench]]
 name = "hypothesis_machine"
+harness = false
+
+[[bench]]
+name = "oms_lifecycle"
 harness = false

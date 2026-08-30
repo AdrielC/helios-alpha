@@ -12,6 +12,8 @@ depends on current evidence from the actual source, broker, environment, and on-
 | Venue sessions | Finite, versioned, content-hashed schedules with no weekday fallback outside coverage | Python exports XNYS sessions from pinned `exchange_calendars`; Rust validates the same fixture, Thanksgiving closure, and early close |
 | Pre-trade risk | Independent, idempotent risk authority with stale-market-data, stale-portfolio, session, venue, order, gross, strategy, position, daily-count, and kill-switch checks | Limit and identity fault tests |
 | Broker boundary | Stable client order identity, write-before-send journal, lookup-before-retry reconciliation, and a fault-injecting paper broker | Accept-then-timeout and unavailable-before-accept tests prove one accepted paper order |
+| Order management | Portable, event-sourced lifecycle with versioned commands, exact fixed-point fills, cancel and replace states, event cursors, and an external OMS conformance contract | Replay, identity conflict, overfill, cursor, FIX framing, checksum, and execution-report tests |
+| Durable OMS owner | One Golem agent per account with sequential commands, periodic snapshots, typed submit/fill/cancel/replace/reconcile methods, and bounded event reads | Local Golem deployment proves command de-duplication, exact fill state, simulated crash, full server restart, and event-cursor resume; production evidence remains required |
 | Robinhood Crypto adapter | Official Ed25519 request signing, exact fixed-point limit orders, bounded order lookup, fill normalization, and cancellation through injected transport and clock | Canonical-message signature verification, exact-body, pagination, unknown-outcome, redaction, native clippy, and WASI checks |
 | Costs and capacity | Checked fixed-point notional, spread, fees, latency slippage, square-root impact, and participation ceiling | Monotonicity, capacity, rounding, and overflow tests |
 | Operations | Injected metrics sink plus readiness policy over lag, checkpoints, outbox age, reconciliation, clocks, calendar coverage, incidents, and kill switch | Complete metric-set, all-blocker, and incident-transition tests |
@@ -22,10 +24,10 @@ Run the focused proof locally:
 
 ```bash
 cd rust
-cargo test -p helio_scan -p helio_time -p helio_execution -p helio_robinhood
+cargo test -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_robinhood
 cargo test -p helio_robinhood --all-features
-cargo clippy -p helio_execution -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
-cargo check --target wasm32-wasip2 -p helio_execution -p helio_robinhood --no-default-features
+cargo clippy -p helio_execution -p helio_oms -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
+cargo check --target wasm32-wasip2 -p helio_execution -p helio_oms -p helio_robinhood --no-default-features
 ```
 
 The integration test `capital_path` crosses both ambiguous boundaries: it loses the atomic commit
@@ -69,7 +71,14 @@ source prefix + checkpoint + candidate outbox
         capital admission gate ── closed unless all evidence is current
               │
               ▼
-      idempotent order gateway ── lookup before retry ── broker adapter
+           OmsPort
+        ┌─────┴─────────┐
+        ▼               ▼
+ built-in Golem OMS   external OMS adapter
+        │               │
+        └──── capital-gated OrderGateway
+                         │
+                         └──── FIX or broker-native execution ──── venue
 ```
 
 The production risk authority and order gateway should be independently deployable and should own

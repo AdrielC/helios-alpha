@@ -74,6 +74,10 @@ export default defineConfig({
             link: "/concepts/source-protocol",
           },
           {
+            text: "Messaging planes",
+            link: "/concepts/messaging-planes",
+          },
+          {
             text: "Online statistics",
             link: "/concepts/online-statistics",
           },
@@ -113,6 +117,10 @@ export default defineConfig({
           {
             text: "Robinhood boundary",
             link: "/operations/robinhood",
+          },
+          {
+            text: "Order management",
+            link: "/operations/oms",
           },
           {
             text: "Incident response",

@@ -68,10 +68,11 @@ jobs:
           rustc --version
           cargo test
           cargo test -p helio_robinhood --all-features
-          cargo clippy -p helio_execution -p helio_robinhood --all-targets --all-features -- -D warnings
+          cargo clippy -p helio_execution -p helio_oms -p helio_robinhood --all-targets --all-features -- -D warnings
           cargo test -p helio_hypothesis --all-features
-          cargo check --target wasm32-wasip2 -p helio_scan -p helio_time -p helio_stats -p helio_window -p helio_hypothesis -p helio_execution -p helio_robinhood --no-default-features
+          cargo check --target wasm32-wasip2 -p helio_scan -p helio_time -p helio_stats -p helio_window -p helio_hypothesis -p helio_execution -p helio_oms -p helio_robinhood --no-default-features
           cargo bench -p helio_bench --bench hypothesis_machine --no-run
+          cargo bench -p helio_bench --bench oms_lifecycle --no-run
           cargo check -p helio_backtest_wasm --target wasm32-unknown-unknown
           cargo build --release -p helios_signald
 
@@ -99,11 +100,11 @@ jobs:
           mkdir -p evidence
           CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
             cargo test --manifest-path rust/Cargo.toml \
-              -p helio_scan -p helio_time -p helio_execution -p helio_robinhood \
+              -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_robinhood \
               2>&1 | tee evidence/rust-control-tests.log
           CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
             cargo check --manifest-path rust/Cargo.toml \
-              --target wasm32-wasip2 -p helio_execution -p helio_robinhood --no-default-features \
+              --target wasm32-wasip2 -p helio_execution -p helio_oms -p helio_robinhood --no-default-features \
               2>&1 | tee evidence/wasi-portability.log
           PYTHONPATH=src python -m pytest tests/test_calendar_manifest.py -q \
             2>&1 | tee evidence/venue-calendar-tests.log

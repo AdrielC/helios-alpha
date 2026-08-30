@@ -23,6 +23,8 @@ The following figures are development-machine observations from the August 2026 
 | Keyed hypothesis update, 1,024 active keys | about 66 ns, or 15.1 million updates/s |
 | Frontier advance, 4,096 future timers and none due | about 2.9 ns per advance |
 | Deadline fire and completion, 4,096 active keys | about 334 ns each, or 3.00 million fires/s |
+| OMS submit plus acknowledgement across 10,000 orders | about 392,000 commands/s, or 2.55 µs per command |
+| OMS exact fill accounting, 4,096 fills on one order | about 602,000 fills/s, or 1.66 µs per fill |
 | Rolling moments | about 49 to 51 million samples/s |
 | Allocation-free `Then` composition | about 1.87 billion items/s |
 | Event vertical fixture | about 5.3 ms per workload |
@@ -47,6 +49,12 @@ transport, and state teardown costs. Reproduce the suite with:
 
 ```bash
 cargo bench -p helio_bench --bench hypothesis_machine -- --noplot
+cargo bench -p helio_bench --bench oms_lifecycle -- --noplot
 ```
+
+The OMS figures are from the same Apple M3 Pro class of local machine and use the in-memory
+reference implementation. They include fixed-point accounting, identity checks, aggregate
+versioning, and event-envelope creation. They exclude Golem persistence, NATS publication, FIX
+session I/O, venue latency, and operator projection work.
 
 See [Event-shock benchmarks](../EVENT_SHOCK_BENCHMARKS) for the vertical workload and current manual thresholds.

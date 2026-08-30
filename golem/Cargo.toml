@@ -19,6 +19,8 @@ path = "src/lib.rs"
 golem-rust = { version = "2.0.0", features = ["export_golem_agentic"] }
 helio_golem = { path = "../rust/crates/helio_golem" }
 helio_hypothesis = { path = "../rust/crates/helio_hypothesis" }
+helio_execution = { path = "../rust/crates/helio_execution" }
+helio_oms = { path = "../rust/crates/helio_oms" }
 helio_time = { path = "../rust/crates/helio_time" }
 log = { version = "0.4.29", features = ["kv"] }
 serde = { version = "1", features = ["derive"] }
