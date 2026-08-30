@@ -82,8 +82,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install WASI target
-        run: rustup target add wasm32-wasip2
+      - name: Install Rust toolchains and WASI targets
+        run: |
+          rustup toolchain install 1.88.0 --profile minimal --component clippy --target wasm32-wasip2
+          rustup target add wasm32-wasip2
 
       - name: Install pinned Golem CLI
         run: |
