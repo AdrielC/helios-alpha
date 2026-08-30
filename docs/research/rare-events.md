@@ -1,10 +1,12 @@
 # Researching rare events
 
-Rare events are a demanding proving ground because the sample is small, the timing is ambiguous, overlap is common, and naive selection creates impressive but fragile charts.
+Rare events punish loose methodology. Samples are small, timestamps disagree, event windows
+overlap, and threshold searches can manufacture impressive charts.
 
-## Why the system is feasible
+## Feasibility
 
-A fast reaction path is useful when an observation has a well-defined availability time and a plausible mechanism connecting it to a market response. The streaming substrate can then:
+A fast reaction path is useful only when the observation has a defensible availability time and a
+plausible mechanism connecting it to the response. The runtime can then:
 
 1. Admit the event only when it became knowable.
 2. Map it to the correct venue session.
@@ -13,7 +15,7 @@ A fast reaction path is useful when an observation has a well-defined availabili
 5. Generate a candidate signal through injected policy.
 6. Replay the same state transitions after a restart.
 
-That is feasible and valuable. It does not prove the event earns excess return after costs.
+Those mechanics are feasible. Excess return after costs remains an empirical claim.
 
 ## Statistical model
 

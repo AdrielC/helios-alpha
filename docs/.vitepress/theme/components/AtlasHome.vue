@@ -24,7 +24,7 @@ const stages: Stage[] = [
     index: "01",
     label: "Admit",
     method: "step(event)",
-    detail: "Admit only observations available by the decision cut, with the matching source offset.",
+    detail: "Accept the observation only after its availability time, while retaining its source offset.",
     state: "available_at ≤ 09:39:42Z · offset 184,512",
   },
   {
@@ -32,7 +32,7 @@ const stages: Stage[] = [
     index: "02",
     label: "Reorder",
     method: "watermark(t)",
-    detail: "Buffer bounded disorder, release by watermark, and surface late or overflow inputs.",
+    detail: "Hold bounded disorder, release in event-time order, and reject late or overflowing input explicitly.",
     state: "pending 7 / 4,096 · watermark 09:39:42Z",
   },
   {
@@ -40,7 +40,7 @@ const stages: Stage[] = [
     index: "03",
     label: "10m bucket",
     method: "reduce(value)",
-    detail: "Assign the event to [09:30, 09:40) and finalize only after the watermark passes 09:40.",
+    detail: "Place the event in [09:30, 09:40). Finalize only when the watermark closes that interval.",
     state: "open [09:30, 09:40) · n 511",
   },
   {
@@ -48,7 +48,7 @@ const stages: Stage[] = [
     index: "04",
     label: "Moments",
     method: "try_push(x)",
-    detail: "Update n, mean, and M2 without retaining the full series; merge partitions in a fixed order.",
+    detail: "Update count, mean, and M2 in constant space. Merge partitions through a fixed tree.",
     state: "n 512 · μ 0.18 · σ 1.07",
   },
   {
@@ -56,7 +56,7 @@ const stages: Stage[] = [
     index: "05",
     label: "Decide",
     method: "emit(output)",
-    detail: "Apply research-owned logic to the closed summary. Emit a candidate, never an authorized order.",
+    detail: "Apply injected research policy to the closed summary. The result is a candidate, not an order.",
     state: "candidate true · authority none",
   },
   {
@@ -64,7 +64,7 @@ const stages: Stage[] = [
     index: "06",
     label: "Checkpoint",
     method: "write(offset)",
-    detail: "Persist operator state with its source offset, watermark, version, and pipeline fingerprint.",
+    detail: "Bind operator state to its source offset, watermark, snapshot version, and pipeline fingerprint.",
     state: "snapshot v1 · fingerprint compatible",
   },
 ];
@@ -253,33 +253,33 @@ onBeforeUnmount(() => {
   <main class="atlas" aria-labelledby="atlas-title">
     <section class="atlas-intro atlas-plate" aria-labelledby="atlas-title">
       <div class="atlas-intro-copy">
-        <h1 id="atlas-title">Turn an event hypothesis into a replayable signal.</h1>
-        <p class="plate-meta">Annotated event atlas · 10-minute study</p>
+        <h1 id="atlas-title">Build event pipelines that survive disorder and restarts.</h1>
+        <p class="plate-meta">Annotated event atlas · causal Rust runtime</p>
         <p>
-          Trace one observation through causal admission, bounded ordering, a
-          closed bucket, online moments, research-owned logic, and a checkpoint.
+          Compose typed state machines for admission, watermarks, online inference,
+          and exact resume. Domain policy stays injected. Order authority stays out.
         </p>
         <a class="atlas-primary" href="./guide/compose-a-strategy">
-          Walk through the strategy <span aria-hidden="true">→</span>
+          Build the 10-minute pipeline <span aria-hidden="true">→</span>
         </a>
       </div>
 
       <dl class="atlas-spec" aria-label="System specification">
         <div>
-          <dt>Input</dt>
-          <dd>typed observation</dd>
+          <dt>Ingress</dt>
+          <dd><strong>Timed&lt;T&gt;</strong><span>event + availability</span></dd>
         </div>
         <div>
-          <dt>Clock</dt>
-          <dd>event time</dd>
+          <dt>Ordering</dt>
+          <dd><strong>bounded</strong><span>watermark released</span></dd>
         </div>
         <div>
-          <dt>Recovery</dt>
-          <dd>offset + snapshot</dd>
+          <dt>State</dt>
+          <dd><strong>online</strong><span>mergeable + typed</span></dd>
         </div>
         <div>
-          <dt>Claim</dt>
-          <dd>mechanics only</dd>
+          <dt>Resume</dt>
+          <dd><strong>exact</strong><span>offset + snapshot</span></dd>
         </div>
       </dl>
       <span class="registration registration-east" aria-hidden="true"></span>
@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
     <section class="pipeline atlas-plate" aria-labelledby="pipeline-title">
       <div class="section-heading">
         <div>
-          <h2 id="pipeline-title">One observation. Six explicit state owners.</h2>
+          <h2 id="pipeline-title">One observation crosses six explicit state owners.</h2>
           <p class="plate-meta">Causal trace · synthetic values</p>
         </div>
         <p class="section-note">
@@ -415,12 +415,12 @@ onBeforeUnmount(() => {
         >
           <title id="plot-title">Synthetic response aligned around an event</title>
           <desc id="plot-description">
-            A stable pre-event baseline spikes at time zero, decays below baseline,
-            and gradually recovers. The series is synthetic and demonstrates layout only.
+            A synthetic pre-event baseline spikes at time zero, decays below baseline,
+            and gradually recovers. It demonstrates alignment and state transitions.
           </desc>
           <defs>
             <pattern id="minor-grid" width="35" height="44" patternUnits="userSpaceOnUse">
-              <path d="M 35 0 L 0 0 0 44" fill="none" stroke="#e5e7ea" stroke-width="1" />
+              <path class="plot-grid-path" d="M 35 0 L 0 0 0 44" fill="none" stroke-width="1" />
             </pattern>
           </defs>
           <rect x="70" y="28" width="790" height="264" fill="url(#minor-grid)" />
@@ -483,7 +483,7 @@ onBeforeUnmount(() => {
           <g class="plot-callout">
             <line x1="736" y1="176" x2="718" y2="211" />
             <text x="738" y="150">RECOVERY PATH</text>
-            <text x="738" y="170" class="callout-copy">Signal state remains replayable.</text>
+            <text x="738" y="170" class="callout-copy">Candidate state remains replayable.</text>
           </g>
         </svg>
 
@@ -505,11 +505,11 @@ onBeforeUnmount(() => {
           <ol class="annotation-list">
             <li>
               <span>01</span>
-              Availability time is checked before the event enters a feature stage.
+              Availability is checked before the event enters feature state.
             </li>
             <li>
               <span>02</span>
-              Reorder capacity, late arrivals, and overflow remain typed outcomes.
+              Late arrival and overflow are explicit outcomes, not silent drops.
             </li>
             <li>
               <span>03</span>
@@ -517,7 +517,7 @@ onBeforeUnmount(() => {
             </li>
             <li>
               <span>04</span>
-              Signal logic is injected at the composition boundary.
+              Research policy is injected at the composition boundary.
             </li>
           </ol>
         </section>
@@ -553,7 +553,7 @@ onBeforeUnmount(() => {
     <section class="atlas-section premise" aria-labelledby="premise-title">
       <div class="section-number" aria-hidden="true">01</div>
       <div class="section-copy">
-        <h2 id="premise-title">Write down what the backtest is allowed to know.</h2>
+        <h2 id="premise-title">Define what the strategy can know before writing code.</h2>
         <p class="plate-meta">Research contract</p>
       </div>
       <dl class="research-contract" aria-label="Example research contract">
@@ -563,7 +563,7 @@ onBeforeUnmount(() => {
         </div>
         <div>
           <dt>Available at</dt>
-          <dd>The first instant the strategy could actually have observed it.</dd>
+          <dd>The first instant the strategy could have observed it.</dd>
         </div>
         <div>
           <dt>Decision</dt>
@@ -580,11 +580,11 @@ onBeforeUnmount(() => {
     <section class="composition-section atlas-section" aria-labelledby="composition-title">
       <div class="section-number" aria-hidden="true">02</div>
       <div class="section-copy">
-        <h2 id="composition-title">Compose only the state the question requires.</h2>
+        <h2 id="composition-title">Own only the state the research question requires.</h2>
         <p class="plate-meta">Static policy injection</p>
         <p>
-          The reducer and signal rule are ordinary Rust values. Ordering, flushing,
-          and snapshots stay generic, statically dispatched, and allocation-aware.
+          Reducers and decision rules are ordinary Rust values. Ordering, flushing,
+          and snapshots remain generic, statically dispatched, and allocation-aware.
         </p>
         <a href="./guide/compose-a-strategy">Build the 10-minute pipeline →</a>
       </div>
@@ -640,7 +640,7 @@ pipeline.flush(
     <section class="boundary-section atlas-section" aria-labelledby="boundary-title">
       <div class="section-number" aria-hidden="true">04</div>
       <div class="section-copy">
-        <h2 id="boundary-title">Know exactly what this system does not authorize.</h2>
+        <h2 id="boundary-title">Stop at the capital boundary.</h2>
         <p class="plate-meta">Capital boundary</p>
       </div>
       <div class="boundary-columns">

@@ -1,8 +1,9 @@
 # Production readiness
 
-The core is productionizable in the sense that its contracts are explicit, bounded, testable, and restartable. The repository is not yet a production trading system.
+Helios proves deterministic stream mechanics. It does not yet authorize, route, or reconcile live
+orders. Treat the table below as an evidence ledger, not a maturity label.
 
-## Current readiness
+## Evidence in the repository
 
 | Area | Current state |
 |---|---|
@@ -16,11 +17,12 @@ The core is productionizable in the sense that its contracts are explicit, bound
 | Trading vertical | Research proving ground with simulated execution |
 | Broker and risk | Not implemented as a production control plane |
 
-## Required before live capital
+## Missing before live capital
 
 ### Transactional processing
 
-Choose a source, checkpoint store, and sink protocol. Prove crash behavior at every boundary. Use shared transactions where available or stable idempotency identities where they are not.
+Choose one source, checkpoint store, and sink protocol. Prove every crash boundary. Use a shared
+transaction when the infrastructure permits it; otherwise, require stable idempotency identities.
 
 For hypothesis services, `process_and_snapshot` prevents in-process callers from interleaving
 between a transition and its snapshot. It is not a storage transaction. Persist the source
@@ -55,7 +57,7 @@ Expose source lag, watermark lag, pending reorder depth, rejected input, open bu
 
 Run deterministic shadow mode, restart drills, corrupt-checkpoint tests, backpressure tests, and staged incident exercises before enabling order authorization.
 
-## Go-live gate
+## Capital admission gate
 
 Do not enable capital until the system can answer, from durable evidence:
 
@@ -65,5 +67,5 @@ Do not enable capital until the system can answer, from durable evidence:
 4. Which risk control authorized the order?
 5. Which market and cost assumptions supported the expected return?
 
-For the proposed durable hosting architecture and staged proof plan, read
-[Golem Cloud deployment architecture](./golem-cloud).
+For the implemented durable shard and its remaining admission gates, read
+[Durable hypothesis execution on Golem](./golem-cloud).

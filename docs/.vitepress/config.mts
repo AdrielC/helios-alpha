@@ -7,10 +7,10 @@ export default defineConfig({
     "Restartable streaming primitives for event-driven quantitative research.",
   base: "/helios-alpha/",
   cleanUrls: true,
-  appearance: false,
+  appearance: "dark",
   lastUpdated: true,
   head: [
-    ["meta", { name: "theme-color", content: "#e8eef1" }],
+    ["meta", { name: "theme-color", content: "#08111f" }],
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:title", content: "Helios Alpha" }],
     [
@@ -28,7 +28,7 @@ export default defineConfig({
     search: { provider: "local" },
     nav: [
       { text: "Atlas", link: "/" },
-      { text: "Walkthrough", link: "/guide/quickstart" },
+      { text: "Build", link: "/guide/quickstart" },
       { text: "Concepts", link: "/concepts/scan-algebra" },
       { text: "Research", link: "/research/rare-events" },
       { text: "Operations", link: "/operations/production-readiness" },
@@ -95,7 +95,7 @@ export default defineConfig({
             link: "/operations/production-readiness",
           },
           {
-            text: "Golem Cloud architecture",
+            text: "Golem durability",
             link: "/operations/golem-cloud",
           },
           { text: "Crate map", link: "/reference/crates" },
@@ -115,7 +115,7 @@ export default defineConfig({
       text: "Improve this page",
     },
     footer: {
-      message: "Research infrastructure. No claim of profitable alpha.",
+      message: "Research infrastructure. Candidate signals have no order authority.",
       copyright: "Helios Alpha",
     },
   },

@@ -1,25 +1,25 @@
 ---
 name: Helios Alpha
-description: An annotated event atlas for inspectable, restartable research systems.
+description: A dark annotated event atlas for inspectable, restartable research systems.
 colors:
-  atlas-ground: "#f9f9f9"
-  surface-alt: "#f3f5f7"
-  surface-soft: "#eef2f6"
-  ink: "#14223d"
-  muted-ink: "#5d687b"
-  axis-muted: "#87909e"
-  action-cobalt: "#0b4cb6"
-  action-cobalt-deep: "#173f89"
-  action-cobalt-dark: "#142f68"
-  confidence-wash: "#e4ecf8"
-  event-oxide: "#b8535c"
-  evidence-green: "#83b844"
-  evidence-green-ink: "#527d14"
-  rule: "#cdcdcf"
-  rule-soft: "#e2e3e5"
-  inverse: "#ffffff"
-  code-text: "#dbe6f4"
-  code-muted: "#aebbd0"
+  atlas-ground: "#08111f"
+  surface-alt: "#0b1626"
+  surface-soft: "#101d30"
+  ink: "#eaf1ff"
+  muted-ink: "#afbdd1"
+  axis-muted: "#718199"
+  action-cobalt: "#78b7ff"
+  action-cobalt-deep: "#a6ceff"
+  action-cobalt-dark: "#d4e7ff"
+  confidence-wash: "#122c4d"
+  event-oxide: "#ff818d"
+  evidence-green: "#b7df6c"
+  evidence-green-ink: "#c9ed87"
+  rule: "#2b3a50"
+  rule-soft: "#1b2a3e"
+  inverse: "#07101d"
+  code-text: "#eaf1ff"
+  code-muted: "#93a5bf"
 typography:
   statement:
     fontFamily: "Archivo Variable, sans-serif"
@@ -38,7 +38,7 @@ typography:
     letterSpacing: "-0.02em"
   observatory-statement:
     fontFamily: "Archivo Variable, sans-serif"
-    fontSize: "clamp(30px, 3.5vw, 52px)"
+    fontSize: "clamp(34px, 3.25vw, 54px)"
     lineHeight: 0.98
     letterSpacing: "-0.04em"
   mobile-statement:
@@ -60,6 +60,19 @@ typography:
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.62
+  reading-body:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: 1.75
+  section-index:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "22px"
+    fontWeight: 650
+  mobile-section-title:
+    fontFamily: "Archivo Variable, sans-serif"
+    fontSize: "32px"
+    lineHeight: 1.04
   nav-title:
     fontFamily: "Recursive Variable, monospace"
     fontSize: "15px"
@@ -83,7 +96,7 @@ typography:
     fontVariation: '"MONO" 1, "CASL" 0'
   micro-label:
     fontFamily: "Recursive Variable, monospace"
-    fontSize: "8px"
+    fontSize: "9px"
     fontVariation: '"MONO" 1, "CASL" 0'
   code:
     fontFamily: "Recursive Variable, monospace"
@@ -189,7 +202,7 @@ components:
 
 **Creative North Star: "The Annotated Event Atlas"**
 
-Helios Alpha presents computation like a contemporary scientific atlas: a continuous cool-white sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing.
+Helios Alpha presents computation like a midnight scientific atlas: a continuous deep-navy sheet where rules, labels, plots, and state records make the system inspectable. The visual language is rigorous and calm. It favors exact alignment, compact evidence density, and explicit status over ornamental product marketing. Light mode preserves the same atlas grammar as an optional reading surface; dark mode is the default.
 
 The world pairs editorial hierarchy with the working character of a statistical notebook. Cobalt traces actions and active computation, oxide pins event time and cautions, and green appears only when evidence has been verified. Registration crosses, ruled plates, authored diagrams, and plain state ledgers make provenance visible without implying that synthetic demonstrations are trading results.
 
@@ -199,7 +212,7 @@ The primary reader is a quantitatively literate researcher who understands retur
 
 **Key Characteristics:**
 
-- Continuous cool-white atlas sheets divided by one-pixel rules.
+- Continuous deep-navy atlas sheets divided by one-pixel rules.
 - Dense but readable evidence, aligned to a shared temporal or structural axis.
 - Archivo for explanation and Recursive for labels, metrics, and code.
 - Cobalt paths, oxide event marks, and scarce evidence green.
@@ -225,7 +238,7 @@ The palette reads like technical ink on a cool research sheet, with color assign
 
 ### Neutral
 
-- **Atlas Ground:** The continuous page sheet and default stage-node interior.
+- **Atlas Ground:** The continuous midnight page sheet and default stage-node interior.
 - **Alternate and Soft Surfaces:** Quiet tonal changes for sidebars, boundaries, and confidence regions without creating elevation.
 - **Main Ink:** Headlines, body copy, axes, and the dark code plate.
 - **Muted Ink:** Supporting explanations, secondary labels, and chart context.

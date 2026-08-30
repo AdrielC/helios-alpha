@@ -6,7 +6,7 @@ outline: false
 lastUpdated: false
 pageClass: atlas-home-page
 title: Helios Alpha
-description: Compose causality-aware, restartable event pipelines in Rust.
+description: Build causal Rust event pipelines that resume from exact source state.
 ---
 
 <AtlasHome />

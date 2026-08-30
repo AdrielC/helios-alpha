@@ -1,18 +1,17 @@
-# Golem Cloud deployment architecture
+# Durable hypothesis execution on Golem
 
-## Verdict
+## Role
 
-Golem Cloud is a strong fit for the durable orchestration layer of Helios Alpha. It should host
-stateful hypothesis shards, conditional model workflows, scheduled wakeups, and risk-decision
-sagas. It should not replace the lowest-latency native feed handler, order book, or colocated
-execution loop.
+Golem owns durable hypothesis shards, conditional model workflows, scheduled wakeups, and risk
+workflow coordination. Native services still own the lowest-latency feed, order-book, and colocated
+execution paths.
 
-This recommendation is based on Golem 1.5 documentation and source reviewed on August 29, 2026,
-plus an executable local durability proof. The portable Helios crates compile for Golem's
+The boundary is backed by Golem 1.5 documentation and source reviewed on August 29, 2026, plus an
+executable durability proof. The portable Helios crates compile for Golem's
 `wasm32-wasip2` target. A real Golem Rust agent now owns one durable hypothesis shard, restores a
 versioned custom snapshot, and processes source batches through generated typed interfaces.
 
-Why the fit is good:
+### Boundary match
 
 - A Golem agent is a durable stateful unit with sequential invocation processing, which matches one
   owner per hypothesis partition.
@@ -23,7 +22,7 @@ Why the fit is good:
 - Scheduled invocations can wake an idle shard for a deadline.
 - Rust agents target WASI Preview 2, and the domain-free Helios core already compiles for it.
 
-The constraints matter just as much:
+### Runtime constraints
 
 - One agent processes invocations sequentially. Throughput comes from partitioning across agents.
 - Rust components cannot use native threads, `std::net`, native system calls, or C libraries.
@@ -37,7 +36,7 @@ Primary references: [Golem concepts](https://learn.golem.cloud/v1.5/concepts),
 [durability controls](https://learn.golem.cloud/v1.5/develop/durability), and
 [Rust snapshots](https://learn.golem.cloud/v1.5/how-to-guides/rust/golem-custom-snapshot-rust).
 
-## What exists now
+## Implemented boundary
 
 The repository has two deliberately separate layers:
 
@@ -290,16 +289,16 @@ replay-incompatible algorithm and assume the platform can infer the migration.
 | Risk service is stale or unavailable | no order intent is emitted |
 | Source watermark regresses | typed rejection, alert, no state mutation |
 
-## Delivery plan
+## Admission gates
 
-### Phase 0: feasibility gate, complete
+### Gate 0: WASI compatibility, complete
 
 - Confirm the Golem CLI and `wasm32-wasip2` target are available.
 - Compile the portable Helios substrate for WASI Preview 2.
 - Keep Tokio and ZMQ adapters out of the Golem component.
 - Gate WASI compatibility in CI.
 
-### Phase 1: component adapter, complete
+### Gate 1: component adapter, complete
 
 - Create a separate Golem application component that depends on `helio_hypothesis` without the
   `service` feature.
@@ -310,7 +309,7 @@ replay-incompatible algorithm and assume the platform can infer the migration.
 Exit proof: component build passes, snapshot round-trip restores identical future events, and a
 repeated invocation key does not advance the sequence twice.
 
-### Phase 2A: restart and duplicate laboratory, complete
+### Gate 2A: restart and duplicate proof, complete
 
 - Build the generated Golem component for WASI Preview 2.
 - Repeat an invocation key before and after an agent crash.
@@ -321,7 +320,7 @@ repeated invocation key does not advance the sequence twice.
 Exit proof: duplicate suppression, simulated crash recovery, full server restart, snapshot restore,
 and contiguous source resume all produce the expected state.
 
-### Phase 2B: expanded crash and upgrade laboratory
+### Gate 2B: expanded crash and upgrade proof
 
 - Run deterministic input through native and Golem hosts and compare every event identity.
 - Kill a shard before transition, after transition, during a model call, and after candidate send.
@@ -332,7 +331,7 @@ and contiguous source resume all produce the expected state.
 Exit proof: every crash point produces the same terminal state and effect set as uninterrupted
 execution.
 
-### Phase 3: shadow event system
+### Gate 3: shadow event system
 
 - Connect the immutable source log and partition router.
 - Run real-time data in shadow mode with no order capability granted.
@@ -343,7 +342,7 @@ execution.
 Exit proof: a sustained shadow window meets latency and recovery SLOs with zero unexplained output
 divergence.
 
-### Phase 4: paper risk and execution
+### Gate 4: paper risk and execution
 
 - Deploy `RiskAuthorityAgent` with least-privilege capabilities.
 - Put the idempotent order gateway in front of a paper broker.
@@ -353,7 +352,7 @@ divergence.
 Exit proof: every simulated order traces back to one source prefix, one candidate, one risk decision,
 and one reconciled broker identity.
 
-### Phase 5: capital canary
+### Gate 5: capital canary
 
 - Require independent operational approval and a tiny predeclared risk envelope.
 - Run one strategy version and one account partition first.

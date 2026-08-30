@@ -1,6 +1,8 @@
 # Build a restartable 10-minute event signal
 
-This walkthrough turns one research contract into a typed Rust pipeline. The example is deliberately domain-neutral: a value enters a 10-minute bucket, stable online moments summarize the bucket, and research-owned policy may turn the closed summary into a candidate signal.
+This walkthrough turns one research contract into a typed Rust pipeline. A value enters a
+10-minute bucket, stable online moments summarize the closed bucket, and injected research policy
+may emit a candidate signal.
 
 The reusable substrate owns causality, ordering, state, and recovery. It does not know what a price is, what `2.0σ` means, or whether an output should become an order.
 

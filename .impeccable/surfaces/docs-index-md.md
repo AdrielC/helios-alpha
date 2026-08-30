@@ -27,13 +27,13 @@ Do not literalize the comp's invented data scale, asset universe, or evidence-st
 
 | Role | Sampled value | Use |
 |---|---:|---|
-| Page ground | `#f9f9f9` | Continuous cool-white atlas sheet |
-| Main ink | `#14223d` | Headlines, body, axes |
-| Action blue | `#0b4cb6` | Active path, plot, links |
-| Event oxide | `#b8535c` | Event-time marker and warnings |
-| Evidence green | `#83b844` | Verified state only |
-| Rule | `#cdcdcf` | One-pixel plate boundaries |
-| Confidence wash | `#e4ecf8` | Plot interval fill |
+| Page ground | `#08111f` | Continuous midnight atlas sheet |
+| Main ink | `#eaf1ff` | Headlines, body, axes |
+| Action blue | `#78b7ff` | Active path, plot, links |
+| Event oxide | `#ff818d` | Event-time marker and warnings |
+| Evidence green | `#b7df6c` | Verified state only |
+| Rule | `#2b3a50` | One-pixel plate boundaries |
+| Confidence wash | `#122c4d` | Plot interval fill |
 
 ## System inventory
 
