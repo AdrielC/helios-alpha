@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": 1,
+  "id": "execution-evidence",
+  "label": "Execution evidence",
+  "thesis": "Relate every decision cut to the observable market, resulting exposure, and independent risk capacity.",
+  "horizon": "milliseconds to session",
+  "state": "monitoring",
+  "strategyIds": [],
+  "seriesIds": [
+    "market-ohlc",
+    "market-volume",
+    "net-exposure",
+    "risk-utilization"
+  ],
+  "sharedSeriesIds": ["market-ohlc", "market-volume", "risk-utilization"],
+  "inputContract": [
+    {
+      "seriesId": "market-ohlc",
+      "role": "decision-time market reference",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["market-data-primary"]
+    },
+    {
+      "seriesId": "market-volume",
+      "role": "liquidity and capacity reference",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["market-data-primary"]
+    },
+    {
+      "seriesId": "net-exposure",
+      "role": "fill-derived portfolio state",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["oms-projection"]
+    },
+    {
+      "seriesId": "risk-utilization",
+      "role": "independent execution eligibility",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["risk-authority"]
+    }
+  ]
+}

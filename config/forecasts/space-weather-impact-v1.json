@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "bundleVersion": 1,
+  "id": "space-weather-impact",
+  "label": "Space-weather impact",
+  "thesis": "Condition market and infrastructure impact on point-in-time solar observations, propagation state, and execution capacity.",
+  "horizon": "minutes to days",
+  "state": "blocked",
+  "strategyIds": [
+    "cme-liquidity-v3",
+    "geomagnetic-semis-v2",
+    "solar-wind-vol-v1"
+  ],
+  "seriesIds": [
+    "goes-xray-flux",
+    "donki-flare-events",
+    "donki-cme-analysis",
+    "goes-proton-flux-ge10",
+    "l1-solar-wind-speed",
+    "l1-imf-bz-gsm",
+    "planetary-kp",
+    "market-ohlc",
+    "market-volume",
+    "source-latency",
+    "source-quality",
+    "risk-utilization"
+  ],
+  "sharedSeriesIds": [
+    "market-ohlc",
+    "market-volume",
+    "source-latency",
+    "source-quality",
+    "risk-utilization"
+  ],
+  "inputContract": [
+    {
+      "seriesId": "goes-xray-flux",
+      "role": "solar trigger",
+      "required": true,
+      "maxAgeSeconds": 180,
+      "sourceIds": ["noaa-swpc-goes-xray-primary-v1"]
+    },
+    {
+      "seriesId": "donki-flare-events",
+      "role": "forecaster event classification",
+      "required": false,
+      "maxAgeSeconds": 604800,
+      "sourceIds": ["nasa-ccmc-donki-flare-v1"]
+    },
+    {
+      "seriesId": "donki-cme-analysis",
+      "role": "propagation and Earth-intersection assessment",
+      "required": true,
+      "maxAgeSeconds": 604800,
+      "sourceIds": ["nasa-ccmc-donki-cme-v1"]
+    },
+    {
+      "seriesId": "goes-proton-flux-ge10",
+      "role": "solar-radiation consequence",
+      "required": true,
+      "maxAgeSeconds": 300,
+      "sourceIds": ["noaa-swpc-goes-protons-primary-v1"]
+    },
+    {
+      "seriesId": "l1-solar-wind-speed",
+      "role": "L1 shock arrival confirmation",
+      "required": true,
+      "maxAgeSeconds": 180,
+      "sourceIds": ["noaa-swpc-l1-wind-1m-v1"]
+    },
+    {
+      "seriesId": "l1-imf-bz-gsm",
+      "role": "geomagnetic coupling orientation",
+      "required": true,
+      "maxAgeSeconds": 180,
+      "sourceIds": ["noaa-swpc-l1-mag-1m-v1"]
+    },
+    {
+      "seriesId": "planetary-kp",
+      "role": "observed geomagnetic consequence",
+      "required": true,
+      "maxAgeSeconds": 300,
+      "sourceIds": ["noaa-swpc-planetary-kp-1m-v1"]
+    },
+    {
+      "seriesId": "market-ohlc",
+      "role": "market response and execution reference",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["market-data-primary"]
+    },
+    {
+      "seriesId": "market-volume",
+      "role": "liquidity and capacity reference",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["market-data-primary"]
+    },
+    {
+      "seriesId": "source-latency",
+      "role": "publication and transport latency evidence",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["operator-telemetry"]
+    },
+    {
+      "seriesId": "source-quality",
+      "role": "required-source freshness and quality gate",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["operator-telemetry"]
+    },
+    {
+      "seriesId": "risk-utilization",
+      "role": "execution eligibility and capacity gate",
+      "required": true,
+      "maxAgeSeconds": 10,
+      "sourceIds": ["risk-authority"]
+    }
+  ]
+}

@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/operator"
+    "apps/operator",
+    "packages/*"
   ],
   "scripts": {
     "docs:dev": "vitepress dev docs",
@@ -13,11 +14,14 @@
     "operator:typecheck": "npm --workspace @helios-alpha/operator run typecheck",
     "operator:build": "npm --workspace @helios-alpha/operator run build",
     "operator:check-performance": "npm --workspace @helios-alpha/operator run check:performance",
-    "operator:preview": "npm --workspace @helios-alpha/operator run preview"
+    "operator:e2e": "playwright test --config apps/operator/playwright.config.ts",
+    "operator:preview": "npm --workspace @helios-alpha/operator run preview",
+    "atlas:test": "npm --workspace @helios-alpha/atlas-charts test"
   },
   "devDependencies": {
     "@fontsource-variable/archivo": "5.3.0",
     "@fontsource-variable/recursive": "5.3.0",
+    "@playwright/test": "^1.62.1",
     "@types/react": "18.3.31",
     "typescript": "5.9.3",
     "vitepress": "1.6.4",

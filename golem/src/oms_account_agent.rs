@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 const SNAPSHOT_FORMAT_VERSION: u32 = 1;
 const MAX_EVENT_BATCH_SIZE: u32 = 1_024;
+const MAX_ORDER_BATCH_SIZE: u32 = 10_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Schema, Serialize, Deserialize)]
 pub enum SideInput {
@@ -162,9 +163,7 @@ pub struct OrderView {
     pub client_order_id: String,
     pub broker_order_id: Option<String>,
     pub state: OrderStateOutput,
-    pub symbol: String,
-    pub venue: String,
-    pub side: SideInput,
+    pub intent: OrderIntentInput,
     pub time_in_force: TimeInForceInput,
     pub working_quantity_micros: u64,
     pub working_limit_price_micros: u64,
@@ -189,6 +188,7 @@ pub enum OmsAgentError {
     CommandRejected { detail: String },
     SerializationFailed { detail: String },
     EventBatchCapacityExceeded { found: u32, capacity: u32 },
+    OrderBatchCapacityExceeded { found: u32, capacity: u32 },
 }
 
 #[agent_definition(snapshotting = "periodic(30s)")]
@@ -236,6 +236,7 @@ pub trait OmsAccountAgent {
         input: ReconcileUnknownInput,
     ) -> Result<CommandReceiptOutput, OmsAgentError>;
     fn order(&self, client_order_id: String) -> Result<Option<OrderView>, OmsAgentError>;
+    fn orders(&self, limit: u32) -> Result<Vec<OrderView>, OmsAgentError>;
     fn events_after(&self, cursor: u64, limit: u32) -> Result<EventBatchOutput, OmsAgentError>;
 }
 
@@ -412,6 +413,19 @@ impl OmsAccountAgent for OmsAccountAgentImpl {
             .map(|snapshot| snapshot.map(OrderView::from))
     }
 
+    fn orders(&self, limit: u32) -> Result<Vec<OrderView>, OmsAgentError> {
+        if limit > MAX_ORDER_BATCH_SIZE {
+            return Err(OmsAgentError::OrderBatchCapacityExceeded {
+                found: limit,
+                capacity: MAX_ORDER_BATCH_SIZE,
+            });
+        }
+        self.oms_ref()?
+            .orders(limit as usize)
+            .map_err(agent_error)
+            .map(|orders| orders.into_iter().map(OrderView::from).collect())
+    }
+
     fn events_after(&self, cursor: u64, limit: u32) -> Result<EventBatchOutput, OmsAgentError> {
         if limit > MAX_EVENT_BATCH_SIZE {
             return Err(OmsAgentError::EventBatchCapacityExceeded {
@@ -519,6 +533,27 @@ impl From<OrderIntentInput> for OrderIntent {
     }
 }
 
+impl From<OrderIntent> for OrderIntentInput {
+    fn from(intent: OrderIntent) -> Self {
+        Self {
+            client_order_id: intent.client_order_id,
+            proposal_id: intent.proposal.proposal_id,
+            strategy_id: intent.proposal.strategy_id,
+            symbol: intent.proposal.symbol,
+            venue: intent.proposal.venue,
+            currency: intent.proposal.currency,
+            side: intent.proposal.side.into(),
+            quantity_micros: intent.proposal.quantity.0,
+            limit_price_micros: intent.proposal.limit_price.0,
+            execution_mode: intent.proposal.mode.into(),
+            trading_day: intent.proposal.trading_day,
+            authorized_notional_micros: intent.authorized_notional.0,
+            risk_policy_version: intent.risk_policy_version,
+            authorized_at_ns: intent.authorized_at_ns,
+        }
+    }
+}
+
 impl From<SideInput> for Side {
     fn from(side: SideInput) -> Self {
         match side {
@@ -542,6 +577,15 @@ impl From<ExecutionModeInput> for ExecutionMode {
         match mode {
             ExecutionModeInput::Paper => Self::Paper,
             ExecutionModeInput::Live => Self::Live,
+        }
+    }
+}
+
+impl From<ExecutionMode> for ExecutionModeInput {
+    fn from(mode: ExecutionMode) -> Self {
+        match mode {
+            ExecutionMode::Paper => Self::Paper,
+            ExecutionMode::Live => Self::Live,
         }
     }
 }
@@ -614,9 +658,7 @@ impl From<OrderSnapshot> for OrderView {
             client_order_id: snapshot.client_order_id,
             broker_order_id: snapshot.broker_order_id,
             state: snapshot.state.into(),
-            symbol: snapshot.intent.proposal.symbol,
-            venue: snapshot.intent.proposal.venue,
-            side: snapshot.intent.proposal.side.into(),
+            intent: snapshot.intent.into(),
             time_in_force: snapshot.time_in_force.into(),
             working_quantity_micros: snapshot.working_quantity.0,
             working_limit_price_micros: snapshot.working_limit_price.0,
@@ -694,6 +736,8 @@ mod tests {
         let order = agent.order("golem-order-1".into()).unwrap().unwrap();
         assert_eq!(order.state, OrderStateOutput::PartiallyFilled);
         assert_eq!(order.filled_notional_micros, 24_750_000);
+        let orders = agent.orders(16).unwrap();
+        assert_eq!(orders, vec![order]);
         let events = agent.events_after(0, 16).unwrap();
         assert_eq!(events.next_cursor, 3);
         assert_eq!(events.events_json.len(), 3);

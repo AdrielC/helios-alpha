@@ -260,7 +260,9 @@ mod tests {
         let root = LayeredScheduleNode::Layer(Box::new(ScheduleLayer::LocalDates { bands }));
         assert!(matches!(
             root.validated(),
-            Err(LayeredScheduleBuildError::InvalidBands(DisjointBandsError::Overlapping))
+            Err(LayeredScheduleBuildError::InvalidBands(
+                DisjointBandsError::Overlapping
+            ))
         ));
     }
 }

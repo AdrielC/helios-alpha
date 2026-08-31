@@ -11,12 +11,15 @@
 | `helio_event` | Proving ground | Event-shock model, filters, signal and simulated execution | Broker authorization |
 | `helio_execution` | Capital controls | Fixed-point orders, risk reservations, costs and capacity, broker reconciliation, operational readiness, incidents, capital admission | Signal research, credentials, production evidence |
 | `helio_oms` | Order management | Event-sourced order lifecycle, exact fill accounting, command replay, event cursor, FIX 4.4 mapping, external OMS conformance | FIX session sockets, credentials, venue certification, event transport |
+| `helio_alpaca` | Venue adapter | Exact Alpaca order and account types, fixed-point normalization, paper/live origin separation, native HTTPS and WebSocket transports, lifecycle lookup, FILL reconciliation | Credentials, entitlements, policy, persistence, certification |
+| `helio_operatord` | Native application | Same-origin operator reads, SSE, time-series queries, authenticated commands, Alpaca paper orchestration and projections | Identity-provider login, durable OMS/risk/checkpoints, live execution |
+| `helio_relay` | Operational event adapter | Bounded OMS event validation, acknowledged JetStream publication, stable message identity, Golem projection cursor | Commands, consumer state, NATS administration |
 | `helio_robinhood` | Venue adapter | Official Crypto API signing, limit-order mapping, bounded reconciliation, lifecycle normalization, cancellation, native HTTP transport | Credentials, paper simulation, rate scheduling, equities and options, broker certification |
 | `helio_backtest` | Harness | Clocks, fingerprints, guarded Kalman research, terminal UI | Live execution guarantees |
 | `helio_backtest_wasm` | Browser adapter | Browser-hosted backtest interface | Core numerical semantics |
 | `helios_signald` | Integration | Optional ZMQ signal bridge | Kernel abstractions |
 | `helio_bench` | Tooling | Criterion workloads and baselines | Runtime dependencies |
-| `helios_hypothesis_shard` | Golem application | Agent schema, periodic snapshots, event-shock reference model | Feed ingestion, risk authority, broker access |
+| `helios_hypothesis_shard` | Golem application | Durable hypothesis, account OMS, risk authority, projection cursor, periodic snapshots | Feed ingestion, broker access, NATS transport |
 
 ## Dependency direction
 
@@ -33,9 +36,11 @@ helio_scan        helio_time
      │
      └──── helio_execution
                 ↑  ↑
-         helio_robinhood  helio_oms
-                           ↑
-              helios_hypothesis_shard
+     helio_robinhood  helio_alpaca  helio_oms
+                          ↑       ↑
+                helio_operatord  helio_relay
+                          ↑       ↑
+                     helios_hypothesis_shard
 ```
 
 Application crates may depend on substrate crates. Substrate crates do not depend on event-shock or trading types.

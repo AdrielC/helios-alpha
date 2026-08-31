@@ -40,6 +40,10 @@ impl ReferenceOms {
         self.events.len() as u64
     }
 
+    pub fn account_id(&self) -> &str {
+        &self.account_id
+    }
+
     fn execute_in_place(&mut self, command: OmsCommand) -> Result<CommandReceipt, OmsError> {
         if command.command_id().trim().is_empty() || command.client_order_id().trim().is_empty() {
             return Err(OmsError::EmptyIdentity);
@@ -182,6 +186,17 @@ impl OmsQueryPort for ReferenceOms {
             .get(client_order_id)
             .map(OrderAggregate::snapshot)
             .transpose()
+    }
+
+    fn orders(&self, limit: usize) -> Result<Vec<OrderSnapshot>, OmsError> {
+        if limit == 0 {
+            return Err(OmsError::InvalidOrderLimit);
+        }
+        self.orders
+            .values()
+            .take(limit)
+            .map(OrderAggregate::snapshot)
+            .collect()
     }
 }
 

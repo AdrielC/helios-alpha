@@ -1,0 +1,74 @@
+{
+  "title": "Choose the institutional Helios workbench",
+  "question": "Synchronized Evidence Desk is my recommendation. It keeps the complete OMS lifecycle legible while making Helios ownable through one shared event-time surface for market, signal, source, risk, order, fill, and portfolio evidence.",
+  "options": [
+    {
+      "id": "grounded-evidence-desk",
+      "label": "Synchronized Evidence Desk",
+      "kicker": "RECOMMENDED",
+      "verdict": "wins",
+      "lineage": "institutional blotters, scientific trace review, and point-in-time decision evidence",
+      "thesis": "Every decision is a place on one shared timeline, with the exact observations, order state, and downstream result available for inspection.",
+      "palette": ["#07111B", "#111D29", "#E6EBEF", "#3F8FE8", "#53B982", "#D39A36"],
+      "materials": ["matte graphite", "fine time-grid rules", "crisp tabular numerals"],
+      "viewport": "A dominant synchronized timeline stacks selectable market, posterior, source-quality, risk, and P&L series under one crosshair. Order, acknowledgement, fill, cancel, replace, and alert markers share the same event-time axis. A working-order ledger below carries parent and child state, route, owner, allocation, compliance, reconciliation, and last event. The evidence rail explains a selected interval from cited observations.",
+      "case": "This is the best synthesis of the product. It supports ordinary OMS work without hiding Helios's differentiator: causal, replayable, point-in-time investigation across research and execution.",
+      "risk": "A large timeline can crowd the blotter on smaller screens, so mobile and narrow desktop modes must preserve the shared cursor while moving ledger and evidence detail into explicit panes.",
+      "raised": [
+        {"from": "Standard OMS coverage", "raise": "Parent and child orders, fills, allocations, compliance, exceptions, reconciliation, post-trade, TCA, and audit remain first-class destinations."},
+        {"from": "AI-native operation", "raise": "AI assembles cited evidence and suggests relevant series, but stays read-only and cannot bypass risk or command review."}
+      ],
+      "comp": ".impeccable/mocks/decision/helios-synchronized-evidence-desk.png"
+    },
+    {
+      "id": "grounded-order-record",
+      "label": "Graphite Order Record",
+      "verdict": "competitive",
+      "lineage": "Charles River Trader, Bloomberg AIM, Trading Technologies, and high-density execution ledgers",
+      "thesis": "The order is the primary record; every lifecycle transition, break, and post-trade obligation remains visible around it.",
+      "palette": ["#0A0F14", "#171D23", "#E3E5E5", "#517EA8", "#AF7F35"],
+      "materials": ["controlled graphite", "etched row rules", "quiet exception lamps"],
+      "viewport": "A large grouped parent and child blotter owns the center. A shallow synchronized market chart places order, cancel, replace, and fill markers above it; an exception rail separates compliance, venue uncertainty, allocation, and reconciliation breaks; fills, allocations, audit, and TCA live in a docked detail record.",
+      "case": "This is the safest institutional choice and the clearest for a trading desk adopting Helios as a standalone OMS or overlaying an existing one.",
+      "risk": "It can over-index on order handling and make signal research feel secondary unless the evidence timeline is promoted into a peer workspace.",
+      "raised": [
+        {"from": "Institutional canon", "raise": "It preserves conventional order hierarchy but removes generic KPI cards and exposes the full exception surface."}
+      ],
+      "comp": ".impeccable/mocks/decision/helios-graphite-order-record.png"
+    },
+    {
+      "id": "grounded-market-atlas",
+      "label": "Market Evidence Atlas",
+      "verdict": "competitive",
+      "lineage": "multi-track observability, point-in-time research notebooks, and execution replay",
+      "thesis": "Operators compose the evidence field itself, stacking any market, model, source, portfolio, or execution series against a common clock.",
+      "palette": ["#06101A", "#102031", "#E7EDF2", "#5494E8", "#48A978", "#D5A13C"],
+      "materials": ["dark plotting paper", "precise axis ticks", "ruled evidence rail"],
+      "viewport": "A majestic configurable analysis surface stacks price, spread, volume, signal strength, posterior probability, latency, exposure, capacity, and P&L. The operator scrubs one interval across order and fill ribbons. The evidence rail distinguishes what was available at decision time from late arrivals, then offers cited investigation and operator-approved series suggestions.",
+      "case": "This is the most visually ownable and the strongest quant-research workspace. It makes AI-native investigation useful without turning the product into a chatbot.",
+      "risk": "It is not sufficient as the only home surface. Orders, allocations, compliance, reconciliation, and audit still need dedicated lifecycle workspaces with equivalent depth.",
+      "raised": [
+        {"from": "Synchronized Evidence Desk", "raise": "More traces fit at once and selected intervals expose late-arrival and model-version truth directly."}
+      ],
+      "comp": ".impeccable/mocks/decision/helios-market-atlas.png"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Conventional Institutional OMS",
+    "thesis": "The familiar dark enterprise OMS executed against the functional bar set by Charles River Trader, Bloomberg AIM, and Trading Technologies.",
+    "palette": ["#0C1117", "#17212B", "#DCE3E8", "#4A8FD8"],
+    "materials": ["neutral dark panels", "crisp tables", "restrained blue state"],
+    "viewport": "A collapsible sidebar, portfolio summary, working-order blotter, positions, source health, and alert center. Standard operations are legible, but time-series evidence remains a secondary chart rather than the organizing model.",
+    "risk": "Reliable and easy to recognize, but too easy to mistake for any other polished institutional product and too weak at point-in-time causal investigation.",
+    "comp": ".impeccable/mocks/decision/helios-institutional-blotter.png"
+  },
+  "steer": true
+}

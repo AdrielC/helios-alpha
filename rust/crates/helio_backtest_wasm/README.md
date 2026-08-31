@@ -4,7 +4,7 @@ Browser build of the **helio_backtest** harness using [Ratzilla](https://github.
 
 ## Prerequisites
 
-- Rust **1.88** (see `../rust-toolchain.toml` in the `rust/` workspace).
+- Rust **1.94** (see `../rust-toolchain.toml` in the `rust/` workspace).
 - Target: `rustup target add wasm32-unknown-unknown`
 - [Trunk](https://trunkrs.dev): `cargo install trunk`
 

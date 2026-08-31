@@ -43,6 +43,19 @@ version.
 This is at-least-once delivery with exactly-once domain effects. It does not pretend the network
 offers a global exactly-once transaction.
 
+`helio_relay::OmsEventRelay` implements that boundary. It validates the complete bounded batch
+before publishing anything, rejects foreign accounts, schema changes, duplicate identities, cursor
+gaps, and inconsistent batch cursors, then handles each event in this order:
+
+1. Serialize the committed envelope.
+2. Publish with the envelope identity as `Nats-Msg-Id`.
+3. Await the JetStream publish acknowledgement.
+4. Compare-and-set advance `ProjectionCursorAgent(account, projection)`.
+
+If step 4 is interrupted, the next run starts from the old cursor and republishes the same identity.
+JetStream returns a duplicate acknowledgement and the cursor can advance without producing a second
+stored message. Commands never flow through this relay.
+
 ## NATS contract
 
 `helio_oms::OmsEventEnvelope` defines the event boundary. Subjects are deterministic:
@@ -69,6 +82,10 @@ finite redelivery policy. A dead-letter stream records events that exceed that p
 Primary references: [NATS concepts](https://docs.nats.io/learn/),
 [JetStream pull consumers](https://docs.nats.io/learn/jetstream/pull-consumers), and
 [advanced publishing and de-duplication](https://docs.nats.io/learn/jetstream/advanced-publishing).
+
+The production relay verifies the existing stream's subjects, byte and message limits, maximum age,
+de-duplication window, file storage, replica count, retention, discard policy, and delete/purge
+guards before admitting work. Stream creation is disabled unless explicitly enabled for bootstrap.
 
 ## Where Zenoh fits
 

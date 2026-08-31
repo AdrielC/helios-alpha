@@ -14,6 +14,9 @@ depends on current evidence from the actual source, broker, environment, and on-
 | Broker boundary | Stable client order identity, write-before-send journal, lookup-before-retry reconciliation, and a fault-injecting paper broker | Accept-then-timeout and unavailable-before-accept tests prove one accepted paper order |
 | Order management | Portable, event-sourced lifecycle with versioned commands, exact fixed-point fills, cancel and replace states, event cursors, and an external OMS conformance contract | Replay, identity conflict, overfill, cursor, FIX framing, checksum, and execution-report tests |
 | Durable OMS owner | One Golem agent per account with sequential commands, periodic snapshots, typed submit/fill/cancel/replace/reconcile methods, and bounded event reads | Local Golem deployment proves command de-duplication, exact fill state, simulated crash, full server restart, and event-cursor resume; production evidence remains required |
+| Durable operational events | A bounded relay validates contiguous account batches, waits for JetStream persistence acknowledgement, publishes stable `Nats-Msg-Id` values, then compare-and-set advances a Golem-owned projection cursor | Fault tests prove no advance before acknowledgement and identical replay identity after the publish/checkpoint crash gap; a real NATS v2.14.5 smoke proves server-side de-duplication |
+| Alpaca paper vertical | Closed paper origins, exact decimals, bounded market normalization, lookup-before-submit, standalone OMS, independent risk, trade-update reconciliation, and operator projections | Injected-transport tests prove one POST across replay, stale-reference rejection, confirmed cancel, asynchronous fill, position refresh, and reservation release; current credentials and network are not tested in CI |
+| Scientific shadow | Strict NOAA/NASA normalization, causal receipt availability, append-only revisions, atomic snapshot/checkpoint commits, bounded atomic operator projection, and versioned forecast inputs | Unit tests cover failure semantics; a current NOAA X-ray live poll succeeded locally and the non-blocking integration job repeats that contract check |
 | Robinhood Crypto adapter | Official Ed25519 request signing, exact fixed-point limit orders, bounded order lookup, fill normalization, and cancellation through injected transport and clock | Canonical-message signature verification, exact-body, pagination, unknown-outcome, redaction, native clippy, and WASI checks |
 | Costs and capacity | Checked fixed-point notional, spread, fees, latency slippage, square-root impact, and participation ceiling | Monotonicity, capacity, rounding, and overflow tests |
 | Operations | Injected metrics sink plus readiness policy over lag, checkpoints, outbox age, reconciliation, clocks, calendar coverage, incidents, and kill switch | Complete metric-set, all-blocker, and incident-transition tests |
@@ -27,6 +30,8 @@ cd rust
 cargo test -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_robinhood
 cargo test -p helio_robinhood --all-features
 cargo clippy -p helio_execution -p helio_oms -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
+cargo test -p helio_alpaca -p helio_operatord
+cargo clippy -p helio_alpaca -p helio_operatord --all-targets -- -D warnings
 cargo check --target wasm32-wasip2 -p helio_execution -p helio_oms -p helio_robinhood --no-default-features
 ```
 
@@ -41,12 +46,16 @@ performed against the selected deployment and counterparties:
 
 - certify the implemented Robinhood Crypto adapter against its live-only account, supported
   limit-order subset, polling contract, and rate limits, or certify another selected broker;
+- run the Alpaca paper adapter against an authenticated account, retain order/fill/position
+  evidence, and prove Golem-backed startup reconciliation against that account;
 - calibrate spread, fees, latency, impact, and capacity by venue, instrument, regime, and shock
   severity;
 - generate and refresh the venue schedule through the production distribution path;
 - prove symbol-master and corporate-action handling for every traded instrument;
 - run a clock-synchronization alert drill and an on-call incident exercise;
 - complete Golem restart recovery with the production component and storage configuration;
+- deploy a replicated NATS cluster with authenticated least-privilege accounts, verify the exact
+  bounded stream policy, and drill publisher outage plus consumer redelivery;
 - deploy the exact immutable artifact, verify health and rollback, and retain its digest;
 - complete a predeclared shadow period with real publication latency, revisions, disconnects, and
   broker acknowledgements.

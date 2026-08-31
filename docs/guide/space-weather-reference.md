@@ -37,7 +37,9 @@ NOAA SWPC for the official United States forecast.
 | stable online moments | implemented | Welford updates and deterministic Chan merges |
 | guarded sums and norms | implemented | Neumaier compensation and scaled sum-of-squares scans |
 | guarded streaming forecast | implemented | atomic `GuardedKalmanLocalLevelScan` with fallible restore |
-| production GOES and L1 streaming adapters | not implemented | current Python clients are research ingest, not durable source connectors |
+| production-shaped GOES, L1, Kp, and DONKI shadow adapters | implemented for single-host shadow | strict HTTPS normalization, append-only SQLite revisions, atomic checkpoints, and a validated operator projection |
+| distributed scientific-source durability | not implemented | the local journal still needs persistent-volume, backup/restore, and acknowledged transport deployment proof |
+| versioned forecast observation contract | implemented | exact series order, source identities, freshness budgets, and raw-manifest SHA-256 are validated in Python, Rust, and TypeScript |
 | calibrated propagation, impact, and market models | not implemented | the executable example uses synthetic values |
 | live capital and broker authority | intentionally outside | production admission gate remains closed |
 
@@ -97,7 +99,8 @@ out-of-sample evidence before it can open the same hypothesis chain.
 
 Before live capital, add all of the following:
 
-- durable, rate-limited GOES, SWPC, DONKI, and L1 source adapters with source-specific watermarks;
+- deploy the shadow journal on monitored persistent storage and prove backup, restore, outage, and
+  acknowledged-transport recovery;
 - identity resolution for revised and duplicated solar incidents;
 - versioned, calibrated propagation and infrastructure models with reliability diagrams;
 - purged walk-forward market studies that include alert latency, revisions, costs, and capacity;
@@ -107,6 +110,9 @@ Before live capital, add all of the following:
 The system should fail closed when any required source is stale, any probability or forecast is
 non-finite, a source revision cannot be reconciled, or the candidate has crossed its arrival or
 market-data freshness boundary.
+
+See [Run the scientific shadow](/operations/space-weather-shadow) for the executable source and
+operator handoff.
 
 ## Operational sources
 

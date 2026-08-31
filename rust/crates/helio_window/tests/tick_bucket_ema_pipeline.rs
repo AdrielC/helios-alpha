@@ -73,9 +73,10 @@ fn composed_pipeline_bucket_then_ema_then_diff() {
 
 #[test]
 fn flush_emits_partial_bucket() {
-    let s = TimeBucketAggregatorScan::<NanosecondWallBucket, PriceTick>::new(NanosecondWallBucket {
-        width_ns: BUCKET_NS,
-    });
+    let s =
+        TimeBucketAggregatorScan::<NanosecondWallBucket, PriceTick>::new(NanosecondWallBucket {
+            width_ns: BUCKET_NS,
+        });
     let mut st = s.init();
     let mut e = VecEmitter::new();
     s.step(

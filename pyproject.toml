@@ -30,6 +30,7 @@ dependencies = [
 
 [project.scripts]
 helios-pipeline = "helios_alpha.cli:main"
+helios-shadow = "helios_alpha.shadow.cli:main"
 
 [project.optional-dependencies]
 dev = [

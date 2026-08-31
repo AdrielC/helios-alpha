@@ -9,13 +9,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 /// Defines **bucket width** and **floor** on a discrete timeline `T` (e.g. `i64` nanoseconds or seconds).
 pub trait WallBucketGrid: Copy + Clone + Serialize + DeserializeOwned + 'static {
     /// Timeline coordinate (epoch offset in ns, sec, or another agreed unit).
-    type T: Copy
-        + Ord
-        + Eq
-        + std::hash::Hash
-        + Serialize
-        + DeserializeOwned
-        + std::fmt::Debug;
+    type T: Copy + Ord + Eq + std::hash::Hash + Serialize + DeserializeOwned + std::fmt::Debug;
 
     /// `floor(t / width) * width` — start of the half-open bucket containing `t`.
     fn bucket_start(&self, t: Self::T) -> Self::T;
@@ -88,8 +82,6 @@ impl WallBucketGrid for SecondWallBucket {
 
 impl SecondWallBucket {
     pub fn ten_minutes() -> Self {
-        Self {
-            width_sec: 10 * 60,
-        }
+        Self { width_sec: 10 * 60 }
     }
 }

@@ -100,10 +100,32 @@ readonly oms_submit='SubmitOrderInput { command_id: "oms-submit-1", intent: Orde
 readonly oms_ack='VenueAcknowledgementInput { command_id: "oms-ack-1", client_order_id: "oms-order-1", broker_order_id: "oms-venue-order-1", at_ns: 11 }'
 readonly oms_fill='FillInput { command_id: "oms-fill-1", client_order_id: "oms-order-1", broker_order_id: Some("oms-venue-order-1"), execution_id: "oms-execution-1", venue_occurred_at: Some("20260830-15:42:00.000"), quantity_micros: 500000, price_micros: 49500000, at_ns: 12 }'
 readonly oms_order_id='"oms-order-1"'
+readonly risk_agent_id='RiskAccountAgent("ci-paper-account")'
+readonly risk_policy='{"version":"paper-risk-v1","live_enabled":false,"allowed_venues":["XNYS"],"max_market_data_age_ns":1000,"max_portfolio_age_ns":1000,"max_order_notional":100000000,"max_gross_exposure":1000000000,"max_strategy_exposure":500000000,"max_symbol_position_micros":10000000,"max_daily_orders":10}'
+readonly risk_policy_literal="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$risk_policy")"
+readonly risk_schedule_literal="$(python3 -c 'import json,sys; print(json.dumps(open(sys.argv[1]).read()))' '../rust/crates/helio_time/tests/fixtures/xnys_2026_thanksgiving.json')"
+readonly risk_portfolio='PortfolioRiskInput { as_of_ns: 1795617999999999900, trading_day: 20782, gross_exposure_micros: 0, strategy_exposure: [], symbol_positions: [], daily_order_count: 0 }'
+readonly risk_config="ConfigureRiskInput { risk_policy_json: $risk_policy_literal, venue_schedule_json: $risk_schedule_literal, initial_portfolio: $risk_portfolio }"
+readonly risk_authorize="AuthorizeRiskInput { proposal: RiskProposalInput { proposal_id: \"risk-order-1\", strategy_id: \"manual\", symbol: \"SPY\", venue: \"XNYS\", currency: \"USD\", side: SideInput::Buy, quantity_micros: 1000000, limit_price_micros: 25000000, execution_mode: ExecutionModeInput::Paper, trading_day: 20782 }, context: RiskContextInput { now_ns: 1795618000000000000, market_data_at_ns: 1795617999999999900, venue_time_utc_sec: 1795618000 }, portfolio: $risk_portfolio }"
+readonly projection_cursor_agent_id='ProjectionCursorAgent("ci-paper-account", "nats-oms-events")'
+readonly projection_cursor_advance='AdvanceProjectionCursorInput { expected_cursor: 0, next_cursor: 1, event_id: "oms:v1:ci-paper-account:oms-order-1:1" }'
 
 start_server
 
 golem --environment test --config-dir "$config_dir" --yes deploy
+
+risk_configured="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$risk_agent_id" configure "$risk_config")"
+assert_contains "$risk_configured" 'policy_version: "paper-risk-v1"'
+risk_first_decision="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key risk-ci-paper-authorize-1 "$risk_agent_id" authorize "$risk_authorize")"
+assert_contains "$risk_first_decision" 'RiskDecisionOutput::Approved'
+risk_duplicate_decision="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key risk-ci-paper-authorize-1 "$risk_agent_id" authorize "$risk_authorize")"
+assert_equal "$risk_duplicate_decision" "$risk_first_decision"
+
+cursor_first_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$projection_cursor_agent_id" advance "$projection_cursor_advance")"
+assert_contains "$cursor_first_receipt" 'cursor: 1'
+assert_contains "$cursor_first_receipt" 'replayed: false'
+cursor_replay_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$projection_cursor_agent_id" advance "$projection_cursor_advance")"
+assert_contains "$cursor_replay_receipt" 'replayed: true'
 
 oms_first_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$oms_submit_key" "$oms_agent_id" submit "$oms_submit")"
 assert_contains "$oms_first_receipt" 'version: 1'
@@ -128,12 +150,19 @@ assert_equal "$duplicate_receipt" "$first_receipt"
 
 golem --environment test --config-dir "$config_dir" agent simulate-crash "$agent_id"
 golem --environment test --config-dir "$config_dir" agent simulate-crash "$oms_agent_id"
+golem --environment test --config-dir "$config_dir" agent simulate-crash "$risk_agent_id"
+golem --environment test --config-dir "$config_dir" agent simulate-crash "$projection_cursor_agent_id"
 after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$agent_id" status)"
 assert_contains "$after_crash" 'next_offset: 41'
 assert_contains "$after_crash" 'next_deadline_available_at: Some(100)'
 
 oms_after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" order "$oms_order_id")"
 assert_contains "$oms_after_crash" 'state: OrderStateOutput::PartiallyFilled'
+risk_after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$risk_agent_id" status)"
+assert_contains "$risk_after_crash" 'outstanding_reservations: 1'
+assert_contains "$risk_after_crash" 'reserved_gross_micros: 25000000'
+cursor_after_crash="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$projection_cursor_agent_id" status)"
+assert_contains "$cursor_after_crash" 'cursor: 1'
 
 stop_server
 start_server
@@ -146,6 +175,12 @@ oms_after_restart="$(golem --environment test --config-dir "$config_dir" --forma
 assert_contains "$oms_after_restart" 'state: OrderStateOutput::PartiallyFilled'
 oms_events="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$oms_agent_id" events_after 0 16)"
 assert_contains "$oms_events" 'next_cursor: 3'
+risk_after_restart="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$risk_agent_id" status)"
+assert_contains "$risk_after_restart" 'outstanding_reservations: 1'
+assert_contains "$risk_after_restart" 'reserved_gross_micros: 25000000'
+cursor_after_restart="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream "$projection_cursor_agent_id" status)"
+assert_contains "$cursor_after_restart" 'cursor: 1'
+assert_contains "$cursor_after_restart" 'last_event_id: Some("oms:v1:ci-paper-account:oms-order-1:1")'
 
 replayed_receipt="$(golem --environment test --config-dir "$config_dir" --format text agent invoke --no-stream --idempotency-key "$open_key" "$agent_id" process_batch "$open_batch")"
 assert_equal "$replayed_receipt" "$first_receipt"
@@ -158,4 +193,4 @@ final_status="$(golem --environment test --config-dir "$config_dir" --format tex
 assert_contains "$final_status" 'next_offset: 42'
 assert_contains "$final_status" 'next_deadline_available_at: Some(200)'
 
-echo "Golem durability smoke passed: hypothesis and OMS duplicate suppression, simulated crash, full server restart, event cursor, and contiguous resume."
+echo "Golem durability smoke passed: hypothesis, OMS, risk, and projection cursor duplicate suppression, reservations, simulated crash, full server restart, event cursor, and contiguous resume."

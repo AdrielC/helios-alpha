@@ -1,26 +1,40 @@
 :root {
   font-family: "Archivo Variable", system-ui, sans-serif;
-  color: #eef3f0;
-  background: #060a0f;
+  color: #e7edf2;
+  background: #050b12;
   color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
   --vp-font-family-base: "Archivo Variable", system-ui, sans-serif;
   --vp-font-family-mono: "Recursive Variable", ui-monospace, monospace;
-  --atlas-ground: #080d13;
-  --atlas-ink: #eef3f0;
-  --atlas-muted: #a6b0b8;
-  --atlas-axis: #64717c;
-  --atlas-blue: #70c7df;
-  --atlas-blue-soft: #10252c;
-  --atlas-oxide: #ff846e;
-  --atlas-green: #b9e74b;
-  --atlas-green-ink: #cff873;
-  --atlas-rule: #25323b;
-  --atlas-rule-soft: #18232b;
-  --atlas-surface-alt: #0b1219;
-  --atlas-surface-strong: #101a22;
+  --atlas-ground: #07101a;
+  --atlas-ink: #e7edf2;
+  --atlas-muted: #9ca9b4;
+  --atlas-axis: #8795a1;
+  --atlas-blue: #4f94ee;
+  --atlas-blue-soft: #10213a;
+  --atlas-oxide: #e17455;
+  --atlas-green: #59b77c;
+  --atlas-green-ink: #79d09a;
+  --atlas-cyan: #47c2cf;
+  --atlas-amber: #e5a12c;
+  --atlas-violet: #a16de0;
+  --atlas-rule: #253544;
+  --atlas-rule-soft: #172533;
+  --atlas-grid: #162433;
+  --atlas-grid-band: #09131e;
+  --atlas-grid-rule: #1c2a36;
+  --atlas-chart-axis: #8795a1;
+  --atlas-chart-label: #dfe8ec;
+  --atlas-chart-unit: #8795a1;
+  --atlas-axis-strong: #3d5266;
+  --atlas-brush: #17283a;
+  --atlas-cursor-ink: #08111b;
+  --atlas-rail: #08121c;
+  --atlas-investigation: #0a1724;
+  --atlas-surface-alt: #0a1520;
+  --atlas-surface-strong: #0e1d2a;
 }
 
 html,
@@ -34,7 +48,7 @@ body,
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background: #060a0f;
+  background: #050b12;
 }
 
 button,
@@ -49,7 +63,7 @@ button {
 }
 
 ::selection {
-  color: #060a0f;
+  color: #050b12;
   background: var(--atlas-green);
 }
 

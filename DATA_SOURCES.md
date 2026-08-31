@@ -22,6 +22,17 @@ Authoritative links and how this repo uses them. Prefer **versioned files** or *
 |--------|------|----------|--------|
 | **NOAA SWPC GOES** | Integral proton flux, multiple energies, ~7 day JSON | `https://services.swpc.noaa.gov/json/goes/primary/integral-protons-7-day.json` | We keep `>=10 MeV` as `protons_ge10.parquet`. |
 
+## Operational shadow sources
+
+Research backfills above are not reused as live truth. `helios-shadow` polls the current NOAA SWPC
+rolling products and NASA CCMC DONKI, preserves every received raw snapshot, and journals normalized
+revisions with both event and availability time. The checked-in source identities and exact URLs
+are documented in [Run the scientific shadow](docs/operations/space-weather-shadow.md).
+
+NOAA rolling rows use HTTPS receipt time as conservative availability because those documents do
+not provide a row publication clock. DONKI retains submission and latest model-completion time.
+The active L1 provider is preserved from each row rather than hardcoded as DSCOVR.
+
 ## Market prices
 
 | Source | What | Access | Notes |

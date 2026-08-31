@@ -35,7 +35,14 @@ if (perspectiveBytes > 5 * 1024 * 1024) {
   throw new Error(`On-demand Perspective payload exceeded 5 MiB: ${perspectiveBytes} bytes`);
 }
 
+const atlasChunks = files.filter((file) => !file.name.endsWith(".map") && /^SynchronizedEvidenceTimeline-.*\.js$/.test(file.name));
+if (atlasChunks.length !== 1) throw new Error(`Expected one lazy Market Atlas JavaScript chunk, found ${atlasChunks.length}`);
+if (atlasChunks[0].size > 240 * 1024) {
+  throw new Error(`On-demand Market Atlas JavaScript exceeded 240 KiB: ${atlasChunks[0].size} bytes`);
+}
+
 console.log(`operator_initial_js=${basename(entry.name)} bytes=${entry.size}`);
 console.log(`operator_initial_css=${basename(initialCss.name)} bytes=${initialCss.size}`);
 console.log(`perspective_on_demand_assets=${perspective.length} bytes=${perspectiveBytes}`);
+console.log(`market_atlas_on_demand_js=${basename(atlasChunks[0].name)} bytes=${atlasChunks[0].size}`);
 console.log("operator_performance_contract=pass");
