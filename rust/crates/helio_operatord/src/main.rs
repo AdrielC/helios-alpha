@@ -218,7 +218,7 @@ fn golem_settings() -> Result<GolemClientSettings, Box<dyn std::error::Error>> {
     Ok(GolemClientSettings {
         endpoint,
         app_name: env::var("HELIOS_GOLEM_APP").unwrap_or_else(|_| "helios-alpha".into()),
-        environment_name: env::var("HELIOS_GOLEM_ENVIRONMENT").unwrap_or_else(|_| mode),
+        environment_name: env::var("HELIOS_GOLEM_ENVIRONMENT").unwrap_or(mode),
     })
 }
 

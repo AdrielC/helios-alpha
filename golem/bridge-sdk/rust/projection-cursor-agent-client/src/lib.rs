@@ -512,52 +512,6 @@ pub fn configure(
         .expect("Configuration has already been set");
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct CursorConflict {
-    pub expected: u64,
-    pub actual: u64,
-}
-impl golem_wasm::IntoValue for CursorConflict {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![self.expected.into_value(), self.actual.into_value()],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("expected", < u64 as golem_wasm::IntoValue > ::get_type()),
-                field("actual", < u64 as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(CursorConflict).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for CursorConflict {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
-                let expected = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let actual = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { expected, actual })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 2usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ProjectionCursorStatus {
     pub account_id: String,
     pub projection_id: String,
@@ -615,6 +569,250 @@ impl golem_wasm::FromValue for ProjectionCursorStatus {
                 Err(
                     format!(
                         "Expected Record with {} fields, got {}", 4usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CursorConflict {
+    pub expected: u64,
+    pub actual: u64,
+}
+impl golem_wasm::IntoValue for CursorConflict {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![self.expected.into_value(), self.actual.into_value()],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("expected", < u64 as golem_wasm::IntoValue > ::get_type()),
+                field("actual", < u64 as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(CursorConflict).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for CursorConflict {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
+                let expected = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let actual = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { expected, actual })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 2usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct InvalidIdentity {
+    pub detail: String,
+}
+impl golem_wasm::IntoValue for InvalidIdentity {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(vec![self.detail.into_value()])
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("detail", < String as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(InvalidIdentity).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for InvalidIdentity {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
+                let detail = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { detail })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 1usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ProjectionCursorReceipt {
+    pub cursor: u64,
+    pub event_id: String,
+    pub replayed: bool,
+}
+impl golem_wasm::IntoValue for ProjectionCursorReceipt {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.cursor.into_value(), self.event_id.into_value(), self.replayed
+                .into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("cursor", < u64 as golem_wasm::IntoValue > ::get_type()),
+                field("event_id", < String as golem_wasm::IntoValue > ::get_type()),
+                field("replayed", < bool as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(ProjectionCursorReceipt).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for ProjectionCursorReceipt {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
+                let cursor = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let event_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let replayed = <bool as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { cursor, event_id, replayed })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 3usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NonContiguousAdvance {
+    pub expected: u64,
+    pub proposed: u64,
+}
+impl golem_wasm::IntoValue for NonContiguousAdvance {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![self.expected.into_value(), self.proposed.into_value()],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("expected", < u64 as golem_wasm::IntoValue > ::get_type()),
+                field("proposed", < u64 as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(NonContiguousAdvance).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for NonContiguousAdvance {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
+                let expected = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let proposed = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { expected, proposed })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 2usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReplayIdentityConflict {
+    pub cursor: u64,
+    pub existing_event_id: String,
+    pub proposed_event_id: String,
+}
+impl golem_wasm::IntoValue for ReplayIdentityConflict {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.cursor.into_value(), self.existing_event_id.into_value(), self
+                .proposed_event_id.into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("cursor", < u64 as golem_wasm::IntoValue > ::get_type()),
+                field("existing_event_id", < String as golem_wasm::IntoValue >
+                ::get_type()), field("proposed_event_id", < String as
+                golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(ReplayIdentityConflict).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for ReplayIdentityConflict {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
+                let cursor = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let existing_event_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let proposed_event_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    cursor,
+                    existing_event_id,
+                    proposed_event_id,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 3usize, fields.len()
                     ),
                 )
             }
@@ -789,204 +987,6 @@ impl golem_wasm::FromValue for ProjectionCursorError {
                 }
             }
             _ => Err(format!("Expected Variant value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ProjectionCursorReceipt {
-    pub cursor: u64,
-    pub event_id: String,
-    pub replayed: bool,
-}
-impl golem_wasm::IntoValue for ProjectionCursorReceipt {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.cursor.into_value(), self.event_id.into_value(), self.replayed
-                .into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("cursor", < u64 as golem_wasm::IntoValue > ::get_type()),
-                field("event_id", < String as golem_wasm::IntoValue > ::get_type()),
-                field("replayed", < bool as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(ProjectionCursorReceipt).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for ProjectionCursorReceipt {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
-                let cursor = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let event_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let replayed = <bool as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { cursor, event_id, replayed })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 3usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct InvalidIdentity {
-    pub detail: String,
-}
-impl golem_wasm::IntoValue for InvalidIdentity {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.detail.into_value()])
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("detail", < String as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(InvalidIdentity).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for InvalidIdentity {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let detail = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { detail })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 1usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ReplayIdentityConflict {
-    pub cursor: u64,
-    pub existing_event_id: String,
-    pub proposed_event_id: String,
-}
-impl golem_wasm::IntoValue for ReplayIdentityConflict {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.cursor.into_value(), self.existing_event_id.into_value(), self
-                .proposed_event_id.into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("cursor", < u64 as golem_wasm::IntoValue > ::get_type()),
-                field("existing_event_id", < String as golem_wasm::IntoValue >
-                ::get_type()), field("proposed_event_id", < String as
-                golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(ReplayIdentityConflict).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for ReplayIdentityConflict {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
-                let cursor = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let existing_event_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let proposed_event_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    cursor,
-                    existing_event_id,
-                    proposed_event_id,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 3usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct NonContiguousAdvance {
-    pub expected: u64,
-    pub proposed: u64,
-}
-impl golem_wasm::IntoValue for NonContiguousAdvance {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![self.expected.into_value(), self.proposed.into_value()],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("expected", < u64 as golem_wasm::IntoValue > ::get_type()),
-                field("proposed", < u64 as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(NonContiguousAdvance).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for NonContiguousAdvance {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
-                let expected = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let proposed = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { expected, proposed })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 2usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
         }
     }
 }
