@@ -177,13 +177,16 @@ jobs:
         working-directory: golem
         run: bash tests/golem_local_smoke.sh
 
-      - name: Regenerate and verify pinned Golem bridge clients
+      - name: Regenerate pinned Golem bridge clients
         working-directory: golem
         run: |
           bash scripts/generate_rust_bridges.sh
           ! grep -R 'branch = "main"' bridge-sdk/rust/*/Cargo.toml
           grep -R 'tag = "v1.5.9"' bridge-sdk/rust/*/Cargo.toml
-          git diff --exit-code -- bridge-sdk/rust
+
+          # Golem 1.5.9 can emit equivalent Rust type declarations in a
+          # different order between processes. The compile step below is the
+          # semantic contract gate; an exact generated-text diff is not.
 
       - name: Compile production Golem clients
         working-directory: rust

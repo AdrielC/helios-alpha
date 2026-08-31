@@ -31,4 +31,10 @@ do
     echo "Generated bridge still contains an unpinned Golem dependency: $manifest" >&2
     exit 1
   fi
+
+  client_dir="$(dirname -- "$manifest")"
+  if [[ ! -s "$client_dir/src/lib.rs" ]]; then
+    echo "Generated bridge is missing its Rust client source: $client_dir/src/lib.rs" >&2
+    exit 1
+  fi
 done
