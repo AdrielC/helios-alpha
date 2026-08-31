@@ -4,6 +4,10 @@ Helios now has a standalone OMS core and a stable seam for plugging into another
 capital controls apply in both modes. Replacing order management never grants a strategy direct
 venue authority.
 
+The [operator capability map](./operator-capability-map.md) is the acceptance inventory for the
+standalone application and external-OMS overlay. It includes the synchronized evidence timeline,
+complete institutional lifecycle, post-trade operations, and bounded AI investigation contract.
+
 ## What is implemented
 
 `helio_oms` is a platform-neutral Rust crate that compiles for native targets and WASI. It owns:
@@ -103,7 +107,8 @@ session reference is the [FIX session layer standard](https://www.fixtrading.org
    explicit `ReconcileUnknown` command records the venue's resolved status. It never becomes a new
    order.
 5. The event relay resumes from its last acknowledged account cursor and publishes only committed
-   events.
+   events. It advances the durable cursor only after JetStream acknowledges persistence. A crash
+   after publication reuses the stable event identity, so JetStream de-duplicates the retry.
 6. Positions are projections of fills plus explicit adjustments. They are not inferred from order
    status text.
 7. Aggregate observation time cannot move backward. A late venue report uses a new local
@@ -118,7 +123,7 @@ session reference is the [FIX session layer standard](https://www.fixtrading.org
 Implemented code is not permission to trade. Before live capital, retain artifacts for:
 
 - Golem crash and full-restart recovery of the account agent;
-- NATS publisher acknowledgement loss and consumer redelivery;
+- NATS publisher acknowledgement loss and consumer redelivery in the production cluster;
 - FIX sequence gaps, resend, duplicate reports, disconnects, and ambiguous submission;
 - venue conformance for every supported order type and time in force;
 - drop-copy or broker statement reconciliation to OMS fills and positions;

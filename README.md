@@ -22,15 +22,21 @@ other event shocks without putting space-weather or trading vocabulary in the co
 [Audit production readiness](https://adrielc.github.io/helios-alpha/operations/production-readiness) ·
 [Inspect capital admission](https://adrielc.github.io/helios-alpha/operations/capital-admission) ·
 [Choose the first data and broker path](https://adrielc.github.io/helios-alpha/operations/market-data-path) ·
+[Run the scientific shadow](https://adrielc.github.io/helios-alpha/operations/space-weather-shadow) ·
+[Run Alpaca paper execution](https://adrielc.github.io/helios-alpha/operations/alpaca-paper) ·
 [Inspect the Robinhood boundary](https://adrielc.github.io/helios-alpha/operations/robinhood) ·
 [Operate the OMS](https://adrielc.github.io/helios-alpha/operations/oms) ·
 [Choose the messaging plane](https://adrielc.github.io/helios-alpha/concepts/messaging-planes) ·
 [Review the Golem Cloud architecture](https://adrielc.github.io/helios-alpha/operations/golem-cloud)
 
-> **Status:** research infrastructure with an executable, fail-closed capital-control reference.
-> The repository has an implemented but uncertified Robinhood Crypto adapter, no production
-> evidence ledger, does not claim profitable alpha, and does not have permission to trade live
-> capital.
+> **Status:** research infrastructure with an executable, fail-closed capital-control reference
+> and an injected-transport Alpaca paper vertical. Golem owns durable account OMS, risk, and relay
+> cursor state; a separately supervised relay publishes committed OMS events to bounded NATS
+> JetStream storage after persistence acknowledgement. A single-host NOAA/NASA shadow journals
+> point-in-time revisions and atomically refreshes the operator through a versioned forecast
+> contract. Broker credentials, Golem Cloud, distributed scientific-source durability, and a
+> production NATS cluster are not exercised in public CI. The repository does not claim profitable
+> alpha or permission to trade live capital.
 
 ## What you can compose
 
@@ -175,6 +181,9 @@ still has to map that contract to its own serializable transaction.
 | `helio_event` | An event-shock proving ground and simulated strategy vertical | Broker authorization |
 | `helio_execution` | Fixed-point orders, pre-trade risk, cost and capacity, broker reconciliation, incidents, operational readiness, capital admission | Research signal meaning, broker credentials, production evidence |
 | `helio_oms` | Versioned order lifecycle, exact fills, replay-safe commands, event cursors, FIX 4.4 mapping, external OMS contract | FIX sockets and credentials, venue certification, transport authority |
+| `helio_alpaca` | Exact paper/live protocol types, closed origins, native HTTPS and WebSocket transports, market normalization, lifecycle lookup, and FILL reconciliation | Credentials, entitlements, strategy policy, durable state, broker certification |
+| `helio_operatord` | Same-origin read, SSE, versioned forecasts, atomic time-series projections, investigation, authenticated command, and Alpaca paper orchestration | Identity-provider login, durable OMS/risk/checkpoint state, live-capital authority |
+| `helio_relay` | Validated committed-event batches, acknowledged JetStream publication, stable de-duplication identity, durable Golem cursor advancement, and bounded retry | OMS command authority, consumer projection state, production NATS credentials |
 | `helio_robinhood` | Official Robinhood Crypto signing, limit orders, lifecycle polling, cancellation, and decimal normalization | Credentials, rate scheduling, paper trading, equities and options, broker certification |
 | `helio_backtest` | Fixed clocks, fingerprints, guarded Kalman research, replay harnesses | Live execution guarantees |
 | `helios_signald` | Optional ZMQ integration | Kernel abstractions |
@@ -215,6 +224,10 @@ cd rust
 cargo test -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_robinhood
 cargo test -p helio_robinhood --all-features
 cargo clippy -p helio_execution -p helio_oms -p helio_time -p helio_robinhood --all-targets --all-features -- -D warnings
+cargo test -p helio_alpaca -p helio_operatord
+cargo clippy -p helio_alpaca -p helio_operatord --all-targets -- -D warnings
+cargo test -p helio_relay --no-default-features
+cargo check -p helio_relay --features native
 ```
 
 The end-to-end paper test loses both a commit acknowledgement and a broker acknowledgement, then
@@ -239,12 +252,51 @@ golem build --yes
 bash tests/golem_local_smoke.sh
 ```
 
-The smoke test deploys both durable agent types to an isolated local Golem server. It proves
-hypothesis offset resume plus OMS command de-duplication, exact partial-fill state, simulated agent
-crashes, full server restart, and event-cursor resume. CI pins the Golem CLI binary and checks its
-SHA-256 digest before running the same proof. Read the
+The smoke test deploys the durable hypothesis, OMS, risk, and projection-cursor agents to an
+isolated local Golem server. It proves hypothesis offset resume, OMS command de-duplication, exact
+partial-fill state, reserved-risk recovery, cursor replay, simulated agent crashes, full server
+restart, and contiguous resume. CI pins the Golem CLI binary and checks its SHA-256 digest before
+running the same proof. Read the
 [Golem deployment guide](https://adrielc.github.io/helios-alpha/operations/golem-cloud) for the
 implemented boundary and the remaining cloud, certified-broker, deployment, and shadow evidence.
+
+Run the committed OMS event relay only after provisioning the required JetStream policy. Production
+mode verifies the existing stream instead of silently changing it:
+
+```bash
+cd rust
+HELIOS_ACCOUNT_ID=paper-account \
+HELIOS_GOLEM_MODE=local \
+NATS_URL=nats://127.0.0.1:4222 \
+HELIOS_NATS_REPLICAS=1 \
+HELIOS_NATS_ALLOW_STREAM_CREATE=1 \
+cargo run -p helio_relay --features native --bin helio_oms_relayd
+```
+
+Read the [OMS relay runbook](https://adrielc.github.io/helios-alpha/operations/oms-relay) before
+granting NATS or Golem credentials.
+
+### Run the scientific shadow
+
+The shadow daemon keeps provider payloads and normalized revisions in one atomic SQLite journal,
+then writes a bounded, mode-0600 operator projection by rename. The operator validates that entire
+projection before one read-model commit.
+
+```bash
+uv sync --extra dev
+uv run helios-shadow \
+  --journal data/shadow/space-weather.sqlite3 \
+  --operator-projection data/shadow/operator-projection.json \
+  --interval-seconds 60
+
+cd rust
+HELIOS_TIME_SERIES_PROJECTION_PATH=../data/shadow/operator-projection.json \
+cargo run -p helio_operatord
+```
+
+The exact NOAA/NASA source identities, conservative availability policy, restart semantics, and
+remaining distributed-durability gate are in the
+[scientific shadow runbook](https://adrielc.github.io/helios-alpha/operations/space-weather-shadow).
 
 ### Run the docs locally
 
@@ -268,7 +320,9 @@ npm run operator:check-performance
 ```
 
 Read the [Helios Control deployment boundary](apps/operator/README.md) before connecting an
-operations service.
+operations service. The [Alpaca paper runbook](https://adrielc.github.io/helios-alpha/operations/alpaca-paper)
+documents the first real market-data, risk, OMS, paper-order, fill, and position path plus its
+remaining restart-safety boundary.
 
 GitHub Actions builds and publishes the VitePress site from `main`:
 [adrielc.github.io/helios-alpha](https://adrielc.github.io/helios-alpha/).

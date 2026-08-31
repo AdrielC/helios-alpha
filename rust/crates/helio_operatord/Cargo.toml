@@ -1,0 +1,51 @@
+[package]
+name = "helio_operatord"
+version = "0.1.0"
+edition = "2021"
+description = "Native read, stream, investigation, and authenticated command gateway for the Helios operator"
+
+[[bin]]
+name = "helio_operatord"
+path = "src/main.rs"
+required-features = ["golem"]
+
+[features]
+default = ["golem"]
+golem = [
+    "dep:golem-client",
+    "dep:oms-account-agent-client",
+    "dep:reqwest",
+    "dep:risk-account-agent-client",
+]
+
+[dependencies]
+async-trait = "0.1"
+axum = { version = "0.8", features = ["http1", "json", "tokio"] }
+futures-util = "0.3"
+helio_alpaca = { path = "../helio_alpaca", features = ["native-http", "native-stream"] }
+helio_execution = { path = "../helio_execution" }
+helio_oms = { path = "../helio_oms" }
+helio_time = { path = "../helio_time" }
+hex = "0.4"
+hmac = "0.12"
+http = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+subtle = "2"
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "parsing", "serde"] }
+tokio = { version = "1", features = ["fs", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tower-http = { version = "0.6", features = ["catch-panic", "compression-gzip", "fs", "limit", "request-id", "sensitive-headers", "set-header", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+golem-client = { git = "https://github.com/golemcloud/golem", tag = "v1.5.9", optional = true }
+oms-account-agent-client = { path = "../../../golem/bridge-sdk/rust/oms-account-agent-client", optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["rustls"], optional = true }
+risk-account-agent-client = { path = "../../../golem/bridge-sdk/rust/risk-account-agent-client", optional = true }
+
+[dev-dependencies]
+helio_scan = { path = "../helio_scan" }
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }

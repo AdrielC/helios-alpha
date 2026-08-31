@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/operator/**"
+      - "packages/atlas-charts/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/operator.yml"
@@ -12,6 +13,7 @@ on:
     branches: [main]
     paths:
       - "apps/operator/**"
+      - "packages/atlas-charts/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/operator.yml"
@@ -36,11 +38,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test Atlas chart primitives
+        run: npm run atlas:test
+
       - name: Typecheck and build operator
         run: npm run operator:build
 
       - name: Enforce operator bundle budgets
         run: npm run operator:check-performance
+
+      - name: Install browser for operator acceptance tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Test operator interactions and responsive layout
+        run: npm run operator:e2e
 
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high

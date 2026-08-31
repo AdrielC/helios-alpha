@@ -69,7 +69,10 @@ fn main() {
         zt.step_collect(&mut z_st, (2, 5))
     );
 
-    let both_pipe = helio_scan::scan_both!(Arr::new(|s: String| s.len() as i32), Arr::new(|n: i32| n + 1));
+    let both_pipe = helio_scan::scan_both!(
+        Arr::new(|s: String| s.len() as i32),
+        Arr::new(|n: i32| n + 1)
+    );
     let mut b_st = both_pipe.init();
     println!(
         "=== scan_both! (String len, int bump) ===\n  {:?}",
@@ -150,7 +153,10 @@ fn main() {
     println!("\n=== First / Second ===");
     let with_session = First::new(Arr::new(|x: i32| x * 3));
     let mut st2 = with_session.init();
-    println!("  {:?}", with_session.step_collect(&mut st2, (42, "sess-9".to_string())));
+    println!(
+        "  {:?}",
+        with_session.step_collect(&mut st2, (42, "sess-9".to_string()))
+    );
 
     let mut st3 = split_tagged.init();
     println!(

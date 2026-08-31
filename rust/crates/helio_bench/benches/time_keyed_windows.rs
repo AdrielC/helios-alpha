@@ -25,8 +25,7 @@ fn bench_time_keyed_state(c: &mut Criterion) {
     group.throughput(Throughput::Elements(BATCH));
     group.bench_function("push_f64_span_1h_batch4096", |b| {
         b.iter(|| {
-            let mut w =
-                TimeKeyedWindowState::new(spec, SumCountMeanAggregator::default()).unwrap();
+            let mut w = TimeKeyedWindowState::new(spec, SumCountMeanAggregator::default()).unwrap();
             for i in 0..BATCH {
                 let t = (i as i64) * 30;
                 w.push(TimeKey(t), black_box(i as f64 * 0.0001));

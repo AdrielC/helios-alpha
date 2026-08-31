@@ -7,11 +7,7 @@ fn main() {
         .expect("demo run");
     println!(
         "bars={} pnl_sum={:.8} sharpe_daily_ann={:?} run_wall_secs={:.6} kalman={:?}",
-        r.bars_processed,
-        r.pnl_simple,
-        r.sharpe_daily_annualized,
-        r.run_wall_secs,
-        r.kalman
+        r.bars_processed, r.pnl_simple, r.sharpe_daily_annualized, r.run_wall_secs, r.kalman
     );
 
     // ~10y toy range for a rough throughput check (same engine as unit test).

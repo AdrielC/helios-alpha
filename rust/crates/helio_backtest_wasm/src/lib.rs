@@ -38,57 +38,56 @@ fn run_app() -> io::Result<()> {
     let use_wall_k = use_wall.clone();
     let fixed_k = fixed_anchor.clone();
     let log_k = log.clone();
-    terminal.on_key_event(move |key_event| {
-        match key_event.code {
-            KeyCode::Char(' ') => {
-                let spec = helio_backtest::demo_run_spec();
-                let report = if *use_wall_k.borrow() {
-                    BacktestHarness::wall().run(&spec)
-                } else {
-                    BacktestHarness::new(FixedClock(*fixed_k.borrow())).run(&spec)
-                };
-                let mut l = log_k.borrow_mut();
-                match report {
-                    Ok(r) => {
-                        let sh = r
-                            .sharpe_daily_annualized
-                            .map(|x| format!("{x:.3}"))
-                            .unwrap_or_else(|| "n/a".into());
-                        let k = r.kalman.as_ref().map(|k| {
-                            format!(" E={:.1}", k.innovation_energy)
-                        });
-                        l.push(format!(
-                            "fp={}.. bars={} pnl={:.4} sharpe={} t={:.4}s{}",
-                            &r.fingerprint_hex[..12.min(r.fingerprint_hex.len())],
-                            r.bars_processed,
-                            r.pnl_simple,
-                            sh,
-                            r.run_wall_secs,
-                            k.unwrap_or_default()
-                        ));
-                    }
-                    Err(e) => l.push(format!("err: {e}")),
+    terminal.on_key_event(move |key_event| match key_event.code {
+        KeyCode::Char(' ') => {
+            let spec = helio_backtest::demo_run_spec();
+            let report = if *use_wall_k.borrow() {
+                BacktestHarness::wall().run(&spec)
+            } else {
+                BacktestHarness::new(FixedClock(*fixed_k.borrow())).run(&spec)
+            };
+            let mut l = log_k.borrow_mut();
+            match report {
+                Ok(r) => {
+                    let sh = r
+                        .sharpe_daily_annualized
+                        .map(|x| format!("{x:.3}"))
+                        .unwrap_or_else(|| "n/a".into());
+                    let k = r
+                        .kalman
+                        .as_ref()
+                        .map(|k| format!(" E={:.1}", k.innovation_energy));
+                    l.push(format!(
+                        "fp={}.. bars={} pnl={:.4} sharpe={} t={:.4}s{}",
+                        &r.fingerprint_hex[..12.min(r.fingerprint_hex.len())],
+                        r.bars_processed,
+                        r.pnl_simple,
+                        sh,
+                        r.run_wall_secs,
+                        k.unwrap_or_default()
+                    ));
                 }
+                Err(e) => l.push(format!("err: {e}")),
             }
-            KeyCode::Char('w') => {
-                let mut u = use_wall_k.borrow_mut();
-                *u = !*u;
-                log_k.borrow_mut().push(if *u {
-                    "clock: wall".into()
-                } else {
-                    "clock: fixed".into()
-                });
-            }
-            KeyCode::Char('f') => {
-                if !*use_wall_k.borrow() {
-                    *fixed_k.borrow_mut() += 86_400;
-                    log_k
-                        .borrow_mut()
-                        .push(format!("anchor {}", *fixed_k.borrow()));
-                }
-            }
-            _ => {}
         }
+        KeyCode::Char('w') => {
+            let mut u = use_wall_k.borrow_mut();
+            *u = !*u;
+            log_k.borrow_mut().push(if *u {
+                "clock: wall".into()
+            } else {
+                "clock: fixed".into()
+            });
+        }
+        KeyCode::Char('f') => {
+            if !*use_wall_k.borrow() {
+                *fixed_k.borrow_mut() += 86_400;
+                log_k
+                    .borrow_mut()
+                    .push(format!("anchor {}", *fixed_k.borrow()));
+            }
+        }
+        _ => {}
     });
 
     let use_wall_d = use_wall.clone();

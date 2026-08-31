@@ -1,0 +1,14 @@
+{
+  "version": "alpaca-paper-v1",
+  "live_enabled": false,
+  "allowed_venues": [
+    "XNYS"
+  ],
+  "max_market_data_age_ns": 2000000000,
+  "max_portfolio_age_ns": 5000000000,
+  "max_order_notional": 100000000,
+  "max_gross_exposure": 1000000000,
+  "max_strategy_exposure": 250000000,
+  "max_symbol_position_micros": 1000000,
+  "max_daily_orders": 10
+}

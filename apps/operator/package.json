@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@helios-alpha/atlas-charts": "0.1.0",
     "@fontsource-variable/archivo": "5.3.0",
     "@fontsource-variable/recursive": "5.3.0",
     "@perspective-dev/client": "5.3.0",

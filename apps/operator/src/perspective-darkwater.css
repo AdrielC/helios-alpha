@@ -1,0 +1,90 @@
+@import "@perspective-dev/viewer/themes/pro-dark.css";
+
+perspective-viewer,
+perspective-viewer[theme="Helios Darkwater"],
+perspective-viewer [theme="Helios Darkwater"] {
+  --psp-theme-name: "Helios Darkwater";
+}
+
+perspective-viewer[theme="Helios Darkwater"],
+perspective-viewer [theme="Helios Darkwater"],
+perspective-context-menu[theme="Helios Darkwater"],
+perspective-copy-menu[theme="Helios Darkwater"],
+perspective-export-menu[theme="Helios Darkwater"],
+perspective-dropdown[theme="Helios Darkwater"],
+perspective-date-column-style[theme="Helios Darkwater"],
+perspective-datetime-column-style[theme="Helios Darkwater"],
+perspective-number-column-style[theme="Helios Darkwater"],
+perspective-string-column-style[theme="Helios Darkwater"] {
+  color: #e7edf2;
+  background-color: #07101a;
+  border-color: #253544;
+  font-family: "Recursive Variable", ui-monospace, monospace;
+  --psp--color: #e7edf2;
+  --psp--background-color: #07101a;
+  --psp-active--color: #4f94ee;
+  --psp-active--background: rgba(79, 148, 238, 0.22);
+  --psp-error--color: #e17455;
+  --psp-inactive--color: #8795a1;
+  --psp-inactive--border-color: #253544;
+  --psp-placeholder--background: rgba(37, 53, 68, 0.5);
+  --psp-warning--color: #07101a;
+  --psp-warning--background: #e5a12c;
+  --psp-expression--operator--color: #9ca9b4;
+  --psp-expression--function--color: #47c2cf;
+  --psp-expression--error--color: #e17455;
+  --psp-code-editor--symbol--color: #e7edf2;
+  --psp-code-editor--literal--color: #79d09a;
+  --psp-code-editor--operator--color: #e5a12c;
+  --psp-code-editor--comment--color: #8795a1;
+  --psp-code-editor--column--color: #a16de0;
+  --psp-datagrid--pos-cell--color: #79d09a;
+  --psp-datagrid--neg-cell--color: #e17455;
+  --psp-datagrid--hover--border-color: rgba(79, 148, 238, 0.62);
+  --psp-datagrid--border-color: #172533;
+  --psp-status-icon--connected--color: #59b77c;
+  --psp-status-icon--initializing--color: #e5a12c;
+  --psp-status-icon--error--color: #e17455;
+  --psp-charts--legend--color: #9ca9b4;
+  --psp-charts--axis-ticks--color: #8795a1;
+  --psp-charts--axis-lines--color: #253544;
+  --psp-charts--gridline--color: #172533;
+  --psp-charts--tooltip--color: #e7edf2;
+  --psp-charts--tooltip--background: #0a1724;
+  --psp-charts--tooltip--border-color: #253544;
+  --psp-charts--legend--background: #07101a;
+  --psp-charts--series--color: #4f94ee;
+  --psp-charts--series-1--color: #4f94ee;
+  --psp-charts--series-2--color: #59b77c;
+  --psp-charts--series-3--color: #e17455;
+  --psp-charts--series-4--color: #47c2cf;
+  --psp-charts--series-5--color: #e5a12c;
+  --psp-charts--series-6--color: #a16de0;
+  --psp-charts--series-7--color: #79d09a;
+  --psp-charts--series-8--color: #b0bac4;
+  --psp-charts--series-9--color: #d6c05c;
+  --psp-charts--series-10--color: #63c9d4;
+  --psp-datagrid--series-1--color: #4f94ee;
+  --psp-datagrid--series-2--color: #59b77c;
+  --psp-datagrid--series-3--color: #e17455;
+  --psp-datagrid--series-4--color: #47c2cf;
+  --psp-datagrid--series-5--color: #e5a12c;
+  --psp-datagrid--series-6--color: #a16de0;
+  --psp-datagrid--series-7--color: #79d09a;
+  --psp-datagrid--series-8--color: #b0bac4;
+  --psp-datagrid--series-9--color: #d6c05c;
+  --psp-datagrid--series-10--color: #63c9d4;
+}
+
+perspective-context-menu[theme="Helios Darkwater"],
+perspective-copy-menu[theme="Helios Darkwater"],
+perspective-export-menu[theme="Helios Darkwater"],
+perspective-dropdown[theme="Helios Darkwater"],
+perspective-date-column-style[theme="Helios Darkwater"],
+perspective-datetime-column-style[theme="Helios Darkwater"],
+perspective-number-column-style[theme="Helios Darkwater"],
+perspective-string-column-style[theme="Helios Darkwater"] {
+  border: 1px solid #253544;
+  border-radius: 0;
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.38);
+}

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import exchange_calendars as xc
@@ -105,3 +107,39 @@ def build_venue_schedule_manifest(
         | {"source_sha256": source_sha256},
         "sessions": sessions,
     }
+
+
+def _parse_instant(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        msg = "generated-at must include a UTC offset"
+        raise ValueError(msg)
+    return parsed
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Export a content-hashed venue schedule for an execution service."""
+
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("--exchange", required=True)
+    parser.add_argument("--start", required=True, type=date.fromisoformat)
+    parser.add_argument("--end", required=True, type=date.fromisoformat)
+    parser.add_argument("--generated-at", required=True, type=_parse_instant)
+    parser.add_argument("--output", required=True, type=Path)
+    args = parser.parse_args(argv)
+    manifest = build_venue_schedule_manifest(
+        args.exchange,
+        args.start,
+        args.end,
+        generated_at=args.generated_at,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -45,6 +45,10 @@ Researchers inspect architecture and API documentation, compose scans and reduce
 
 The product name is Helios Alpha. Its voice is technically direct, statistically honest, and explicit about causality, uncertainty, and the boundary between implemented mechanics and unproven trading claims. Rare events are the initial proving ground, while the primitives remain useful for event streams generally.
 
+The operator application uses an institutional dark workbench as its visual baseline. It should feel familiar beside Charles River Trader, Bloomberg AIM, and Trading Technologies without becoming a generic card dashboard. Its signature surface is a synchronized evidence timeline where operators can stack market, signal, risk, source-quality, order, fill, and portfolio series; scrub one shared event-time cursor; and inspect the exact state available at each decision. Dense lifecycle ledgers, restrained state color, exact numeric typography, and explicit provenance take priority over decorative chrome.
+
+AI belongs in bounded, reviewable operator workflows. It may summarize an incident, assemble an investigation, suggest relevant series, explain an order or fill against cited observations, and draft a reversible workspace change. It must expose its evidence and uncertainty, preserve the operator's current context, and never create execution authority or bypass command review, risk admission, or audit requirements.
+
 ## Evidence on Hand
 
 - The Rust crates, tests, Criterion benchmarks, and rustdoc in `rust/`.

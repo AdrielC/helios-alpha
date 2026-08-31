@@ -28,10 +28,7 @@ impl SessionDayOracle for LocalWeekdayOracle {
     fn is_session_day(&self, ts_utc_sec: i64) -> bool {
         let d = self.local_date(ts_utc_sec);
         let wd = d.weekday();
-        !matches!(
-            wd,
-            chrono::Weekday::Sat | chrono::Weekday::Sun
-        )
+        !matches!(wd, chrono::Weekday::Sat | chrono::Weekday::Sun)
     }
 }
 
@@ -57,13 +54,15 @@ where
 
 #[inline]
 pub fn utc_sec_to_local_date(zone: Tz, ts_utc_sec: i64) -> NaiveDate {
-    let utc = DateTime::from_timestamp(ts_utc_sec, 0).unwrap_or_else(|| Utc.timestamp_opt(0, 0).unwrap());
+    let utc =
+        DateTime::from_timestamp(ts_utc_sec, 0).unwrap_or_else(|| Utc.timestamp_opt(0, 0).unwrap());
     utc.with_timezone(&zone).date_naive()
 }
 
 #[inline]
 pub fn utc_sec_to_local_datetime(zone: Tz, ts_utc_sec: i64) -> chrono::NaiveDateTime {
-    let utc = DateTime::from_timestamp(ts_utc_sec, 0).unwrap_or_else(|| Utc.timestamp_opt(0, 0).unwrap());
+    let utc =
+        DateTime::from_timestamp(ts_utc_sec, 0).unwrap_or_else(|| Utc.timestamp_opt(0, 0).unwrap());
     utc.with_timezone(&zone).naive_local()
 }
 
@@ -86,7 +85,11 @@ pub struct SessionUtcDay {
     pub intervals_utc: Vec<(i64, i64)>,
 }
 
-fn template_to_utc_day(zone: Tz, local_date: NaiveDate, template: &SessionTemplate) -> SessionUtcDay {
+fn template_to_utc_day(
+    zone: Tz,
+    local_date: NaiveDate,
+    template: &SessionTemplate,
+) -> SessionUtcDay {
     let mut intervals_utc = Vec::with_capacity(template.intervals_local.len());
     for w in &template.intervals_local {
         let t0 = w.start;
@@ -166,10 +169,7 @@ impl<O: SessionDayOracle> BusinessTimeClock<O> {
         let Some(day) = self.utc_intervals_for_session_day(d) else {
             return 0;
         };
-        day.intervals_utc
-            .iter()
-            .map(|(a, b)| b - a)
-            .sum()
+        day.intervals_utc.iter().map(|(a, b)| b - a).sum()
     }
 
     /// Whether `ts_utc_sec` lies inside any defined open interval for that local day.
@@ -319,12 +319,7 @@ fn next_local_midnight_utc(zone: Tz, ts_utc_sec: i64) -> Option<i64> {
 
 #[inline]
 fn local_noon_utc(zone: Tz, d: NaiveDate) -> Option<i64> {
-    utc_from_local_wall(
-        zone,
-        d,
-        NaiveTime::from_hms_opt(12, 0, 0)?,
-    )
-    .map(|dt| dt.timestamp())
+    utc_from_local_wall(zone, d, NaiveTime::from_hms_opt(12, 0, 0)?).map(|dt| dt.timestamp())
 }
 
 fn is_session_local_day<O: SessionDayOracle>(clock: &BusinessTimeClock<O>, d: NaiveDate) -> bool {
@@ -418,22 +413,14 @@ mod tests {
             oracle: LocalWeekdayOracle { zone },
         };
         let fri = NaiveDate::from_ymd_opt(2024, 3, 8).unwrap();
-        let close = utc_from_local_wall(
-            zone,
-            fri,
-            NaiveTime::from_hms_opt(16, 0, 0).unwrap(),
-        )
-        .unwrap()
-        .timestamp();
+        let close = utc_from_local_wall(zone, fri, NaiveTime::from_hms_opt(16, 0, 0).unwrap())
+            .unwrap()
+            .timestamp();
         let t = clock.add_business_seconds(close - 1, 2).unwrap();
         let mon = NaiveDate::from_ymd_opt(2024, 3, 11).unwrap();
-        let mon_open = utc_from_local_wall(
-            zone,
-            mon,
-            NaiveTime::from_hms_opt(9, 30, 0).unwrap(),
-        )
-        .unwrap()
-        .timestamp();
+        let mon_open = utc_from_local_wall(zone, mon, NaiveTime::from_hms_opt(9, 30, 0).unwrap())
+            .unwrap()
+            .timestamp();
         assert_eq!(t, mon_open + 1);
     }
 }

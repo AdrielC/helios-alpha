@@ -125,9 +125,7 @@ fn run_app(terminal: &mut AppTerminal) -> io::Result<()> {
                                 let k = r.kalman.as_ref().map(|k| {
                                     format!(
                                         " K(q={:.2e},r={:.2e},E={:.2})",
-                                        k.q,
-                                        k.r,
-                                        k.innovation_energy
+                                        k.q, k.r, k.innovation_energy
                                     )
                                 });
                                 log.push(format!(

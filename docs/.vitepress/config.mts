@@ -119,12 +119,24 @@ export default defineConfig({
             link: "/operations/market-data-path",
           },
           {
+            text: "Scientific shadow",
+            link: "/operations/space-weather-shadow",
+          },
+          {
+            text: "Alpaca paper execution",
+            link: "/operations/alpaca-paper",
+          },
+          {
             text: "Robinhood boundary",
             link: "/operations/robinhood",
           },
           {
             text: "Order management",
             link: "/operations/oms",
+          },
+          {
+            text: "OMS event relay",
+            link: "/operations/oms-relay",
           },
           {
             text: "Incident response",
@@ -146,12 +158,12 @@ export default defineConfig({
       },
     ],
     editLink: {
-      pattern:
-        "https://github.com/AdrielC/helios-alpha/edit/main/docs/:path",
+      pattern: "https://github.com/AdrielC/helios-alpha/edit/main/docs/:path",
       text: "Improve this page",
     },
     footer: {
-      message: "Research infrastructure. Candidate signals have no order authority.",
+      message:
+        "Research infrastructure. Candidate signals have no order authority.",
       copyright: "Helios Alpha",
     },
   },

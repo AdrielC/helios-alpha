@@ -9,6 +9,8 @@ pub trait OmsCommandPort {
 pub trait OmsQueryPort {
     fn capabilities(&self) -> OmsCapabilities;
     fn order(&self, client_order_id: &str) -> Result<Option<OrderSnapshot>, OmsError>;
+    /// Returns a deterministic, bounded account-order snapshot for reconciliation.
+    fn orders(&self, limit: usize) -> Result<Vec<OrderSnapshot>, OmsError>;
 }
 
 pub trait OmsEventSource {

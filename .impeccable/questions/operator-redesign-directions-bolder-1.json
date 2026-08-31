@@ -1,0 +1,118 @@
+{
+  "title": "Choose the bolder Helios world",
+  "question": "This hand eliminates every previous direction. Split-Flap Operations Board is my recommendation: it beats the dealt leader on both operator recognition and lifecycle clarity while remaining genuinely ownable.",
+  "options": [
+    {
+      "id": "challenger-tensegrity",
+      "label": "Causal Tension Field",
+      "kicker": "THE BOLDER ROLL",
+      "verdict": "competitive",
+      "lineage": "tensegrity structures, force diagrams, and counterbalanced loads",
+      "thesis": "Every signal, order, position, and limit is held in balance by visible forces and counterforces.",
+      "palette": ["#080B0F", "#252A2E", "#E1E2DC", "#D63832"],
+      "materials": ["matte carbon rods", "tension cord", "etched force labels"],
+      "viewport": "A dark causal force network occupies the operating field; source, hypothesis, signal, risk, order, fill, and position nodes are joined by tension paths while conventional ledgers remain docked at the edges.",
+      "case": "Excellent causal truth and risk visualization, but the network demands more interpretation than the split-flap board for ordinary order work.",
+      "risk": "Beautiful geometry can obscure simple state unless every line is queryable and every entity retains a ledger representation.",
+      "raised": [
+        {
+          "from": "Registered evidence plates",
+          "raise": "Every node and force path uses exact registration and stable coordinates."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/helios-tensegrity-field.png",
+      "hero": "https://impeccable.style/worlds/cards/kinetic-sculpture-automata-tensegrity-breathing-column-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/kinetic-sculpture-automata-tensegrity-breathing-column.webp"
+    },
+    {
+      "id": "challenger-split-flap",
+      "label": "Split-Flap Operations Board",
+      "verdict": "wins",
+      "lineage": "rail concourse boards, departure rhythm, and exception lamps",
+      "thesis": "Orders, signals, feeds, and exceptions are live rows whose state changes are impossible to miss.",
+      "palette": ["#0B0B0B", "#2A2D31", "#F2F2F2", "#F0A52C", "#B4232B"],
+      "materials": ["matte split flaps", "brushed steel", "amber exception lamps"],
+      "viewport": "One dominant board ranks live signals, orders, fills, sources, and exceptions by event time; fixed columns preserve comprehension while changed characters cascade, and a quieter lower strip carries portfolio and risk context.",
+      "case": "It beats the leader on both axes: operators understand the live board instantly, and fixed columns map cleanly to the real order lifecycle without explanatory UI.",
+      "risk": "Unbounded character animation would become exhausting, so only changed cells flip and reduced-motion mode updates atomically.",
+      "comp": ".impeccable/mocks/decision/helios-split-flap-board.png",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse.webp"
+    },
+    {
+      "id": "challenger-ascii",
+      "label": "ASCII Event Field",
+      "verdict": "competitive",
+      "lineage": "live scenes rendered as selectable character density",
+      "thesis": "Raw and derived state share a living character field whose density exposes signal before the ledger confirms it.",
+      "palette": ["#090A08", "#302D20", "#F0E6C4", "#D99A2B"],
+      "materials": ["amber phosphor", "strict character cells", "density ramps"],
+      "viewport": "A dominant live event field renders intensity and causal propagation as amber character density while semantic signal, order, and position ledgers remain readable around it.",
+      "case": "Strong quant and systems-programmer identification with a memorable live field; weaker than split-flap for immediate order, allocation, and exception handling.",
+      "risk": "The character field requires a parallel semantic representation, careful contrast, and aggressive density reduction on mobile.",
+      "comp": ".impeccable/mocks/decision/helios-ascii-event-field.png",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-ascii-live-scene-render-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/medium-native-ascii-live-scene-render.webp"
+    },
+    {
+      "id": "challenger-sneaker",
+      "label": "Strategy Archive Wall",
+      "verdict": "declined",
+      "lineage": "stacked archive boxes and pull-out end labels",
+      "thesis": "Strategies, accounts, and saved workspaces form a physical indexed wall.",
+      "palette": ["#BA572C", "#171513", "#EEE8DC"],
+      "materials": ["box board", "tissue layers", "printed end labels"],
+      "viewport": "A stack of strategy and account records that pulls open for detail.",
+      "case": "The archive is distinctive, but it cannot carry high-rate telemetry or cross-entity order state without fighting its object metaphor.",
+      "kept": "Pull-out detail that preserves the surrounding context remains valuable for inspectors.",
+      "risk": "A browsing metaphor is too slow for incident response.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-sneaker-box-stacks-hero.webp"
+    },
+    {
+      "id": "challenger-streaming-wall",
+      "label": "Focused Workspace Rails",
+      "verdict": "declined",
+      "lineage": "streaming title walls and focus-expanding horizontal rails",
+      "thesis": "Each operational domain becomes a rail whose focused item expands while the rest recedes.",
+      "palette": ["#090B10", "#222834", "#E7EAF0", "#8D6BE8"],
+      "materials": ["deep neutral field", "focus frames", "sliding rails"],
+      "viewport": "Horizontal rails for signals, orders, positions, and sources with one expanded item.",
+      "case": "Focus behavior is clear, but hidden metadata and two-axis navigation are hostile to dense comparison and urgent exception work.",
+      "kept": "Focused-row quieting can help a selected causal chain dominate without removing context.",
+      "risk": "It turns an operating system into a content browser.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-streaming-title-card-wall-hero.webp"
+    },
+    {
+      "id": "challenger-annual",
+      "label": "Registered Evidence Plates",
+      "verdict": "declined",
+      "lineage": "design annual plate sections and exact registration furniture",
+      "thesis": "Every data surface is a signed evidence plate with exact registration and provenance.",
+      "palette": ["#F5F4F6", "#16181A", "#C9C7C4", "#DCDDF3"],
+      "materials": ["uncoated stock", "registration crosshairs", "letterpress seals"],
+      "viewport": "A near-white continuous evidence sheet divided by hairlines and registration marks.",
+      "case": "Exceptionally precise and beautiful, but it conflicts with the dark-default operating scene and lacks the live-state immediacy of the stronger candidates.",
+      "kept": "Registration exactness and signed provenance were donated to the causal field.",
+      "risk": "The product starts reading as a report rather than an always-on operator console.",
+      "hero": "https://impeccable.style/worlds/cards/design-annual-s-plate-section-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Institutional Dark Blotter",
+    "thesis": "The category-standard enterprise OMS, executed with exceptional restraint and clarity.",
+    "palette": ["#0C1117", "#17212B", "#DCE3E8", "#4A8FD8"],
+    "materials": ["neutral dark panels", "crisp tables", "restrained blue state"],
+    "viewport": "A conventional collapsible sidebar, portfolio summary, working-order blotter, source health, and alert center.",
+    "risk": "Reliable and immediately legible, but deliberately indistinguishable from polished institutional competitors.",
+    "comp": ".impeccable/mocks/decision/helios-institutional-blotter.png"
+  },
+  "steer": true
+}

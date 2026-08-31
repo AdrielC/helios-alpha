@@ -37,18 +37,58 @@ npm run operator:preview
 The static artifact is written to `apps/operator/dist` and can be deployed independently from the
 VitePress output.
 
+Run the native operator gateway against that artifact:
+
+```bash
+npm run operator:build
+cd rust
+HELIOS_STATIC_DIR=../apps/operator/dist cargo run -p helio_operatord
+```
+
+The gateway listens on `http://127.0.0.1:8080` by default and supplies the runtime wiring itself.
+Without `HELIOS_OPERATOR_SESSION_TOKEN` and `HELIOS_COMMAND_CSRF_SECRET`, reads remain available and
+every command fails closed. Both command values must be at least 32 characters. An identity proxy
+must place the session token in an HttpOnly, Secure, SameSite=Strict cookie named
+`helios_operator_session`; no secret is sent through `runtime-config.js`.
+
+Setting those values alone does not authenticate a browser. The identity proxy must install the
+cookie on the same origin. The gateway deliberately has no public login or secret-to-cookie
+bootstrap endpoint.
+
+To connect the real Alpaca paper path, follow the
+[Alpaca paper execution runbook](../../docs/operations/alpaca-paper.md). That mode streams admitted
+market data and paper order updates, applies fixed-point pre-trade risk, writes the standalone OMS
+before broker submission, and projects authoritative fills and positions back into this app. It is
+still process-local and does not yet satisfy restart-safety evidence.
+
 ## Connect an operations service
 
 The deployment writes `public/runtime-config.js` without rebuilding the application:
 
 ```js
 window.__HELIOS_OPERATIONS__ = {
-  snapshotUrl: "/api/operations/v2/snapshot",
-  streamUrl: "/api/operations/v2/events",
-  commandSessionUrl: "/api/commands/v1/session",
-  commandUrl: "/api/commands/v1/commands",
+  snapshotUrl: "/api/v1/operations/snapshot",
+  streamUrl: "/api/v1/operations/stream",
+  timeSeriesCatalogUrl: "/api/v1/series/catalog",
+  forecastBundlesUrl: "/api/v1/forecasts",
+  timeSeriesQueryUrl: "/api/v1/series/query",
+  investigationUrl: "/api/v1/investigations",
+  commandSessionUrl: "/api/v1/command/session",
+  commandUrl: "/api/v1/commands",
 };
 ```
+
+The time-series boundary is independent from the operations snapshot. The catalog registers units,
+provenance, freshness, rendering hints, and stable series identifiers. The query endpoint accepts a
+bounded time window and explicit series identifiers. Operators can place each series in its own lane
+or overlay it with another lane, then inspect the same shared event cursor using raw, indexed,
+percentage-change, or z-score transforms. Mixed-unit raw overlays automatically use an indexed
+comparison without mutating stored values.
+
+The optional investigation service receives only the selected account context, snapshot sequence,
+bounded window, cursor, marker identity, and registered series identities. It returns cited,
+read-only analysis and suggested series. It has no command authority. When the endpoints are absent,
+the public demo composes deterministic synthetic adapters behind the same ports.
 
 Both URLs must be same-origin. Snapshot reads use same-origin credentials. The optional stream is
 an SSE channel whose `snapshot` events contain complete, versioned operations snapshots. Incoming

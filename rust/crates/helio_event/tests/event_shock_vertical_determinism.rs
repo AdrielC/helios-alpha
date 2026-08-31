@@ -5,8 +5,8 @@ use helio_scan::{
     CheckpointKeyFn, FlushReason, FlushableScan, HashMapStore, Persisted, Runner, Scan,
     SessionDate, SnapshottingScan, VecEmitter,
 };
-use helio_window::{SessionSample, SessionWindowScan};
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};
+use helio_window::{SessionSample, SessionWindowScan};
 
 fn day(d: i32) -> i64 {
     (d as i64) * 86_400

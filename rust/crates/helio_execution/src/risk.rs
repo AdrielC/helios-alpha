@@ -122,10 +122,47 @@ pub enum RiskAuthorityError {
     ReservationAccountingCorrupt,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct RecordedDecision {
     proposal: OrderProposal,
     decision: RiskDecision,
+}
+
+const RISK_AUTHORITY_SNAPSHOT_VERSION: u32 = 1;
+
+/// Versioned durable representation of one account risk authority.
+///
+/// Fields remain private so callers cannot construct an unchecked authority. Persist the value
+/// with `serde`, then restore it through [`RiskAuthority::try_from_snapshot`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RiskAuthoritySnapshot<V> {
+    schema_version: u32,
+    policy: RiskPolicy,
+    portfolio: PortfolioRiskSnapshot,
+    venue_sessions: V,
+    kill_switch: bool,
+    decisions: BTreeMap<String, RecordedDecision>,
+    reservations: BTreeMap<String, RiskReservation>,
+    reserved_gross: u64,
+    reserved_by_strategy: BTreeMap<String, u64>,
+    reserved_position_delta: BTreeMap<String, i128>,
+    reserved_order_count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum RiskSnapshotError {
+    #[error("risk snapshot schema version {0} is unsupported")]
+    UnsupportedSchema(u32),
+    #[error("risk snapshot contains an inconsistent decision identity")]
+    DecisionIdentity,
+    #[error("risk snapshot contains an inconsistent approved intent")]
+    ApprovedIntent,
+    #[error("risk snapshot contains an inconsistent reservation")]
+    Reservation,
+    #[error("risk snapshot reservation accounting does not balance")]
+    ReservationAccounting,
+    #[error("risk snapshot reservation accounting overflowed")]
+    ArithmeticOverflow,
 }
 
 /// Exposure held between pre-trade authorization and authoritative portfolio reconciliation.
@@ -139,7 +176,7 @@ pub struct RiskReservation {
 }
 
 /// Stateful pre-trade authority. Decisions are idempotent by proposal identity.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RiskAuthority<V> {
     policy: RiskPolicy,
     portfolio: PortfolioRiskSnapshot,
@@ -180,6 +217,22 @@ where
         self.kill_switch
     }
 
+    pub const fn portfolio(&self) -> &PortfolioRiskSnapshot {
+        &self.portfolio
+    }
+
+    pub const fn venue_sessions(&self) -> &V {
+        &self.venue_sessions
+    }
+
+    pub const fn reserved_gross(&self) -> MoneyMicros {
+        MoneyMicros(self.reserved_gross)
+    }
+
+    pub const fn reserved_order_count(&self) -> u32 {
+        self.reserved_order_count
+    }
+
     pub fn set_kill_switch(&mut self, active: bool) {
         self.kill_switch = active;
     }
@@ -199,11 +252,12 @@ where
 
     /// Replaces the portfolio and releases only reservations explicitly included in it.
     ///
-    /// Every ID in `covered_client_order_ids` must refer to an outstanding reservation, and the
-    /// caller must establish that the new snapshot includes that order's exposure, position, and
-    /// daily-order accounting. Unknown IDs and arithmetic inconsistencies reject the entire
-    /// refresh without mutating authority state. Partial fills stay fully reserved until a later
-    /// authoritative snapshot covers the terminal order, which is deliberately conservative.
+    /// Every ID in `covered_client_order_ids` must refer to an approved decision. Outstanding
+    /// reservations are released exactly once, while a repeated refresh for an already released
+    /// approved ID is a no-op. This makes terminal broker reconciliation replay-safe across a crash
+    /// after the durable risk update. Unknown and rejected IDs, snapshot regressions, and arithmetic
+    /// inconsistencies reject the entire refresh without mutating authority state. Partial fills
+    /// stay fully reserved until a later authoritative snapshot covers the terminal order.
     pub fn refresh_portfolio_covering<I, S>(
         &mut self,
         portfolio: PortfolioRiskSnapshot,
@@ -222,7 +276,11 @@ where
             .map(|value| value.as_ref().to_owned())
             .collect::<BTreeSet<_>>();
         for client_order_id in &covered {
-            if !self.reservations.contains_key(client_order_id) {
+            let was_approved = self
+                .decisions
+                .get(client_order_id)
+                .is_some_and(|recorded| matches!(recorded.decision, RiskDecision::Approved(_)));
+            if !was_approved {
                 return Err(RiskAuthorityError::UnknownCoveredReservation(
                     client_order_id.clone(),
                 ));
@@ -236,9 +294,9 @@ where
         let mut reserved_order_count = self.reserved_order_count;
 
         for client_order_id in &covered {
-            let reservation = reservations
-                .remove(client_order_id)
-                .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
+            let Some(reservation) = reservations.remove(client_order_id) else {
+                continue;
+            };
             reserved_gross = reserved_gross
                 .checked_sub(reservation.notional.0)
                 .ok_or(RiskAuthorityError::ReservationAccountingCorrupt)?;
@@ -272,6 +330,116 @@ where
 
     pub fn outstanding_reservation_count(&self) -> usize {
         self.reservations.len()
+    }
+
+    pub fn snapshot(&self) -> RiskAuthoritySnapshot<V>
+    where
+        V: Clone,
+    {
+        RiskAuthoritySnapshot {
+            schema_version: RISK_AUTHORITY_SNAPSHOT_VERSION,
+            policy: self.policy.clone(),
+            portfolio: self.portfolio.clone(),
+            venue_sessions: self.venue_sessions.clone(),
+            kill_switch: self.kill_switch,
+            decisions: self.decisions.clone(),
+            reservations: self.reservations.clone(),
+            reserved_gross: self.reserved_gross,
+            reserved_by_strategy: self.reserved_by_strategy.clone(),
+            reserved_position_delta: self.reserved_position_delta.clone(),
+            reserved_order_count: self.reserved_order_count,
+        }
+    }
+
+    pub fn try_from_snapshot(
+        snapshot: RiskAuthoritySnapshot<V>,
+    ) -> Result<Self, RiskSnapshotError> {
+        if snapshot.schema_version != RISK_AUTHORITY_SNAPSHOT_VERSION {
+            return Err(RiskSnapshotError::UnsupportedSchema(
+                snapshot.schema_version,
+            ));
+        }
+        for (identity, recorded) in &snapshot.decisions {
+            if identity != &recorded.proposal.proposal_id {
+                return Err(RiskSnapshotError::DecisionIdentity);
+            }
+            if let RiskDecision::Approved(intent) = &recorded.decision {
+                let expected_notional =
+                    checked_notional(recorded.proposal.limit_price, recorded.proposal.quantity)
+                        .map_err(|_| RiskSnapshotError::ApprovedIntent)?;
+                if intent.client_order_id != recorded.proposal.proposal_id
+                    || intent.proposal != recorded.proposal
+                    || intent.authorized_notional != expected_notional
+                    || intent.risk_policy_version != snapshot.policy.version
+                {
+                    return Err(RiskSnapshotError::ApprovedIntent);
+                }
+            }
+        }
+
+        let mut reserved_gross = 0_u64;
+        let mut reserved_by_strategy = BTreeMap::new();
+        let mut reserved_position_delta = BTreeMap::new();
+        for (identity, reservation) in &snapshot.reservations {
+            let approved = snapshot.decisions.get(identity).and_then(|recorded| {
+                if let RiskDecision::Approved(intent) = &recorded.decision {
+                    Some(intent.as_ref())
+                } else {
+                    None
+                }
+            });
+            let Some(intent) = approved else {
+                return Err(RiskSnapshotError::Reservation);
+            };
+            if identity != &reservation.client_order_id
+                || reservation.client_order_id != intent.client_order_id
+                || reservation.strategy_id != intent.proposal.strategy_id
+                || reservation.symbol != intent.proposal.symbol
+                || reservation.notional != intent.authorized_notional
+                || reservation.position_delta_micros
+                    != intent
+                        .proposal
+                        .side
+                        .signed_quantity(intent.proposal.quantity)
+            {
+                return Err(RiskSnapshotError::Reservation);
+            }
+            reserved_gross = reserved_gross
+                .checked_add(reservation.notional.0)
+                .ok_or(RiskSnapshotError::ArithmeticOverflow)?;
+            add_unsigned(
+                &mut reserved_by_strategy,
+                &reservation.strategy_id,
+                reservation.notional.0,
+            )?;
+            add_signed(
+                &mut reserved_position_delta,
+                &reservation.symbol,
+                reservation.position_delta_micros,
+            )?;
+        }
+        let reserved_order_count = u32::try_from(snapshot.reservations.len())
+            .map_err(|_| RiskSnapshotError::ArithmeticOverflow)?;
+        if reserved_gross != snapshot.reserved_gross
+            || reserved_by_strategy != snapshot.reserved_by_strategy
+            || reserved_position_delta != snapshot.reserved_position_delta
+            || reserved_order_count != snapshot.reserved_order_count
+        {
+            return Err(RiskSnapshotError::ReservationAccounting);
+        }
+
+        Ok(Self {
+            policy: snapshot.policy,
+            portfolio: snapshot.portfolio,
+            venue_sessions: snapshot.venue_sessions,
+            kill_switch: snapshot.kill_switch,
+            decisions: snapshot.decisions,
+            reservations: snapshot.reservations,
+            reserved_gross: snapshot.reserved_gross,
+            reserved_by_strategy: snapshot.reserved_by_strategy,
+            reserved_position_delta: snapshot.reserved_position_delta,
+            reserved_order_count: snapshot.reserved_order_count,
+        })
     }
 
     pub fn authorize(
@@ -484,6 +652,36 @@ where
     }
 }
 
+fn add_unsigned(
+    values: &mut BTreeMap<String, u64>,
+    key: &str,
+    amount: u64,
+) -> Result<(), RiskSnapshotError> {
+    let next = values
+        .get(key)
+        .copied()
+        .unwrap_or(0)
+        .checked_add(amount)
+        .ok_or(RiskSnapshotError::ArithmeticOverflow)?;
+    values.insert(key.to_owned(), next);
+    Ok(())
+}
+
+fn add_signed(
+    values: &mut BTreeMap<String, i128>,
+    key: &str,
+    amount: i128,
+) -> Result<(), RiskSnapshotError> {
+    let next = values
+        .get(key)
+        .copied()
+        .unwrap_or(0)
+        .checked_add(amount)
+        .ok_or(RiskSnapshotError::ArithmeticOverflow)?;
+    values.insert(key.to_owned(), next);
+    Ok(())
+}
+
 fn subtract_reservation(
     reservations: &mut BTreeMap<String, u64>,
     key: &str,
@@ -527,7 +725,7 @@ mod tests {
     use super::*;
     use crate::{PriceMicros, QuantityMicros, Side};
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     struct TestVenue(Option<i32>);
 
     impl VenueSessionAuthority for TestVenue {
@@ -687,6 +885,10 @@ mod tests {
             .insert("GRID".into(), 1_000_000);
         portfolio.daily_order_count = 1;
         authority
+            .refresh_portfolio_covering(portfolio.clone(), ["one"])
+            .unwrap();
+
+        authority
             .refresh_portfolio_covering(portfolio, ["one"])
             .unwrap();
 
@@ -728,5 +930,28 @@ mod tests {
         assert_eq!(authority.portfolio, before.portfolio);
         assert_eq!(authority.reservations, before.reservations);
         assert_eq!(authority.reserved_gross, before.reserved_gross);
+    }
+
+    #[test]
+    fn durable_snapshot_round_trip_validates_reservation_accounting() {
+        let mut authority = RiskAuthority::new(
+            policy(),
+            PortfolioRiskSnapshot::empty(9_000, 20_696),
+            TestVenue(Some(20_696)),
+        );
+        authority
+            .authorize(proposal("one", 1_000_000), context())
+            .unwrap();
+        let encoded = serde_json::to_vec(&authority.snapshot()).unwrap();
+        let snapshot = serde_json::from_slice(&encoded).unwrap();
+        let restored = RiskAuthority::try_from_snapshot(snapshot).unwrap();
+        assert_eq!(restored, authority);
+
+        let mut corrupt = authority.snapshot();
+        corrupt.reserved_gross += 1;
+        assert_eq!(
+            RiskAuthority::try_from_snapshot(corrupt),
+            Err(RiskSnapshotError::ReservationAccounting)
+        );
     }
 }

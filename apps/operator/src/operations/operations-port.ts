@@ -782,6 +782,10 @@ interface HttpPortOptions {
 export interface HeliosRuntimeConfig extends HttpPortOptions {
   readonly commandUrl?: string;
   readonly commandSessionUrl?: string;
+  readonly timeSeriesCatalogUrl?: string;
+  readonly forecastBundlesUrl?: string;
+  readonly timeSeriesQueryUrl?: string;
+  readonly investigationUrl?: string;
 }
 
 export class HttpOperationsPort implements OperationsPort {

@@ -2,11 +2,10 @@
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use helio_event::{
-    collect_vertical_trades_incremental, collect_vertical_trades_with_checkpoint_cadence,
-    build_vertical_replay, candidate_entries_from_bars, DailyBar, EventId, EventKind, EventScope,
+    build_vertical_replay, candidate_entries_from_bars, collect_vertical_trades_incremental,
+    collect_vertical_trades_with_checkpoint_cadence, DailyBar, EventId, EventKind, EventScope,
     EventShock, EventShockControlConfig, EventShockFilterConfig, EventShockVerticalRecord,
-    EventShockVerticalScan,
-    ExitPolicy, Exposure, Symbol,
+    EventShockVerticalScan, ExitPolicy, Exposure, Symbol,
 };
 use helio_scan::SessionDate;
 use helio_time::{AvailableAt, SimpleWeekdayCalendar};

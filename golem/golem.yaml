@@ -32,3 +32,10 @@ components:
   helios:hypothesis-shard:
     dir: ""
     templates: rust
+
+bridge:
+  rust:
+    agents:
+      - OmsAccountAgent
+      - ProjectionCursorAgent
+      - RiskAccountAgent

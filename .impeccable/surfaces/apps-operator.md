@@ -1,16 +1,23 @@
-# Helios Control surface
+# Helios Operator surface
 
-THESIS: An operator can trace live inputs into candidate signals, active orders, and held positions
-without confusing research evidence with capital authority.
+THESIS: Market Atlas makes each trading decision inspectable at one synchronized evidence cut
+without reducing institutional operations to a generic card dashboard.
 
-OWN WORLD: Obsidian operations ground, ion-lime evidence, polar-cyan computation, coral blockers,
-one-pixel ruled ledgers, Recursive measurements, Archivo explanations, and no documentation chrome.
+OWN WORLD: Near-black graphite and ink navy, ice-blue inspection, cyan source evidence, mineral-green
+availability, scarce amber exceptions, violet model state, oxide lifecycle marks, one-pixel rules,
+Recursive measurements, Archivo identity, and restrained reduced-motion-safe feedback.
 
-STORY: Establish system and capital state, follow an event across named owners, inspect the selected
-hypothesis, reconcile orders and positions, then open the lazy analytical workbench when grouping
-or export is required.
+STORY: Register scalar and OHLC series, place them in resizable panes or modular overlays, choose a
+global interval, inspect one shared cursor across lifecycle rails and causal evidence, follow the OMS
+record, and reconcile the docked orders, positions, alerts, and ledger state.
 
-FIRST VIEWPORT: A persistent command bar and capital boundary lead to a compact operations index,
-five portfolio facts, and a full-width event path. Perspective is absent until explicitly opened.
+FIRST VIEWPORT: A compact command bar and operations rail frame a three-column workstation: series
+register, synchronized chart field, and point-in-time evidence rail, with event tracks and a global
+scrubber inside the chart column and four dense OMS ledgers docked below.
 
-FORM: Standalone annotated event atlas with queue-depth motion and enterprise operations density.
+FORM: Market Atlas, a standalone institutional evidence workstation that preserves its full causal
+geometry on mobile through local horizontal scrolling.
+
+IMPLEMENTATION BOUNDARY: `@helios-alpha/atlas-charts` wraps TradingView Lightweight Charts behind
+plain TypeScript pane, scalar, OHLC, cursor, and viewport contracts. Engine types stay out of Vue,
+OMS, strategy, investigation, and transport ports.

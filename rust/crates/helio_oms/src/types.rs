@@ -340,6 +340,8 @@ pub enum OmsError {
     VersionOverflow,
     #[error("event cursor capacity must be nonzero")]
     InvalidEventLimit,
+    #[error("order query capacity must be nonzero")]
+    InvalidOrderLimit,
     #[error("reconciliation report conflicts with recorded executions")]
     ReconciliationConflict,
     #[error("order observation time regressed")]

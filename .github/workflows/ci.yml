@@ -69,8 +69,11 @@ jobs:
           cargo test
           cargo test -p helio_robinhood --all-features
           cargo clippy -p helio_execution -p helio_oms -p helio_robinhood --all-targets --all-features -- -D warnings
+          cargo clippy -p helio_alpaca -p helio_operatord --all-targets -- -D warnings
+          cargo test -p helio_relay --no-default-features
+          cargo clippy -p helio_relay --no-default-features --all-targets -- -D warnings
           cargo test -p helio_hypothesis --all-features
-          cargo check --target wasm32-wasip2 -p helio_scan -p helio_time -p helio_stats -p helio_window -p helio_hypothesis -p helio_execution -p helio_oms -p helio_robinhood --no-default-features
+          cargo check --target wasm32-wasip2 -p helio_scan -p helio_time -p helio_stats -p helio_window -p helio_hypothesis -p helio_execution -p helio_oms -p helio_alpaca -p helio_robinhood --no-default-features
           cargo bench -p helio_bench --bench hypothesis_machine --no-run
           cargo bench -p helio_bench --bench oms_lifecycle --no-run
           cargo check -p helio_backtest_wasm --target wasm32-unknown-unknown
@@ -90,7 +93,7 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install \
-            "exchange-calendars==4.13.2" "pendulum>=3" "pyyaml>=6" "pytest>=8"
+            "exchange-calendars==4.13.2" "httpx>=0.27" "pendulum>=3" "pyyaml>=6" "pytest>=8"
           rustup target add wasm32-wasip2
 
       - name: Run portable capital-control proof
@@ -100,14 +103,28 @@ jobs:
           mkdir -p evidence
           CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
             cargo test --manifest-path rust/Cargo.toml \
-              -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_robinhood \
+              -p helio_scan -p helio_time -p helio_execution -p helio_oms -p helio_alpaca -p helio_operatord -p helio_robinhood \
               2>&1 | tee evidence/rust-control-tests.log
           CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
+            cargo clippy --manifest-path rust/Cargo.toml \
+              -p helio_alpaca -p helio_operatord --all-targets -- -D warnings \
+              2>&1 | tee evidence/alpaca-paper-clippy.log
+          CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
+            cargo clippy --manifest-path rust/Cargo.toml \
+              -p helio_relay --no-default-features --all-targets -- -D warnings \
+              2>&1 | tee evidence/oms-relay-clippy.log
+          CARGO_INCREMENTAL=0 RUSTFLAGS="-C debuginfo=0" \
             cargo check --manifest-path rust/Cargo.toml \
-              --target wasm32-wasip2 -p helio_execution -p helio_oms -p helio_robinhood --no-default-features \
+              --target wasm32-wasip2 -p helio_execution -p helio_oms -p helio_alpaca -p helio_robinhood --no-default-features \
               2>&1 | tee evidence/wasi-portability.log
           PYTHONPATH=src python -m pytest tests/test_calendar_manifest.py -q \
             2>&1 | tee evidence/venue-calendar-tests.log
+          PYTHONPATH=src python -m pytest \
+            tests/test_shadow_journal.py \
+            tests/test_shadow_adapters.py \
+            tests/test_shadow_operator_projection.py \
+            tests/test_forecast_bundles.py -q \
+            2>&1 | tee evidence/shadow-source-tests.log
           printf 'commit=%s\nrun_id=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" \
             > evidence/context.txt
           sha256sum evidence/*.log evidence/context.txt > evidence/SHA256SUMS
@@ -130,7 +147,7 @@ jobs:
 
       - name: Install Rust toolchains and WASI targets
         run: |
-          rustup toolchain install 1.88.0 --profile minimal --component clippy --target wasm32-wasip2
+          rustup toolchain install 1.94.0 --profile minimal --component clippy --target wasm32-wasip2
           rustup target add wasm32-wasip2
 
       - name: Install pinned Golem CLI
@@ -159,3 +176,56 @@ jobs:
       - name: Prove Golem durability and idempotency
         working-directory: golem
         run: bash tests/golem_local_smoke.sh
+
+      - name: Regenerate and verify pinned Golem bridge clients
+        working-directory: golem
+        run: |
+          bash scripts/generate_rust_bridges.sh
+          ! grep -R 'branch = "main"' bridge-sdk/rust/*/Cargo.toml
+          grep -R 'tag = "v1.5.9"' bridge-sdk/rust/*/Cargo.toml
+          git diff --exit-code -- bridge-sdk/rust
+
+      - name: Compile production Golem clients
+        working-directory: rust
+        env:
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-C debuginfo=0"
+        run: |
+          cargo check -p helio_operatord
+          cargo check -p helio_relay --features native
+
+  messaging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NATS_VERSION: v2.14.5
+      NATS_LINUX_SHA256: 5e3b603d47c447bda1f77f9ac16dbf91c90aac4ff3681f8fbbc7201e4ed99355
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install pinned NATS server
+        run: |
+          curl --fail --location --silent --show-error \
+            "https://github.com/nats-io/nats-server/releases/download/${NATS_VERSION}/nats-server-${NATS_VERSION}-linux-amd64.tar.gz" \
+            --output /tmp/nats-server.tar.gz
+          echo "${NATS_LINUX_SHA256}  /tmp/nats-server.tar.gz" | sha256sum --check
+          tar -xzf /tmp/nats-server.tar.gz -C /tmp
+          sudo install -m 0755 "/tmp/nats-server-${NATS_VERSION}-linux-amd64/nats-server" /usr/local/bin/nats-server
+          nats-server --version
+
+      - name: Test relay failure semantics
+        working-directory: rust
+        env:
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-C debuginfo=0"
+        run: |
+          cargo test -p helio_relay --no-default-features
+          cargo clippy -p helio_relay --no-default-features --all-targets -- -D warnings
+
+      - name: Prove real JetStream acknowledgement and de-duplication
+        working-directory: rust
+        env:
+          CARGO_INCREMENTAL: "0"
+          RUSTFLAGS: "-C debuginfo=0"
+          NATS_SERVER_BIN: /usr/local/bin/nats-server
+        run: bash crates/helio_relay/tests/nats_server_smoke.sh

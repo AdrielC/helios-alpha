@@ -13,6 +13,7 @@ const props = defineProps<{
   stale: boolean;
   authority: CommandAuthority;
   port: CommandPort;
+  initialInstrument?: string;
 }>();
 const emit = defineEmits<{ authority: [authority: CommandAuthority] }>();
 
@@ -20,7 +21,7 @@ type TicketPhase = "edit" | "review" | "receipt";
 type TimeInForce = OrderRequest["timeInForce"];
 
 const phase = ref<TicketPhase>("edit");
-const instrument = ref(props.snapshot.positions[0]?.instrument ?? props.snapshot.signals[0]?.instrument ?? "");
+const instrument = ref(props.initialInstrument ?? props.snapshot.positions[0]?.instrument ?? props.snapshot.signals[0]?.instrument ?? "");
 const side = ref<OrderRequest["side"]>("buy");
 const orderType = ref<OrderRequest["orderType"]>("limit");
 const quantity = ref("");
@@ -155,6 +156,14 @@ async function submit(): Promise<void> {
 watch(orderType, (next) => {
   if (next === "market" && timeInForce.value === "good_till_canceled") timeInForce.value = "day";
 });
+watch(
+  () => props.initialInstrument,
+  (next) => {
+    if (!next) return;
+    instrument.value = next;
+    reset();
+  },
+);
 </script>
 
 <template>

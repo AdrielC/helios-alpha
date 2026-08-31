@@ -1,0 +1,134 @@
+{
+  "title": "Choose the Helios Control world",
+  "question": "The architecture is fixed: one operator shell, one navigation plane, live-to-historical time, embedded inspection, and contextual execution. Choose the visual system that should make it feel inevitable.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Seismic Array Logbook",
+      "kicker": "THE ROLL",
+      "lineage": "seismic network control rooms and rolling event records",
+      "thesis": "Continuous traces stay quiet until a causal rupture earns intervention.",
+      "palette": ["#080C10", "#1B242B", "#D8D3C8", "#D6A43A"],
+      "materials": ["smoked instrument glass", "rolling chart paper", "etched aluminum"],
+      "viewport": "A single left rail frames one synchronized field: source traces, hypothesis ruptures, signal admission, orders, and position impact share the same horizontal time axis while the exception ledger stays visible at right.",
+      "risk": "It becomes science cosplay if seismic notation ever replaces explicit trading language.",
+      "raised": [
+        {
+          "from": "Industrial tagging",
+          "raise": "Every intervention carries a literal action, owner, and authority tag."
+        },
+        {
+          "from": "Labanotation",
+          "raise": "Duration, latency, and overlap are expressed spatially instead of narrated."
+        },
+        {
+          "from": "Cutaway systems",
+          "raise": "The causal pipeline remains one continuous inspectable object across routes."
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/helios-seismic-array.png"
+    },
+    {
+      "id": "model-pick",
+      "label": "Flight Dynamics Desk",
+      "kicker": "IMPECCABLE'S PICK",
+      "lineage": "flight-director consoles, station loops, and mission logs",
+      "thesis": "The desk is organized around decisions, stations, and verified handoffs rather than dashboards.",
+      "palette": ["#071019", "#15232E", "#E7E3D8", "#E16B3F"],
+      "materials": ["powder-coated console", "raster plotting paper", "backlit annunciators"],
+      "viewport": "A calm station rail opens onto a broad operational plot, with feeds and signals at left, portfolio and risk at center, and the live order handoff at the edge of the same field.",
+      "risk": "It is the most familiar direction and can collapse into generic sci-fi mission control if the craft is timid.",
+      "comp": ".impeccable/mocks/decision/helios-flight-dynamics.png"
+    },
+    {
+      "id": "challenger-exposure",
+      "label": "Evidence Exposure Record",
+      "verdict": "competitive",
+      "lineage": "darkroom exposure sheets and eleven-zone print records",
+      "thesis": "Every decision is a layered exposure record whose conflicts become visible before capital moves.",
+      "palette": ["#09090A", "#EEEAE1", "#8B8C90", "#E434A2"],
+      "materials": ["translucent record sheets", "zone ramps", "cross-hatched conflict masks"],
+      "viewport": "Backlit sheets for source, hypothesis, risk, and execution overlap over one time record; sliding a sheet exposes evidence without replacing the operational field beneath it.",
+      "case": "Excellent product clarity for causal evidence and conflicts; slightly less native to a trader's operating environment than the assigned direction.",
+      "risk": "Layering can become decorative paperwork unless every overlap corresponds to a real dependency.",
+      "comp": ".impeccable/mocks/decision/helios-exposure-record.png",
+      "hero": "https://impeccable.style/worlds/cards/operate-b-exposure-record-zone-sheets-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/operate-b-exposure-record-zone-sheets.webp"
+    },
+    {
+      "id": "challenger-sequencer",
+      "label": "Signal Sequencer",
+      "verdict": "competitive",
+      "lineage": "early-80s rhythm machines and clocked step rows",
+      "thesis": "A strategy is a timed sequence whose live state advances across one unmistakable chase line.",
+      "palette": ["#101111", "#DB4935", "#E88B2D", "#E9BE3F", "#E8E4D9"],
+      "materials": ["matte instrument panel", "silkscreen labels", "hard-lit step keys"],
+      "viewport": "The causal pipeline spans the viewport as one clocked strip; feeds, signals, risk gates, and executions occupy aligned steps while detailed ledgers sit beneath it.",
+      "case": "Exceptional live and historical time comprehension; weaker when the workflow is dominated by irregular exceptions, allocations, and multi-day orders.",
+      "risk": "It can feel playful or imply fixed cadence where the real system is event-driven.",
+      "comp": ".impeccable/mocks/decision/helios-signal-sequencer.png",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-drum-machine-step-row-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-drum-machine-step-row.webp"
+    },
+    {
+      "id": "challenger-industrial",
+      "label": "Literal Stockroom",
+      "verdict": "declined",
+      "lineage": "industrial garment tags and warehouse labeling",
+      "thesis": "Commands and states wear literal labels and visible ownership tags.",
+      "palette": ["#F2F0EA", "#101010", "#F26A2E"],
+      "materials": ["cotton labels", "black nylon", "safety tags"],
+      "viewport": "A brutally literal command inventory with diagonal exception boundaries.",
+      "case": "Strong naming discipline, but weak audience identification and poor support for continuous telemetry.",
+      "kept": "Literal action, owner, and authority tags were raised into the assigned direction.",
+      "risk": "The fashion grammar overwhelms the operational subject.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-industrial-quote-grammar-hero.webp"
+    },
+    {
+      "id": "challenger-labanotation",
+      "label": "Causal Score",
+      "verdict": "declined",
+      "lineage": "labanotation movement scores",
+      "thesis": "Length is duration, alignment is simultaneity, and shape is action.",
+      "palette": ["#F4F1E9", "#121212", "#B5B5B0"],
+      "materials": ["score paper", "solid and hatched blocks"],
+      "viewport": "A vertical bilateral score of strategy actions and responses.",
+      "case": "Precise for time and overlap, but its bottom-to-top reading direction fights the operator's expected timeline and ledger patterns.",
+      "kept": "Spatial duration and overlap were raised into the assigned direction.",
+      "risk": "The notation requires learning before it helps.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-labanotation-hero.webp"
+    },
+    {
+      "id": "challenger-cutaway",
+      "label": "System Cutaway",
+      "verdict": "declined",
+      "lineage": "continuous labeled cross-section illustrations",
+      "thesis": "The whole trading system stays visible while individual walls swing open for inspection.",
+      "palette": ["#F5F0E4", "#B94937", "#E0B33D", "#5D7D58"],
+      "materials": ["gouache flats", "warm printed outlines"],
+      "viewport": "A continuous causal landscape from feed to filled position.",
+      "case": "The pipeline concept is clear, but the visual character is too playful for capital authority and dense OMS work.",
+      "kept": "The continuous inspectable pipeline was raised into the assigned direction.",
+      "risk": "Operational seriousness collapses under the illustrative world.",
+      "hero": "https://impeccable.style/worlds/cards/graphic-worlds-publishing-busytown-cross-section-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": ["safer", "bolder"]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "Institutional Dark Blotter",
+    "thesis": "The category-standard enterprise OMS, executed with exceptional restraint and clarity.",
+    "palette": ["#0C1117", "#17212B", "#DCE3E8", "#4A8FD8"],
+    "materials": ["neutral dark panels", "crisp tables", "restrained blue state"],
+    "viewport": "A conventional collapsible sidebar, portfolio summary, working-order blotter, source health, and alert center.",
+    "risk": "Reliable and immediately legible, but deliberately indistinguishable from polished institutional competitors.",
+    "comp": ".impeccable/mocks/decision/helios-institutional-blotter.png"
+  },
+  "steer": true
+}

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import exchange_calendars as xc
 
-from helios_alpha.markets.calendar_manifest import build_venue_schedule_manifest
+from helios_alpha.markets.calendar_manifest import build_venue_schedule_manifest, main
 
 
 def test_xnys_manifest_is_pinned_and_preserves_2026_thanksgiving_early_close() -> None:
@@ -46,3 +46,30 @@ def test_python_export_matches_the_rust_interoperability_fixture() -> None:
         / "rust/crates/helio_time/tests/fixtures/xnys_2026_thanksgiving.json"
     )
     assert generated == json.loads(fixture_path.read_text())
+
+
+def test_cli_writes_the_validated_manifest(tmp_path: Path) -> None:
+    output = tmp_path / "schedules" / "xnys.json"
+    assert (
+        main(
+            [
+                "--exchange",
+                "XNYS",
+                "--start",
+                "2026-11-25",
+                "--end",
+                "2026-11-30",
+                "--generated-at",
+                "2026-08-30T00:00:00Z",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    assert json.loads(output.read_text()) == json.loads(
+        (
+            Path(__file__).parents[1]
+            / "rust/crates/helio_time/tests/fixtures/xnys_2026_thanksgiving.json"
+        ).read_text()
+    )

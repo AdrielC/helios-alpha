@@ -2,7 +2,11 @@
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type { OperationsSnapshot } from "../operations/operations-port";
 
-const props = defineProps<{ snapshot: OperationsSnapshot }>();
+type ExplorerScope = "all" | "activity" | "sources";
+const props = withDefaults(defineProps<{ snapshot: OperationsSnapshot; scope?: ExplorerScope; compact?: boolean }>(), {
+  scope: "all",
+  compact: false,
+});
 
 const host = ref<HTMLElement | null>(null);
 const state = ref<"loading" | "ready" | "error">("loading");
@@ -37,7 +41,7 @@ async function fetchWasm(url: string, asset: string): Promise<Response> {
   return response;
 }
 
-function explorerRows(snapshot: OperationsSnapshot): readonly Record<string, unknown>[] {
+function explorerRows(snapshot: OperationsSnapshot, scope: ExplorerScope): readonly Record<string, unknown>[] {
   const observedAt = new Date(snapshot.observedAt);
   const signalRows = snapshot.signals.map((signal) => ({
     row_id: `signal:${signal.id}`,
@@ -123,7 +127,15 @@ function explorerRows(snapshot: OperationsSnapshot): readonly Record<string, unk
     detail: activity.source,
     sequence: activity.sequence,
   }));
+  if (scope === "activity") return activityRows;
+  if (scope === "sources") return sourceRows;
   return [...signalRows, ...positionRows, ...orderRows, ...fillRows, ...sourceRows, ...alertRows, ...activityRows];
+}
+
+function scopeTitle(scope: ExplorerScope): string {
+  if (scope === "activity") return "Activity explorer";
+  if (scope === "sources") return "Source explorer";
+  return "Data explorer";
 }
 
 onMounted(async () => {
@@ -148,7 +160,7 @@ onMounted(async () => {
       import("@perspective-dev/viewer/dist/wasm/perspective-viewer.wasm?url"),
       import("@perspective-dev/viewer/dist/wasm/perspective-viewer.js"),
       import("@perspective-dev/viewer-datagrid"),
-      import("@perspective-dev/viewer/themes/pro-dark.css"),
+      import("../perspective-darkwater.css"),
     ]);
     const viewerWasm = await fetchWasm(viewerWasmUrl.default, "Perspective viewer WASM");
     await perspectiveViewer.init_client(viewerWasm, viewerWasmModule);
@@ -157,14 +169,14 @@ onMounted(async () => {
     worker = (await within(perspective.default.worker(), "Perspective worker startup")) as typeof worker;
     message.value = "Indexing snapshot";
     table = (await within(
-      worker.table(explorerRows(props.snapshot), {
+      worker.table(explorerRows(props.snapshot, props.scope), {
         index: "row_id",
         name: "helios_operations",
       }),
       "Perspective table creation",
     )) as typeof table;
     viewer = document.createElement("perspective-viewer") as typeof viewer;
-    viewer.setAttribute("theme", "Pro Dark");
+    viewer.setAttribute("theme", "Helios Darkwater");
     viewer.setAttribute("aria-label", "Live operations data explorer");
     host.value?.replaceChildren(viewer);
     message.value = "Drawing table";
@@ -172,7 +184,7 @@ onMounted(async () => {
     await within(
       viewer.restore({
         table: "helios_operations",
-        title: "Operations snapshot",
+        title: scopeTitle(props.scope),
         plugin: "Datagrid",
         columns: ["kind", "instrument", "strategy", "state", "value", "unit", "detail", "event_time"],
         sort: [["event_time", "desc"]],
@@ -190,24 +202,24 @@ onMounted(async () => {
 });
 
 watch(
-  () => props.snapshot,
-  async (snapshot) => {
-    if (state.value === "ready" && table) await table.update(explorerRows(snapshot));
+  () => [props.snapshot, props.scope] as const,
+  async ([snapshot, scope]) => {
+    if (state.value === "ready" && table) await table.update(explorerRows(snapshot, scope));
   },
 );
 
-onBeforeUnmount(async () => {
-  await viewer?.delete?.();
-  await table?.delete?.();
-  worker?.terminate?.();
+onBeforeUnmount(() => {
+  host.value?.replaceChildren();
+  if (typeof table?.delete === "function") void table.delete().catch(() => undefined);
+  if (typeof worker?.terminate === "function") worker.terminate();
 });
 </script>
 
 <template>
-  <section class="perspective-explorer" aria-labelledby="explorer-heading">
+  <section class="perspective-explorer" :class="{ compact }" aria-labelledby="explorer-heading">
     <header>
       <div>
-        <h2 id="explorer-heading">Explore</h2>
+        <h2 id="explorer-heading">{{ scopeTitle(scope) }}</h2>
       </div>
       <div class="perspective-state" :data-state="state" role="status">
         <span aria-hidden="true"></span>
@@ -328,6 +340,24 @@ onBeforeUnmount(async () => {
   color: var(--atlas-muted);
   border-top: 1px solid var(--atlas-rule);
   border-bottom: 0;
+}
+
+.perspective-explorer.compact {
+  min-height: calc(100vh - 136px);
+}
+
+.perspective-explorer.compact > header {
+  display: none;
+}
+
+.perspective-explorer.compact .perspective-stage {
+  height: calc(100vh - 184px);
+  min-height: 520px;
+  padding: 10px;
+}
+
+.perspective-explorer.compact > footer {
+  padding: 10px 14px;
 }
 
 @keyframes perspective-load {

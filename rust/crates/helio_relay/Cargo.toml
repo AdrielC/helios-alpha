@@ -1,0 +1,38 @@
+[package]
+name = "helio_relay"
+version = "0.1.0"
+edition = "2021"
+description = "Acknowledged, replay-safe Helios OMS event relay"
+
+[features]
+default = []
+native-nats = ["dep:async-nats"]
+golem = [
+    "dep:golem-client",
+    "dep:oms-account-agent-client",
+    "dep:projection-cursor-agent-client",
+    "dep:reqwest",
+    "dep:sha2",
+]
+native = ["native-nats", "golem"]
+
+[[bin]]
+name = "helio_oms_relayd"
+path = "src/main.rs"
+required-features = ["native"]
+
+[dependencies]
+async-nats = { version = "0.50", optional = true }
+async-trait = "0.1"
+helio_oms = { path = "../helio_oms" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+golem-client = { git = "https://github.com/golemcloud/golem", tag = "v1.5.9", optional = true }
+oms-account-agent-client = { path = "../../../golem/bridge-sdk/rust/oms-account-agent-client", optional = true }
+projection-cursor-agent-client = { path = "../../../golem/bridge-sdk/rust/projection-cursor-agent-client", optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["rustls"], optional = true }
+sha2 = { version = "0.10", optional = true }
