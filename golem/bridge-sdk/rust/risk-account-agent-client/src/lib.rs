@@ -1161,6 +1161,209 @@ pub fn configure(
         .expect("Configuration has already been set");
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AuthorityRejected {
+    pub detail: String,
+}
+impl golem_wasm::IntoValue for AuthorityRejected {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(vec![self.detail.into_value()])
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("detail", < String as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(AuthorityRejected).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for AuthorityRejected {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
+                let detail = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { detail })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 1usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RiskContextInput {
+    pub now_ns: u64,
+    pub market_data_at_ns: u64,
+    pub venue_time_utc_sec: i64,
+}
+impl golem_wasm::IntoValue for RiskContextInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.now_ns.into_value(), self.market_data_at_ns.into_value(), self
+                .venue_time_utc_sec.into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("now_ns", < u64 as golem_wasm::IntoValue > ::get_type()),
+                field("market_data_at_ns", < u64 as golem_wasm::IntoValue >
+                ::get_type()), field("venue_time_utc_sec", < i64 as golem_wasm::IntoValue
+                > ::get_type())
+            ],
+            name: Some(stringify!(RiskContextInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for RiskContextInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
+                let now_ns = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let market_data_at_ns = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let venue_time_utc_sec = <i64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    now_ns,
+                    market_data_at_ns,
+                    venue_time_utc_sec,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 3usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NamedExposureInput {
+    pub name: String,
+    pub amount_micros: u64,
+}
+impl golem_wasm::IntoValue for NamedExposureInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![self.name.into_value(), self.amount_micros.into_value()],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("name", < String as golem_wasm::IntoValue > ::get_type()),
+                field("amount_micros", < u64 as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(NamedExposureInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for NamedExposureInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
+                let name = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let amount_micros = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { name, amount_micros })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 2usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ConfigureRiskInput {
+    pub risk_policy_json: String,
+    pub venue_schedule_json: String,
+    pub initial_portfolio: PortfolioRiskInput,
+}
+impl golem_wasm::IntoValue for ConfigureRiskInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.risk_policy_json.into_value(), self.venue_schedule_json
+                .into_value(), self.initial_portfolio.into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("risk_policy_json", < String as golem_wasm::IntoValue >
+                ::get_type()), field("venue_schedule_json", < String as
+                golem_wasm::IntoValue > ::get_type()), field("initial_portfolio", <
+                PortfolioRiskInput as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(ConfigureRiskInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for ConfigureRiskInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
+                let risk_policy_json = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let venue_schedule_json = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let initial_portfolio = <PortfolioRiskInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    risk_policy_json,
+                    venue_schedule_json,
+                    initial_portfolio,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 3usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum SideInput {
     Buy,
     Sell,
@@ -1195,32 +1398,170 @@ impl golem_wasm::FromValue for SideInput {
     }
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Rejected {
-    pub reason: String,
+pub struct Approved {
+    pub intent: OrderIntentInput,
 }
-impl golem_wasm::IntoValue for Rejected {
+impl golem_wasm::IntoValue for Approved {
     fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.reason.into_value()])
+        golem_wasm::Value::Record(vec![self.intent.into_value()])
     }
     fn get_type() -> golem_wasm::analysis::AnalysedType {
         use golem_wasm::analysis::analysed_type::field;
         golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
             fields: vec![
-                field("reason", < String as golem_wasm::IntoValue > ::get_type())
+                field("intent", < OrderIntentInput as golem_wasm::IntoValue >
+                ::get_type())
             ],
-            name: Some(stringify!(Rejected).to_string()),
+            name: Some(stringify!(Approved).to_string()),
             owner: None,
         })
     }
 }
-impl golem_wasm::FromValue for Rejected {
+impl golem_wasm::FromValue for Approved {
     fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
         match value {
             golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let reason = <String as golem_wasm::FromValue>::from_value(
+                let intent = <OrderIntentInput as golem_wasm::FromValue>::from_value(
                     fields.remove(0),
                 )?;
-                Ok(Self { reason })
+                Ok(Self { intent })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 1usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct InvalidConfiguration {
+    pub detail: String,
+}
+impl golem_wasm::IntoValue for InvalidConfiguration {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(vec![self.detail.into_value()])
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("detail", < String as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(InvalidConfiguration).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for InvalidConfiguration {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
+                let detail = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { detail })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 1usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AuthorizeRiskInput {
+    pub proposal: RiskProposalInput,
+    pub context: RiskContextInput,
+    pub portfolio: PortfolioRiskInput,
+}
+impl golem_wasm::IntoValue for AuthorizeRiskInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.proposal.into_value(), self.context.into_value(), self.portfolio
+                .into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("proposal", < RiskProposalInput as golem_wasm::IntoValue >
+                ::get_type()), field("context", < RiskContextInput as
+                golem_wasm::IntoValue > ::get_type()), field("portfolio", <
+                PortfolioRiskInput as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(AuthorizeRiskInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for AuthorizeRiskInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
+                let proposal = <RiskProposalInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let context = <RiskContextInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let portfolio = <PortfolioRiskInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    proposal,
+                    context,
+                    portfolio,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 3usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct InvalidPortfolio {
+    pub detail: String,
+}
+impl golem_wasm::IntoValue for InvalidPortfolio {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(vec![self.detail.into_value()])
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("detail", < String as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(InvalidPortfolio).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for InvalidPortfolio {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
+                let detail = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { detail })
             }
             golem_wasm::Value::Record(fields) => {
                 Err(
@@ -1363,102 +1704,37 @@ impl golem_wasm::FromValue for RiskDecisionOutput {
     }
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RiskProposalInput {
-    pub proposal_id: String,
-    pub strategy_id: String,
-    pub symbol: String,
-    pub venue: String,
-    pub currency: String,
-    pub side: SideInput,
-    pub quantity_micros: u64,
-    pub limit_price_micros: u64,
-    pub execution_mode: ExecutionModeInput,
-    pub trading_day: i32,
+pub struct NotConfigured {
+    pub detail: String,
 }
-impl golem_wasm::IntoValue for RiskProposalInput {
+impl golem_wasm::IntoValue for NotConfigured {
     fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.proposal_id.into_value(), self.strategy_id.into_value(), self.symbol
-                .into_value(), self.venue.into_value(), self.currency.into_value(), self
-                .side.into_value(), self.quantity_micros.into_value(), self
-                .limit_price_micros.into_value(), self.execution_mode.into_value(), self
-                .trading_day.into_value()
-            ],
-        )
+        golem_wasm::Value::Record(vec![self.detail.into_value()])
     }
     fn get_type() -> golem_wasm::analysis::AnalysedType {
         use golem_wasm::analysis::analysed_type::field;
         golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
             fields: vec![
-                field("proposal_id", < String as golem_wasm::IntoValue > ::get_type()),
-                field("strategy_id", < String as golem_wasm::IntoValue > ::get_type()),
-                field("symbol", < String as golem_wasm::IntoValue > ::get_type()),
-                field("venue", < String as golem_wasm::IntoValue > ::get_type()),
-                field("currency", < String as golem_wasm::IntoValue > ::get_type()),
-                field("side", < SideInput as golem_wasm::IntoValue > ::get_type()),
-                field("quantity_micros", < u64 as golem_wasm::IntoValue > ::get_type()),
-                field("limit_price_micros", < u64 as golem_wasm::IntoValue >
-                ::get_type()), field("execution_mode", < ExecutionModeInput as
-                golem_wasm::IntoValue > ::get_type()), field("trading_day", < i32 as
-                golem_wasm::IntoValue > ::get_type())
+                field("detail", < String as golem_wasm::IntoValue > ::get_type())
             ],
-            name: Some(stringify!(RiskProposalInput).to_string()),
+            name: Some(stringify!(NotConfigured).to_string()),
             owner: None,
         })
     }
 }
-impl golem_wasm::FromValue for RiskProposalInput {
+impl golem_wasm::FromValue for NotConfigured {
     fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
         match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 10usize => {
-                let proposal_id = <String as golem_wasm::FromValue>::from_value(
+            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
+                let detail = <String as golem_wasm::FromValue>::from_value(
                     fields.remove(0),
                 )?;
-                let strategy_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let symbol = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let venue = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let currency = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let side = <SideInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let quantity_micros = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let limit_price_micros = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let execution_mode = <ExecutionModeInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let trading_day = <i32 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    proposal_id,
-                    strategy_id,
-                    symbol,
-                    venue,
-                    currency,
-                    side,
-                    quantity_micros,
-                    limit_price_micros,
-                    execution_mode,
-                    trading_day,
-                })
+                Ok(Self { detail })
             }
             golem_wasm::Value::Record(fields) => {
                 Err(
                     format!(
-                        "Expected Record with {} fields, got {}", 10usize, fields.len()
+                        "Expected Record with {} fields, got {}", 1usize, fields.len()
                     ),
                 )
             }
@@ -1497,495 +1773,6 @@ impl golem_wasm::FromValue for ExecutionModeInput {
                 }
             }
             _ => Err(format!("Expected Enum value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct OrderIntentInput {
-    pub client_order_id: String,
-    pub proposal_id: String,
-    pub strategy_id: String,
-    pub symbol: String,
-    pub venue: String,
-    pub currency: String,
-    pub side: SideInput,
-    pub quantity_micros: u64,
-    pub limit_price_micros: u64,
-    pub execution_mode: ExecutionModeInput,
-    pub trading_day: i32,
-    pub authorized_notional_micros: u64,
-    pub risk_policy_version: String,
-    pub authorized_at_ns: u64,
-}
-impl golem_wasm::IntoValue for OrderIntentInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.client_order_id.into_value(), self.proposal_id.into_value(), self
-                .strategy_id.into_value(), self.symbol.into_value(), self.venue
-                .into_value(), self.currency.into_value(), self.side.into_value(), self
-                .quantity_micros.into_value(), self.limit_price_micros.into_value(), self
-                .execution_mode.into_value(), self.trading_day.into_value(), self
-                .authorized_notional_micros.into_value(), self.risk_policy_version
-                .into_value(), self.authorized_at_ns.into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("client_order_id", < String as golem_wasm::IntoValue >
-                ::get_type()), field("proposal_id", < String as golem_wasm::IntoValue >
-                ::get_type()), field("strategy_id", < String as golem_wasm::IntoValue >
-                ::get_type()), field("symbol", < String as golem_wasm::IntoValue >
-                ::get_type()), field("venue", < String as golem_wasm::IntoValue >
-                ::get_type()), field("currency", < String as golem_wasm::IntoValue >
-                ::get_type()), field("side", < SideInput as golem_wasm::IntoValue >
-                ::get_type()), field("quantity_micros", < u64 as golem_wasm::IntoValue >
-                ::get_type()), field("limit_price_micros", < u64 as golem_wasm::IntoValue
-                > ::get_type()), field("execution_mode", < ExecutionModeInput as
-                golem_wasm::IntoValue > ::get_type()), field("trading_day", < i32 as
-                golem_wasm::IntoValue > ::get_type()),
-                field("authorized_notional_micros", < u64 as golem_wasm::IntoValue >
-                ::get_type()), field("risk_policy_version", < String as
-                golem_wasm::IntoValue > ::get_type()), field("authorized_at_ns", < u64 as
-                golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(OrderIntentInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for OrderIntentInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 14usize => {
-                let client_order_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let proposal_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let strategy_id = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let symbol = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let venue = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let currency = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let side = <SideInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let quantity_micros = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let limit_price_micros = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let execution_mode = <ExecutionModeInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let trading_day = <i32 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let authorized_notional_micros = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let risk_policy_version = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let authorized_at_ns = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    client_order_id,
-                    proposal_id,
-                    strategy_id,
-                    symbol,
-                    venue,
-                    currency,
-                    side,
-                    quantity_micros,
-                    limit_price_micros,
-                    execution_mode,
-                    trading_day,
-                    authorized_notional_micros,
-                    risk_policy_version,
-                    authorized_at_ns,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 14usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ConfigureRiskInput {
-    pub risk_policy_json: String,
-    pub venue_schedule_json: String,
-    pub initial_portfolio: PortfolioRiskInput,
-}
-impl golem_wasm::IntoValue for ConfigureRiskInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.risk_policy_json.into_value(), self.venue_schedule_json
-                .into_value(), self.initial_portfolio.into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("risk_policy_json", < String as golem_wasm::IntoValue >
-                ::get_type()), field("venue_schedule_json", < String as
-                golem_wasm::IntoValue > ::get_type()), field("initial_portfolio", <
-                PortfolioRiskInput as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(ConfigureRiskInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for ConfigureRiskInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
-                let risk_policy_json = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let venue_schedule_json = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let initial_portfolio = <PortfolioRiskInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    risk_policy_json,
-                    venue_schedule_json,
-                    initial_portfolio,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 3usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RefreshPortfolioInput {
-    pub portfolio: PortfolioRiskInput,
-    pub covered_client_order_ids: Vec<String>,
-}
-impl golem_wasm::IntoValue for RefreshPortfolioInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![self.portfolio.into_value(), self.covered_client_order_ids.into_value()],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("portfolio", < PortfolioRiskInput as golem_wasm::IntoValue >
-                ::get_type()), field("covered_client_order_ids", < Vec < String > as
-                golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(RefreshPortfolioInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for RefreshPortfolioInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
-                let portfolio = <PortfolioRiskInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let covered_client_order_ids = <Vec<
-                    String,
-                > as golem_wasm::FromValue>::from_value(fields.remove(0))?;
-                Ok(Self {
-                    portfolio,
-                    covered_client_order_ids,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 2usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RiskContextInput {
-    pub now_ns: u64,
-    pub market_data_at_ns: u64,
-    pub venue_time_utc_sec: i64,
-}
-impl golem_wasm::IntoValue for RiskContextInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.now_ns.into_value(), self.market_data_at_ns.into_value(), self
-                .venue_time_utc_sec.into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("now_ns", < u64 as golem_wasm::IntoValue > ::get_type()),
-                field("market_data_at_ns", < u64 as golem_wasm::IntoValue >
-                ::get_type()), field("venue_time_utc_sec", < i64 as golem_wasm::IntoValue
-                > ::get_type())
-            ],
-            name: Some(stringify!(RiskContextInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for RiskContextInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
-                let now_ns = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let market_data_at_ns = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let venue_time_utc_sec = <i64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    now_ns,
-                    market_data_at_ns,
-                    venue_time_utc_sec,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 3usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ConfigurationConflict {
-    pub existing_fingerprint: String,
-    pub proposed_fingerprint: String,
-}
-impl golem_wasm::IntoValue for ConfigurationConflict {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.existing_fingerprint.into_value(), self.proposed_fingerprint
-                .into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("existing_fingerprint", < String as golem_wasm::IntoValue >
-                ::get_type()), field("proposed_fingerprint", < String as
-                golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(ConfigurationConflict).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for ConfigurationConflict {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
-                let existing_fingerprint = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let proposed_fingerprint = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    existing_fingerprint,
-                    proposed_fingerprint,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 2usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct InvalidPortfolio {
-    pub detail: String,
-}
-impl golem_wasm::IntoValue for InvalidPortfolio {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.detail.into_value()])
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("detail", < String as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(InvalidPortfolio).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for InvalidPortfolio {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let detail = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { detail })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 1usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AuthorizeRiskInput {
-    pub proposal: RiskProposalInput,
-    pub context: RiskContextInput,
-    pub portfolio: PortfolioRiskInput,
-}
-impl golem_wasm::IntoValue for AuthorizeRiskInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![
-                self.proposal.into_value(), self.context.into_value(), self.portfolio
-                .into_value()
-            ],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("proposal", < RiskProposalInput as golem_wasm::IntoValue >
-                ::get_type()), field("context", < RiskContextInput as
-                golem_wasm::IntoValue > ::get_type()), field("portfolio", <
-                PortfolioRiskInput as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(AuthorizeRiskInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for AuthorizeRiskInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 3usize => {
-                let proposal = <RiskProposalInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let context = <RiskContextInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let portfolio = <PortfolioRiskInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self {
-                    proposal,
-                    context,
-                    portfolio,
-                })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 3usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct NotConfigured {
-    pub detail: String,
-}
-impl golem_wasm::IntoValue for NotConfigured {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.detail.into_value()])
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("detail", < String as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(NotConfigured).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for NotConfigured {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let detail = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { detail })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 1usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
         }
     }
 }
@@ -2170,6 +1957,95 @@ impl golem_wasm::FromValue for RiskAgentError {
     }
 }
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Rejected {
+    pub reason: String,
+}
+impl golem_wasm::IntoValue for Rejected {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(vec![self.reason.into_value()])
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("reason", < String as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(Rejected).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for Rejected {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
+                let reason = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { reason })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 1usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RefreshPortfolioInput {
+    pub portfolio: PortfolioRiskInput,
+    pub covered_client_order_ids: Vec<String>,
+}
+impl golem_wasm::IntoValue for RefreshPortfolioInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![self.portfolio.into_value(), self.covered_client_order_ids.into_value()],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("portfolio", < PortfolioRiskInput as golem_wasm::IntoValue >
+                ::get_type()), field("covered_client_order_ids", < Vec < String > as
+                golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(RefreshPortfolioInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for RefreshPortfolioInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
+                let portfolio = <PortfolioRiskInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let covered_client_order_ids = <Vec<
+                    String,
+                > as golem_wasm::FromValue>::from_value(fields.remove(0))?;
+                Ok(Self {
+                    portfolio,
+                    covered_client_order_ids,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 2usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioRiskInput {
     pub as_of_ns: u64,
     pub trading_day: i32,
@@ -2240,216 +2116,6 @@ impl golem_wasm::FromValue for PortfolioRiskInput {
                 Err(
                     format!(
                         "Expected Record with {} fields, got {}", 6usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct SymbolPositionInput {
-    pub symbol: String,
-    pub quantity_micros: i64,
-}
-impl golem_wasm::IntoValue for SymbolPositionInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![self.symbol.into_value(), self.quantity_micros.into_value()],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("symbol", < String as golem_wasm::IntoValue > ::get_type()),
-                field("quantity_micros", < i64 as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(SymbolPositionInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for SymbolPositionInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
-                let symbol = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let quantity_micros = <i64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { symbol, quantity_micros })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 2usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct Approved {
-    pub intent: OrderIntentInput,
-}
-impl golem_wasm::IntoValue for Approved {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.intent.into_value()])
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("intent", < OrderIntentInput as golem_wasm::IntoValue >
-                ::get_type())
-            ],
-            name: Some(stringify!(Approved).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for Approved {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let intent = <OrderIntentInput as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { intent })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 1usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AuthorityRejected {
-    pub detail: String,
-}
-impl golem_wasm::IntoValue for AuthorityRejected {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.detail.into_value()])
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("detail", < String as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(AuthorityRejected).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for AuthorityRejected {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let detail = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { detail })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 1usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct NamedExposureInput {
-    pub name: String,
-    pub amount_micros: u64,
-}
-impl golem_wasm::IntoValue for NamedExposureInput {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(
-            vec![self.name.into_value(), self.amount_micros.into_value()],
-        )
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("name", < String as golem_wasm::IntoValue > ::get_type()),
-                field("amount_micros", < u64 as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(NamedExposureInput).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for NamedExposureInput {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
-                let name = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                let amount_micros = <u64 as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { name, amount_micros })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 2usize, fields.len()
-                    ),
-                )
-            }
-            _ => Err(format!("Expected Record value, got {:?}", value)),
-        }
-    }
-}
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct InvalidConfiguration {
-    pub detail: String,
-}
-impl golem_wasm::IntoValue for InvalidConfiguration {
-    fn into_value(self) -> golem_wasm::Value {
-        golem_wasm::Value::Record(vec![self.detail.into_value()])
-    }
-    fn get_type() -> golem_wasm::analysis::AnalysedType {
-        use golem_wasm::analysis::analysed_type::field;
-        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
-            fields: vec![
-                field("detail", < String as golem_wasm::IntoValue > ::get_type())
-            ],
-            name: Some(stringify!(InvalidConfiguration).to_string()),
-            owner: None,
-        })
-    }
-}
-impl golem_wasm::FromValue for InvalidConfiguration {
-    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
-        match value {
-            golem_wasm::Value::Record(mut fields) if fields.len() == 1usize => {
-                let detail = <String as golem_wasm::FromValue>::from_value(
-                    fields.remove(0),
-                )?;
-                Ok(Self { detail })
-            }
-            golem_wasm::Value::Record(fields) => {
-                Err(
-                    format!(
-                        "Expected Record with {} fields, got {}", 1usize, fields.len()
                     ),
                 )
             }
@@ -2557,6 +2223,340 @@ impl golem_wasm::FromValue for RiskStatusOutput {
                 Err(
                     format!(
                         "Expected Record with {} fields, got {}", 10usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RiskProposalInput {
+    pub proposal_id: String,
+    pub strategy_id: String,
+    pub symbol: String,
+    pub venue: String,
+    pub currency: String,
+    pub side: SideInput,
+    pub quantity_micros: u64,
+    pub limit_price_micros: u64,
+    pub execution_mode: ExecutionModeInput,
+    pub trading_day: i32,
+}
+impl golem_wasm::IntoValue for RiskProposalInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.proposal_id.into_value(), self.strategy_id.into_value(), self.symbol
+                .into_value(), self.venue.into_value(), self.currency.into_value(), self
+                .side.into_value(), self.quantity_micros.into_value(), self
+                .limit_price_micros.into_value(), self.execution_mode.into_value(), self
+                .trading_day.into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("proposal_id", < String as golem_wasm::IntoValue > ::get_type()),
+                field("strategy_id", < String as golem_wasm::IntoValue > ::get_type()),
+                field("symbol", < String as golem_wasm::IntoValue > ::get_type()),
+                field("venue", < String as golem_wasm::IntoValue > ::get_type()),
+                field("currency", < String as golem_wasm::IntoValue > ::get_type()),
+                field("side", < SideInput as golem_wasm::IntoValue > ::get_type()),
+                field("quantity_micros", < u64 as golem_wasm::IntoValue > ::get_type()),
+                field("limit_price_micros", < u64 as golem_wasm::IntoValue >
+                ::get_type()), field("execution_mode", < ExecutionModeInput as
+                golem_wasm::IntoValue > ::get_type()), field("trading_day", < i32 as
+                golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(RiskProposalInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for RiskProposalInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 10usize => {
+                let proposal_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let strategy_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let symbol = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let venue = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let currency = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let side = <SideInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let quantity_micros = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let limit_price_micros = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let execution_mode = <ExecutionModeInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let trading_day = <i32 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    proposal_id,
+                    strategy_id,
+                    symbol,
+                    venue,
+                    currency,
+                    side,
+                    quantity_micros,
+                    limit_price_micros,
+                    execution_mode,
+                    trading_day,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 10usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OrderIntentInput {
+    pub client_order_id: String,
+    pub proposal_id: String,
+    pub strategy_id: String,
+    pub symbol: String,
+    pub venue: String,
+    pub currency: String,
+    pub side: SideInput,
+    pub quantity_micros: u64,
+    pub limit_price_micros: u64,
+    pub execution_mode: ExecutionModeInput,
+    pub trading_day: i32,
+    pub authorized_notional_micros: u64,
+    pub risk_policy_version: String,
+    pub authorized_at_ns: u64,
+}
+impl golem_wasm::IntoValue for OrderIntentInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.client_order_id.into_value(), self.proposal_id.into_value(), self
+                .strategy_id.into_value(), self.symbol.into_value(), self.venue
+                .into_value(), self.currency.into_value(), self.side.into_value(), self
+                .quantity_micros.into_value(), self.limit_price_micros.into_value(), self
+                .execution_mode.into_value(), self.trading_day.into_value(), self
+                .authorized_notional_micros.into_value(), self.risk_policy_version
+                .into_value(), self.authorized_at_ns.into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("client_order_id", < String as golem_wasm::IntoValue >
+                ::get_type()), field("proposal_id", < String as golem_wasm::IntoValue >
+                ::get_type()), field("strategy_id", < String as golem_wasm::IntoValue >
+                ::get_type()), field("symbol", < String as golem_wasm::IntoValue >
+                ::get_type()), field("venue", < String as golem_wasm::IntoValue >
+                ::get_type()), field("currency", < String as golem_wasm::IntoValue >
+                ::get_type()), field("side", < SideInput as golem_wasm::IntoValue >
+                ::get_type()), field("quantity_micros", < u64 as golem_wasm::IntoValue >
+                ::get_type()), field("limit_price_micros", < u64 as golem_wasm::IntoValue
+                > ::get_type()), field("execution_mode", < ExecutionModeInput as
+                golem_wasm::IntoValue > ::get_type()), field("trading_day", < i32 as
+                golem_wasm::IntoValue > ::get_type()),
+                field("authorized_notional_micros", < u64 as golem_wasm::IntoValue >
+                ::get_type()), field("risk_policy_version", < String as
+                golem_wasm::IntoValue > ::get_type()), field("authorized_at_ns", < u64 as
+                golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(OrderIntentInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for OrderIntentInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 14usize => {
+                let client_order_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let proposal_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let strategy_id = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let symbol = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let venue = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let currency = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let side = <SideInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let quantity_micros = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let limit_price_micros = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let execution_mode = <ExecutionModeInput as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let trading_day = <i32 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let authorized_notional_micros = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let risk_policy_version = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let authorized_at_ns = <u64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    client_order_id,
+                    proposal_id,
+                    strategy_id,
+                    symbol,
+                    venue,
+                    currency,
+                    side,
+                    quantity_micros,
+                    limit_price_micros,
+                    execution_mode,
+                    trading_day,
+                    authorized_notional_micros,
+                    risk_policy_version,
+                    authorized_at_ns,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 14usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SymbolPositionInput {
+    pub symbol: String,
+    pub quantity_micros: i64,
+}
+impl golem_wasm::IntoValue for SymbolPositionInput {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![self.symbol.into_value(), self.quantity_micros.into_value()],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("symbol", < String as golem_wasm::IntoValue > ::get_type()),
+                field("quantity_micros", < i64 as golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(SymbolPositionInput).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for SymbolPositionInput {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
+                let symbol = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let quantity_micros = <i64 as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self { symbol, quantity_micros })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 2usize, fields.len()
+                    ),
+                )
+            }
+            _ => Err(format!("Expected Record value, got {:?}", value)),
+        }
+    }
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ConfigurationConflict {
+    pub existing_fingerprint: String,
+    pub proposed_fingerprint: String,
+}
+impl golem_wasm::IntoValue for ConfigurationConflict {
+    fn into_value(self) -> golem_wasm::Value {
+        golem_wasm::Value::Record(
+            vec![
+                self.existing_fingerprint.into_value(), self.proposed_fingerprint
+                .into_value()
+            ],
+        )
+    }
+    fn get_type() -> golem_wasm::analysis::AnalysedType {
+        use golem_wasm::analysis::analysed_type::field;
+        golem_wasm::analysis::AnalysedType::Record(golem_wasm::analysis::TypeRecord {
+            fields: vec![
+                field("existing_fingerprint", < String as golem_wasm::IntoValue >
+                ::get_type()), field("proposed_fingerprint", < String as
+                golem_wasm::IntoValue > ::get_type())
+            ],
+            name: Some(stringify!(ConfigurationConflict).to_string()),
+            owner: None,
+        })
+    }
+}
+impl golem_wasm::FromValue for ConfigurationConflict {
+    fn from_value(value: golem_wasm::Value) -> Result<Self, String> {
+        match value {
+            golem_wasm::Value::Record(mut fields) if fields.len() == 2usize => {
+                let existing_fingerprint = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                let proposed_fingerprint = <String as golem_wasm::FromValue>::from_value(
+                    fields.remove(0),
+                )?;
+                Ok(Self {
+                    existing_fingerprint,
+                    proposed_fingerprint,
+                })
+            }
+            golem_wasm::Value::Record(fields) => {
+                Err(
+                    format!(
+                        "Expected Record with {} fields, got {}", 2usize, fields.len()
                     ),
                 )
             }
