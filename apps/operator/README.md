@@ -37,6 +37,17 @@ npm run operator:preview
 The static artifact is written to `apps/operator/dist` and can be deployed independently from the
 VitePress output.
 
+Deploy the public synthetic application from the repository root so Vercel receives both the
+operator workspace and the shared Atlas chart package:
+
+```bash
+vercel deploy --prod --yes
+```
+
+The root `vercel.json` owns the monorepo install command, operator build command, output directory,
+cache policy, and browser security headers. Deploying from `apps/operator` alone is unsupported
+because that upload omits the shared workspace package.
+
 Run the native operator gateway against that artifact:
 
 ```bash
