@@ -253,13 +253,13 @@ npm ci
 npm run docs:dev
 ```
 
-Helios Control is a separate application in `apps/operator`. It shows strategies, processing
-stages, candidate signals, active orders, held positions, risk state, and source freshness from a
-deterministic demo port. Configure `window.__HELIOS_OPERATIONS__` with same-origin read URLs to
-replace that fixture. Optional command-session and command URLs attach a separate protected
-mutation boundary. Perspective 5.3 loads only when the operator opens Data Explorer, keeping the
-initial overview independent of its WebAssembly payload and keeping the console out of the docs
-build.
+Helios Control is a separate TypeScript application in `apps/operator`. Its deep-linked operational
+panes show portfolio telemetry, held-position value and change, reviewed order entry, active OMS
+orders, executions, signals, activity, and source health from a deterministic demo port. Configure
+`window.__HELIOS_OPERATIONS__` with same-origin read URLs to replace that fixture. Optional
+command-session and command URLs attach a separate protected mutation boundary. Perspective 5.3
+and its three WebAssembly assets load only when the operator opens Explore, keeping both the initial
+shell and the documentation build independent of that analytical payload.
 
 ```bash
 npm run operator:dev

@@ -57,6 +57,8 @@ export interface PositionView {
   readonly markPriceMicros: string;
   readonly marketValueMicros: string;
   readonly unrealizedPnlMicros: string;
+  readonly dayPnlMicros?: string;
+  readonly dayChangeBps?: number;
   readonly currency: "USD";
   readonly freshnessMs: number;
 }
@@ -419,6 +421,8 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       markPriceMicros: "64118250000",
       marketValueMicros: "20517840000",
       unrealizedPnlMicros: "120361600",
+      dayPnlMicros: "73441600",
+      dayChangeBps: 36,
       currency: "USD",
       freshnessMs: 184,
     },
@@ -430,6 +434,8 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       markPriceMicros: "269880000",
       marketValueMicros: "4857840000",
       unrealizedPnlMicros: "-27720000",
+      dayPnlMicros: "-42120000",
+      dayChangeBps: -86,
       currency: "USD",
       freshnessMs: 238,
     },
@@ -441,6 +447,8 @@ export const initialOperationsSnapshot: OperationsSnapshot = {
       markPriceMicros: "11140000",
       marketValueMicros: "601560000",
       unrealizedPnlMicros: "8640000",
+      dayPnlMicros: "12420000",
+      dayChangeBps: 211,
       currency: "USD",
       freshnessMs: 311,
     },
@@ -916,6 +924,8 @@ function validateSnapshot(value: unknown): OperationsSnapshot {
     for (const field of ["quantityMicros", "averagePriceMicros", "markPriceMicros", "marketValueMicros", "unrealizedPnlMicros"] as const) {
       micros(position[field], `positions[${index}].${field}`);
     }
+    if (position.dayPnlMicros !== undefined) micros(position.dayPnlMicros, `positions[${index}].dayPnlMicros`);
+    if (position.dayChangeBps !== undefined) finite(position.dayChangeBps, `positions[${index}].dayChangeBps`);
     if (position.currency !== "USD") fail(`positions[${index}].currency`);
     integer(position.freshnessMs, `positions[${index}].freshnessMs`);
   }

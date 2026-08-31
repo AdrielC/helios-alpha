@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import OperatorConsole from "./components/OperatorConsole.vue";
+import OperatorApp from "./components/OperatorApp.vue";
 </script>
 
 <template>
-  <OperatorConsole />
+  <OperatorApp />
 </template>
