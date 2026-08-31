@@ -7,7 +7,11 @@ service remain separate ports.
 The default application uses a deterministic synthetic source. It is labeled `shadow` and never
 claims live market data or execution authority.
 
-Production demo: [helios-control-kappa.vercel.app](https://helios-control-kappa.vercel.app/)
+Public synthetic demo: [helios-control-kappa.vercel.app](https://helios-control-kappa.vercel.app/)
+
+The demo is intentionally anonymous so it can be shared. It uses generated operations data, a
+shared guest identity, and an unavailable command port. It cannot submit, cancel, replace, or
+route an order. Protect the origin before connecting an observed account or command service.
 
 ## Run it
 
@@ -61,6 +65,11 @@ The schema-version 2 read model owns:
 - source watermarks, lag, and health;
 - exposure, capacity, incident, kill-switch, and capital-admission state.
 
+The shell renders the organization, workspace, and account from that read model. An authenticated
+command session supplies the operator identity used for command audit. Without one, the header
+shows `Guest observer` and the shared session is read-only. Tenant and user controls never invent
+authority that the operations and command services did not return.
+
 Mutation belongs to a separate authenticated command service. Do not add mutation methods to the
 operations port. Without both command URLs, control stays read-only and the missing channel appears
 as an alert.
@@ -78,8 +87,9 @@ intent before side effects, and return the same receipt for a repeated idempoten
 
 ## Deployment boundary
 
-Deploy this application on a dedicated origin behind the organization identity proxy. A production
-deployment should provide at least:
+The synthetic showcase may be public only while its runtime configuration has no operations or
+command URLs. A deployment connected to observed data or any command authority belongs on a
+dedicated origin behind the organization identity proxy. That deployment should provide at least:
 
 - authenticated access before static assets and APIs are served;
 - `frame-ancestors 'none'`, `object-src 'none'`, and a restrictive `connect-src` policy;

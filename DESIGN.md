@@ -180,7 +180,7 @@ The palette behaves like luminous instrumentation on obsidian glass. Accent colo
 
 **The Truth Color Rule.** Cyan means active computation or inspection. Coral means blocked, stale, degraded, failed, or negative. Lime means healthy, observed, reconciled, authorized, ready, or positive. Never use these accents interchangeably.
 
-**The Persistent Truth Rule.** Mode, capital gate, and data class remain visible together in the command bar. Color supports their text labels but never replaces them.
+**The Persistent Truth Rule.** Feed mode and connection state remain visible in the command bar. Organization, workspace, account, data class, command authority, and operator identity are one disclosure away in labeled controls. Color supports their text labels but never replaces them.
 
 ## Typography
 
@@ -194,24 +194,26 @@ The palette behaves like luminous instrumentation on obsidian glass. Accent colo
 
 ### Hierarchy
 
-- **Unavailable Display** (28px to 58px, 0.98 line height): The only oversized statement, used when no validated snapshot exists.
-- **Section Title** (20px, 1.2 line height): Event tape, ledgers, source health, and explorer headings.
+- **Unavailable Display** (28px to 44px, 0.98 line height): The only oversized statement, used when no validated snapshot exists.
+- **Section Title** (18px, 1.2 line height): Telemetry, ledgers, signals, sources, and explorer headings.
 - **App Title** (16px, weight 660): Helios Control identity in the persistent command bar.
 - **Body** (13px, 1.45 line height): Operational explanations and boundary detail.
 - **Metric** (21px, Recursive mono axis): Portfolio facts and compact high-priority numeric state.
 - **Data** (11px, Recursive mono axis): Dense tables, identifiers, timestamps, quantities, and event-tape rows.
 - **Label** (10px, uppercase Recursive mono axis): Tabs, truth chips, status controls, and ledger labels.
+- **Compact Label** (9px, uppercase Recursive mono axis): Filters, compact controls, and supporting measurements.
 - **Micro Label** (8px, uppercase Recursive mono axis): Table headers, signal state, and tightly constrained annotations.
+- **Nano Label** (7px, uppercase Recursive mono axis): Dense source facts and secondary identifiers only.
 
 **The Operational Mono Rule.** If a value changes, identifies, reconciles, timestamps, measures, or gates operation, set it in Recursive with tabular numerals where applicable.
 
 ## Layout
 
-Helios Control owns the viewport. A 70px sticky command bar holds identity, Overview and Data Explorer views, three truth chips, and stream control. A 44px boundary line immediately states read-only or stale state. The main atlas is capped at 1920px, with a 220px operations index and a fluid workspace joined by one-pixel rules.
+Helios Control owns the viewport. A 64px sticky command bar holds product and tenant identity, Operations, Control, and Explore views, feed state, the alert center, and operator identity. The main atlas is capped at 1920px, with a 188px operations index that collapses to 54px and a fluid workspace joined by one-pixel rules.
 
 The workspace favors horizontal ledgers over card grids. Five portfolio facts form one ruled strip. A strategy register and six-stage processing path expose control boundaries before the event tape. The event path holds a minimum 960px six-column causal tape, then pairs the signal list with its inspector. Positions and active orders share a ledger row; confirmed executions use a full-width table; source health closes the overview.
 
-At 1180px the summary becomes locally scrollable, signal and ledger pairs stack, and source health moves to two columns. At 820px the navigation rail disappears, the command bar stops sticking, tape and lineage regions scroll locally, and source health becomes one column. At 520px mode, capital, and data truth occupy an equal three-column row above the full-width feed control.
+At 1180px the workspace navigation moves beneath the product row and the summary remains locally scrollable. At 820px the navigation rail disappears, signal and ledger pairs stack, and source health moves to one column. At 720px the command bar stops sticking and the organization, live state, alert bell, and operator identity remain available without global horizontal overflow.
 
 The body always hides global horizontal overflow. Summary strips, the event tape, lineage, positions, executions, and other wide tables own their overflow. Each interactive scroll region receives `tabindex="0"`, a descriptive accessibility label, and a visible 2px coral focus outline. Narrow layouts show explicit right-arrow copy such as "Scroll for reorder, reduce, and effect."
 
@@ -225,7 +227,7 @@ The app is flat and shadow-free. Depth comes from adjacent obsidian tones, one-p
 
 ## Shapes
 
-Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. Stream control alone may use a nearly square 1px radius. Circles are restricted to seven-pixel connection and health indicators. The Helios mark is a 21px ruled square containing a two-by-two ion-lime matrix.
+Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. Circles are restricted to connection and health indicators, the operator avatar, and the alert count. The Helios mark is a crisp 28px orbital instrument: one cyan orbit around an ion-lime source and eight calibrated rays.
 
 **The Instrument Shape Rule.** Square geometry holds information. Small circles report status. Neither form is decorative.
 
@@ -233,15 +235,15 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 
 ### Standalone App Shell
 
-- **Structure:** Full-viewport obsidian ground, 70px command bar, 44px truth boundary, 220px index, and fluid ruled workspace.
-- **Identity:** The Helios mark and app name appear without VitePress navigation, sidebars, or document controls.
+- **Structure:** Full-viewport obsidian ground, 64px command bar, collapsible 188px index, and fluid ruled workspace.
+- **Identity:** The Helios mark, organization context, alert bell, and operator session appear without VitePress navigation, sidebars, or document controls.
 - **Boundary:** The snapshot stream remains read-only. Mutation crosses a separate, same-origin authenticated command service with CSRF protection, idempotency, and sequence preconditions.
 
-### Command Bar and Truth Chips
+### Command Bar and Session Controls
 
-- **Views:** Overview loads by default. Data Explorer is disabled until a valid snapshot exists and carries a visible WASM label.
-- **Persistent State:** Mode supports demo, shadow, paper, live, or pending. Capital supports closed, authorized, or unknown. Data class supports synthetic, observed, or pending.
-- **States:** Ordinary or synthetic truth is cyan. Pending and unknown are axis gray. Capital closed is coral. Live mode, capital authorized, and observed data are ion-lime.
+- **Views:** Operations loads by default. Control and Explore remain disabled until a valid snapshot exists.
+- **Persistent State:** Mode supports demo, shadow, paper, live, or pending. Connection supports live, frozen, connecting, reconnecting, snapshot, or offline.
+- **Disclosure:** The organization control owns workspace, account, and data-class identity. The operator control owns read or command authority and audit identity. The alert bell owns active incident count and immediate investigation actions.
 - **Connection Control:** Pause, resume, retry, reconnecting, connecting, and snapshot-only states remain text-labeled with a seven-pixel status dot.
 
 ### Read and Command Boundary
@@ -303,7 +305,7 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 
 ### Do:
 
-- Do keep mode, capital gate, data class, connection, and sequence visible as text.
+- Do keep mode and connection visible as text, with tenant, data, authority, operator, and sequence available in their labeled operational controls.
 - Do reject malformed or unsupported snapshots before they replace the last validated state.
 - Do show no operational fixture when the configured initial snapshot fails.
 - Do mark the last validated snapshot stale when later updates fail, including its observation time.
@@ -316,7 +318,7 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. St
 ### Don't:
 
 - Don't wrap Helios Control in documentation navigation or reuse document-page composition.
-- Don't hide mode, capital, or data truth inside a menu, tooltip, or color-only indicator.
+- Don't hide feed mode or connection state inside a menu, tooltip, or color-only indicator.
 - Don't replace a malformed snapshot with demo data or present stale state as live.
 - Don't add command authority to the snapshot or SSE port, and never optimistically mutate its state.
 - Don't eagerly import Perspective, its datagrid, themes, worker, or WebAssembly assets.
