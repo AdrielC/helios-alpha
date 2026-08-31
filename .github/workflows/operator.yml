@@ -8,6 +8,8 @@ on:
       - "packages/atlas-charts/**"
       - "package.json"
       - "package-lock.json"
+      - ".vercelignore"
+      - "vercel.json"
       - ".github/workflows/operator.yml"
   pull_request:
     branches: [main]
@@ -16,6 +18,8 @@ on:
       - "packages/atlas-charts/**"
       - "package.json"
       - "package-lock.json"
+      - ".vercelignore"
+      - "vercel.json"
       - ".github/workflows/operator.yml"
   workflow_dispatch:
 
