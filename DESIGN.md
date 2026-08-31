@@ -20,14 +20,19 @@ colors:
 typography:
   unavailable-display:
     fontFamily: "Archivo Variable, system-ui, sans-serif"
-    fontSize: "clamp(28px, 5vw, 58px)"
+    fontSize: "clamp(28px, 5vw, 44px)"
     lineHeight: 0.98
     letterSpacing: "-0.045em"
   section-title:
     fontFamily: "Archivo Variable, system-ui, sans-serif"
-    fontSize: "20px"
+    fontSize: "16px"
     lineHeight: 1.2
     letterSpacing: "-0.02em"
+  pane-title:
+    fontFamily: "Archivo Variable, system-ui, sans-serif"
+    fontSize: "24px"
+    lineHeight: 1.2
+    letterSpacing: "-0.025em"
   app-title:
     fontFamily: "Archivo Variable, system-ui, sans-serif"
     fontSize: "16px"
@@ -51,9 +56,19 @@ typography:
     fontSize: "10px"
     letterSpacing: "0.05em"
     fontVariation: '"MONO" 1, "CASL" 0'
+  compact-label:
+    fontFamily: "Recursive Variable, ui-monospace, monospace"
+    fontSize: "9px"
+    letterSpacing: "0.04em"
+    fontVariation: '"MONO" 1, "CASL" 0'
   micro-label:
     fontFamily: "Recursive Variable, ui-monospace, monospace"
     fontSize: "8px"
+    letterSpacing: "0.04em"
+    fontVariation: '"MONO" 1, "CASL" 0'
+  nano-label:
+    fontFamily: "Recursive Variable, ui-monospace, monospace"
+    fontSize: "7px"
     letterSpacing: "0.04em"
     fontVariation: '"MONO" 1, "CASL" 0'
 rounded:
@@ -79,14 +94,14 @@ components:
     typography: "{typography.label}"
     rounded: "{rounded.square}"
     padding: "0 20px"
-    height: "70px"
+    height: "64px"
   command-tab-active:
     backgroundColor: "{colors.surface-strong}"
     textColor: "{colors.polar-cyan}"
     typography: "{typography.label}"
     rounded: "{rounded.square}"
     padding: "0 20px"
-    height: "70px"
+    height: "64px"
   truth-chip:
     backgroundColor: "transparent"
     textColor: "{colors.polar-cyan}"
@@ -195,7 +210,8 @@ The palette behaves like luminous instrumentation on obsidian glass. Accent colo
 ### Hierarchy
 
 - **Unavailable Display** (28px to 44px, 0.98 line height): The only oversized statement, used when no validated snapshot exists.
-- **Section Title** (18px, 1.2 line height): Telemetry, ledgers, signals, sources, and explorer headings.
+- **Pane Title** (24px, 1.2 line height): Positions, orders, signals, activity, sources, and primary workspace headings.
+- **Section Title** (16px, 1.2 line height): Telemetry, ledgers, order entry, and explorer headings.
 - **App Title** (16px, weight 660): Helios Control identity in the persistent command bar.
 - **Body** (13px, 1.45 line height): Operational explanations and boundary detail.
 - **Metric** (21px, Recursive mono axis): Portfolio facts and compact high-priority numeric state.
@@ -209,11 +225,11 @@ The palette behaves like luminous instrumentation on obsidian glass. Accent colo
 
 ## Layout
 
-Helios Control owns the viewport. A 64px sticky command bar holds product and tenant identity, Operations, Control, and Explore views, feed state, the alert center, and operator identity. The main atlas is capped at 1920px, with a 188px operations index that collapses to 54px and a fluid workspace joined by one-pixel rules.
+Helios Control owns the viewport. A 64px sticky command bar holds product and tenant identity, Operations, Control, and Explore views, feed state, the alert center, and operator identity. The main atlas is capped at 1920px, with a keyboard-resizable 156px to 264px operations index that defaults to 188px, collapses to 54px, and joins a fluid workspace with one-pixel rules.
 
-The workspace favors horizontal ledgers over card grids. Five portfolio facts form one ruled strip. A strategy register and six-stage processing path expose control boundaries before the event tape. The event path holds a minimum 960px six-column causal tape, then pairs the signal list with its inspector. Positions and active orders share a ledger row; confirmed executions use a full-width table; source health closes the overview.
+The workspace favors horizontal ledgers over card grids. Overview, Positions, Orders, Signals, Activity, and Sources are distinct deep-linked panes. One pane renders at a time. Overview joins five portfolio facts to one telemetry surface. Positions owns value and return. Orders joins a reviewed order ticket to active OMS state and confirmed executions. Signals pairs the candidate list with its inspector. Activity and Sources remain dedicated operational registers.
 
-At 1180px the workspace navigation moves beneath the product row and the summary remains locally scrollable. At 820px the navigation rail disappears, signal and ledger pairs stack, and source health moves to one column. At 720px the command bar stops sticking and the organization, live state, alert bell, and operator identity remain available without global horizontal overflow.
+At 1180px the workspace navigation follows the two-row command bar and order-entry columns stack. At 820px the rail becomes a sticky horizontal tab strip, signal regions stack, and source health moves to one column. At 720px the command bar stops sticking while the operations tabs pin to the top during content scroll. Organization, live state, alert bell, and operator identity remain available without global horizontal overflow.
 
 The body always hides global horizontal overflow. Summary strips, the event tape, lineage, positions, executions, and other wide tables own their overflow. Each interactive scroll region receives `tabindex="0"`, a descriptive accessibility label, and a visible 2px coral focus outline. Narrow layouts show explicit right-arrow copy such as "Scroll for reorder, reduce, and effect."
 
@@ -235,7 +251,7 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. Ci
 
 ### Standalone App Shell
 
-- **Structure:** Full-viewport obsidian ground, 64px command bar, collapsible 188px index, and fluid ruled workspace.
+- **Structure:** Full-viewport obsidian ground, 64px command bar, resizable and collapsible operations index, and one fluid ruled pane.
 - **Identity:** The Helios mark, organization context, alert bell, and operator session appear without VitePress navigation, sidebars, or document controls.
 - **Boundary:** The snapshot stream remains read-only. Mutation crosses a separate, same-origin authenticated command service with CSRF protection, idempotency, and sequence preconditions.
 
@@ -261,6 +277,13 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. Ci
 - **Admission:** Requests carry a CSRF token, idempotency key, and current snapshot sequence. The server owns authorization, risk policy, durability, and side effects.
 - **Receipts:** The interface displays validated command receipts and waits for the operations stream to report resulting state.
 
+### Reviewed Order Entry
+
+- **Draft:** Instrument, side, exact fixed-point quantity, market or limit type, optional limit price, time in force, and optional strategy attribution form one typed intent.
+- **Review:** Estimated notional, snapshot sequence, operational reason, and exact confirmation remain visible together before submission.
+- **Authority:** The public synthetic deployment permits draft and review only. Submit requires the same-origin authenticated command port and a current snapshot.
+- **Ownership:** The command service assigns durable order identity, authorizes the operator, runs risk admission, records the intent, and returns the receipt. The browser never inserts an optimistic order.
+
 ### Fail-Closed Unavailable State
 
 - **Initial Load:** No validated snapshot means no operational tables and no substituted demo fixture.
@@ -273,19 +296,17 @@ Shell regions, tables, panels, truth chips, tabs, and ledger rows are square. Ci
 - **Typography:** 21px Recursive values, 8px uppercase keys, and 11px explanations.
 - **Responsive:** The strip keeps 190px cells below 1180px and 160px cells below 520px, with local scrolling and visible instruction.
 
-### Event Path and Signal Inspector
+### Signal Inspector
 
-- **Tape:** Six explicit columns retain sequence, event time, input, reorder owner, reducer owner, and signal or effect.
-- **Motion:** The newest event dot crosses the tape every 1.6 seconds while streaming. Reduced-motion users receive no traversal.
 - **Selection:** Signal rows expose observing, eligible, and blocked state before instrument, hypothesis, and posterior value.
 - **Inspector:** Trigger, availability, decision cut, proposed effect, blocker, trace, and lineage stay joined in one ruled evidence region.
 
 ### Dense Operations Tables
 
-- **Positions:** Eight columns keep account marks separate from research estimates.
-- **Executions:** Ten columns preserve executed time, strategy, venue, liquidity, price, execution identity, and order identity.
+- **Positions:** Eleven columns keep quantity, cost, broker mark, market value, open P&L, open return, day P&L, day return, and mark age distinct.
+- **Executions:** Nine columns preserve executed time, strategy, venue, liquidity, price, execution identity, instrument, side, and quantity.
 - **Rows:** 42px rows use 11px content, 8px uppercase headers, tabular numerals, no wrapping, and one-pixel cell rules.
-- **Orders:** A selectable order list remains linked to a two-column reconciliation detail ledger.
+- **Orders:** A selectable order list remains linked to a reconciliation detail ledger and sits beside reviewed order entry.
 
 ### Source Health
 

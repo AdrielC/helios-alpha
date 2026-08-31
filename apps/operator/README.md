@@ -12,6 +12,8 @@ Public synthetic demo: [helios-control-kappa.vercel.app](https://helios-control-
 The demo is intentionally anonymous so it can be shared. It uses generated operations data, a
 shared guest identity, and an unavailable command port. It cannot submit, cancel, replace, or
 route an order. Protect the origin before connecting an observed account or command service.
+Visitors can draft and review an order to inspect the integration contract, but the final submit
+control remains disabled.
 
 ## Run it
 
@@ -60,7 +62,7 @@ The schema-version 2 read model owns:
 - generic time-series metrics and reference lines;
 - typed activity rows emitted by the OMS projection;
 - candidate signals, posterior state, blockers, lineage, and decision cuts;
-- held positions and broker marks;
+- held positions, broker marks, open return, and optional day P&L and day-return fields;
 - active orders and reconciliation state;
 - source watermarks, lag, and health;
 - exposure, capacity, incident, kill-switch, and capital-admission state.
@@ -85,6 +87,33 @@ The command service must independently authenticate the operator, authorize the 
 the confirmation phrase, reject stale snapshot sequences, enforce risk policy, durably record the
 intent before side effects, and return the same receipt for a repeated idempotency key.
 
+Order entry uses the same protected port. A reviewed limit order produces this body before the
+command service assigns a durable client-order identity:
+
+```json
+{
+  "schemaVersion": 1,
+  "action": "submit_order",
+  "targetId": "shadow-01",
+  "reason": "Reduce event-shock exposure",
+  "confirmation": "SUBMIT BTC-USD",
+  "order": {
+    "instrument": "BTC-USD",
+    "side": "sell",
+    "quantityMicros": "125000",
+    "orderType": "limit",
+    "limitPriceMicros": "64100500000",
+    "timeInForce": "day",
+    "strategyId": "cme-liquidity-v3"
+  },
+  "expectedSequence": 184541
+}
+```
+
+`side`, quantity, order type, price, and time in force map cleanly to an OMS or FIX
+`NewOrderSingle` adapter. The browser does not invent `ClOrdID`, choose a broker route, or bypass
+risk admission. Those remain server-owned decisions bound to the idempotency key.
+
 ## Deployment boundary
 
 The synthetic showcase may be public only while its runtime configuration has no operations or
@@ -99,6 +128,11 @@ dedicated origin behind the organization identity proxy. That deployment should 
 - request IDs and deploy versions on snapshot and stream responses;
 - a health endpoint that proves both the static release and read-model service are current.
 
-Perspective 5.3 is an analytical workbench, not the initial dashboard. Its JavaScript and WebAssembly
-load only after the operator opens Explore. CI rejects an initial bundle above its budget or
-an eager Perspective payload.
+Operations uses deep-linked panes at `#overview`, `#positions`, `#orders`, `#signals`, `#activity`,
+and `#sources`. Only one pane is rendered at a time. The desktop index is collapsible and
+keyboard-resizable; at 820px it becomes a sticky, horizontally scrollable tab strip. Wide ledgers
+keep their own keyboard-focusable overflow instead of widening the page.
+
+Perspective 5.3 is an analytical workbench, not the initial dashboard. Explore lazily loads its
+client, isolated worker, keyed table updates, datagrid, and three WebAssembly assets. CI rejects an
+initial bundle above its budget or an eager Perspective payload.

@@ -1,4 +1,5 @@
 export type CommandAction =
+  | "submit_order"
   | "pause_strategy"
   | "resume_strategy"
   | "pause_before_stage"
@@ -6,12 +7,32 @@ export type CommandAction =
   | "flatten_position"
   | "activate_kill_switch";
 
-export interface CommandIntent {
-  readonly action: CommandAction;
+interface CommandIntentBase {
   readonly targetId: string;
   readonly reason: string;
   readonly confirmation: string;
 }
+
+export interface OrderRequest {
+  readonly instrument: string;
+  readonly side: "buy" | "sell";
+  readonly quantityMicros: string;
+  readonly orderType: "market" | "limit";
+  readonly limitPriceMicros?: string;
+  readonly timeInForce: "day" | "good_till_canceled" | "immediate_or_cancel" | "fill_or_kill";
+  readonly strategyId?: string;
+}
+
+export interface SubmitOrderIntent extends CommandIntentBase {
+  readonly action: "submit_order";
+  readonly order: OrderRequest;
+}
+
+export interface StandardCommandIntent extends CommandIntentBase {
+  readonly action: Exclude<CommandAction, "submit_order">;
+}
+
+export type CommandIntent = SubmitOrderIntent | StandardCommandIntent;
 
 export interface CommandAuthority {
   readonly state: "unavailable" | "authenticated" | "expired";
@@ -105,6 +126,7 @@ function parseReceipt(value: unknown, idempotencyKey: string): CommandReceipt {
   if (receipt.schemaVersion !== 1) throw new Error("Unsupported command receipt schema");
   const action = text(receipt.action, "receipt.action") as CommandAction;
   const actions: readonly CommandAction[] = [
+    "submit_order",
     "pause_strategy",
     "resume_strategy",
     "pause_before_stage",

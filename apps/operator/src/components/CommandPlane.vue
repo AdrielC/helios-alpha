@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, shallowRef } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import {
-  createCommandPort,
   type CommandAction,
   type CommandAuthority,
   type CommandPort,
@@ -12,15 +11,14 @@ import type { OperationsSnapshot } from "../operations/operations-port";
 const props = defineProps<{
   snapshot: OperationsSnapshot;
   stale: boolean;
+  authority: CommandAuthority;
+  port: CommandPort;
 }>();
 const emit = defineEmits<{ authority: [authority: CommandAuthority] }>();
+type ControlAction = Exclude<CommandAction, "submit_order">;
 
-const commandAuthority = shallowRef<CommandAuthority>({
-  state: "unavailable",
-  detail: "Checking command authority",
-});
 const commandDraft = ref<{
-  action: CommandAction;
+  action: ControlAction;
   targetId: string;
   label: string;
   confirmationPhrase: string;
@@ -30,31 +28,23 @@ const commandConfirmation = ref("");
 const commandFailure = ref("");
 const commandReceipt = shallowRef<CommandReceipt>();
 const commandBusy = ref(false);
-let commandPort: CommandPort | undefined;
-
 const canCommand = computed(
   () =>
     !props.stale &&
-    commandAuthority.value.state === "authenticated" &&
+    props.authority.state === "authenticated" &&
     !commandBusy.value,
 );
 const canEmergencyCommand = computed(
-  () => commandAuthority.value.state === "authenticated" && !commandBusy.value,
+  () => props.authority.state === "authenticated" && !commandBusy.value,
 );
 const authorityLabel = computed(() => {
-  if (commandAuthority.value.state === "authenticated") return commandAuthority.value.operator ?? "Command ready";
-  if (commandAuthority.value.state === "expired") return "Session expired";
+  if (props.authority.state === "authenticated") return props.authority.operator ?? "Command ready";
+  if (props.authority.state === "expired") return "Session expired";
   return "Read only";
 });
 
-async function connectCommandPort(): Promise<void> {
-  commandPort = createCommandPort();
-  commandAuthority.value = await commandPort.describe();
-  emit("authority", commandAuthority.value);
-}
-
 function prepareCommand(
-  action: CommandAction,
+  action: ControlAction,
   targetId: string,
   label: string,
   confirmationPhrase: string,
@@ -75,7 +65,7 @@ function dismissCommand(): void {
 
 async function issueCommand(): Promise<void> {
   const draft = commandDraft.value;
-  if (!draft || !commandPort) return;
+  if (!draft) return;
   if (commandConfirmation.value !== draft.confirmationPhrase) {
     commandFailure.value = "Typed confirmation does not match";
     return;
@@ -83,7 +73,7 @@ async function issueCommand(): Promise<void> {
   commandBusy.value = true;
   commandFailure.value = "";
   try {
-    commandReceipt.value = await commandPort.execute(
+    commandReceipt.value = await props.port.execute(
       {
         action: draft.action,
         targetId: draft.targetId,
@@ -95,14 +85,12 @@ async function issueCommand(): Promise<void> {
     commandDraft.value = undefined;
   } catch (error) {
     commandFailure.value = error instanceof Error ? error.message : "Command request failed";
-    commandAuthority.value = await commandPort.describe();
-    emit("authority", commandAuthority.value);
+    emit("authority", await props.port.describe());
   } finally {
     commandBusy.value = false;
   }
 }
 
-onMounted(() => void connectCommandPort());
 </script>
 
 <template>
@@ -112,7 +100,7 @@ onMounted(() => void connectCommandPort());
         <div>
           <h1 id="control-plane-heading">Strategy control</h1>
         </div>
-        <div class="command-authority" :data-state="commandAuthority.state">
+        <div class="command-authority" :data-state="authority.state">
           <span aria-hidden="true"></span>
           <div>
             <strong>{{ authorityLabel }}</strong>
