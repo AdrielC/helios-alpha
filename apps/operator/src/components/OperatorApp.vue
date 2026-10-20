@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OperatorIcon from "./OperatorIcon.vue";
 import { computed, defineAsyncComponent, markRaw, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { createCommandPort, type CommandAuthority } from "../operations/command-port";
 import type { AlertSeverity, AlertView, OperationsPort, OperationsSnapshot } from "../operations/operations-port";
@@ -60,7 +61,7 @@ const selectedOrderId = ref("");
 const selectedAlertId = ref("");
 const alertFilter = ref<"all" | AlertSeverity>("all");
 const railCollapsed = ref(false);
-const railWidth = ref(188);
+const railWidth = ref(212);
 const compactNavigation = ref(false);
 const tabletNavigation = ref(false);
 const commandAuthority = shallowRef<CommandAuthority>({ state: "unavailable", detail: "Command channel unavailable" });
@@ -236,7 +237,7 @@ function resizeRail(event: PointerEvent): void {
 
 onMounted(() => {
   railCollapsed.value = window.localStorage.getItem("helios:operator:rail") === "collapsed";
-  railWidth.value = Math.min(264, Math.max(156, Number(window.localStorage.getItem("helios:operator:rail-width")) || 188));
+  railWidth.value = Math.min(264, Math.max(156, Number(window.localStorage.getItem("helios:operator:rail-width")) || 212));
   compactMedia = window.matchMedia("(max-width: 560px)");
   tabletMedia = window.matchMedia("(min-width: 561px) and (max-width: 820px)");
   updateCompactNavigation = () => {
@@ -287,7 +288,7 @@ onBeforeUnmount(() => {
       <div class="operations-layout" :data-rail="effectiveRailCollapsed ? 'collapsed' : 'expanded'" :style="railStyle">
         <aside class="entity-rail" role="tablist" :aria-orientation="compactNavigation ? 'horizontal' : 'vertical'" aria-label="Operations panes">
           <button class="rail-toggle" :aria-label="effectiveRailCollapsed ? 'Expand workspace navigation' : 'Collapse workspace navigation'" :aria-pressed="effectiveRailCollapsed" @click="toggleRail"><svg viewBox="0 0 16 16" aria-hidden="true"><path :d="effectiveRailCollapsed ? 'm6 3 5 5-5 5' : 'm10 3-5 5 5 5'"/></svg><span>Workspace</span></button>
-          <button v-for="(pane, index) in panes" :id="`operations-tab-${pane.id}`" :key="pane.id" role="tab" :aria-controls="`operations-panel-${pane.id}`" :aria-selected="activePane === pane.id" :tabindex="activePane === pane.id ? 0 : -1" :title="pane.label" @click="selectPane(pane.id)" @keydown="paneKey($event, index)"><b aria-hidden="true">{{ pane.short }}</b><em>{{ pane.label }}</em><span v-if="paneCount(pane.id) !== undefined">{{ paneCount(pane.id) }}</span></button>
+          <button v-for="(pane, index) in panes" :id="`operations-tab-${pane.id}`" :key="pane.id" role="tab" :aria-controls="`operations-panel-${pane.id}`" :aria-selected="activePane === pane.id" :tabindex="activePane === pane.id ? 0 : -1" :title="pane.label" @click="selectPane(pane.id)" @keydown="paneKey($event, index)"><OperatorIcon :name="pane.id" /><em>{{ pane.label }}</em><span v-if="paneCount(pane.id) !== undefined">{{ paneCount(pane.id) }}</span></button>
           <div v-if="!effectiveRailCollapsed && !tabletNavigation" class="rail-resizer" role="separator" aria-label="Resize operations navigation" aria-orientation="vertical" aria-valuemin="156" aria-valuemax="264" :aria-valuenow="railWidth" tabindex="0" @keydown="railKey" @pointerdown="resizeRail"></div>
         </aside>
         <main ref="workspace" :id="`operations-panel-${activePane}`" class="operations-workspace" role="tabpanel" :aria-labelledby="`operations-tab-${activePane}`" tabindex="0">
@@ -326,4 +327,22 @@ onBeforeUnmount(() => {
 .entity-rail>button[role=tab]{min-height:44px;font:12px var(--vp-font-family-base)}
 .entity-rail>button[role=tab] b{font-size:9px}.rail-toggle{font-size:9px;min-height:38px}
 @media(max-width:560px){.operations-layout,.operations-layout[data-rail=collapsed],.operations-layout[data-rail=expanded]{display:flex;flex-direction:column}.entity-rail{position:relative;top:0;flex:0 0 44px;height:44px;min-height:0;overflow-y:hidden;overflow-x:auto}.operations-workspace{height:auto;flex:1;min-height:0}.app-credit{display:none}}
+
+/* Navigation shares the same spacing and focus language as the workspace. */
+.entity-rail{padding:18px 10px;background:#0e141c;border-right:1px solid var(--atlas-rule-soft)}
+.rail-toggle{min-height:34px;padding:0 12px;margin-bottom:16px;border:0;font:11px var(--vp-font-family-base);letter-spacing:.08em;color:var(--ui-subtle)}
+.entity-rail>button[role=tab]{width:100%;min-height:46px;margin:4px 0;gap:12px;padding:0 12px;grid-template-columns:20px minmax(0,1fr) auto;border:1px solid transparent;border-radius:8px;font:500 13px var(--vp-font-family-base);color:#a8b5c5}
+.entity-rail>button[role=tab] svg{width:18px;height:18px}
+.entity-rail>button[role=tab] span{font-size:11px;color:inherit;opacity:.65}
+.entity-rail>button[role=tab]:hover{background:#192330;color:#f0f5fb;border-color:transparent}
+.entity-rail>button[role=tab][aria-selected=true]{background:var(--ui-accent);color:var(--ui-accent-ink);border-color:var(--ui-accent);box-shadow:0 3px 14px #0002}
+.operations-layout[data-rail=collapsed]{grid-template-columns:64px minmax(0,1fr)}
+.operations-layout[data-rail=collapsed] .entity-rail{padding:18px 8px}
+.operations-layout[data-rail=collapsed] .entity-rail>button[role=tab]{justify-items:center}
+.rail-resizer{right:0;width:4px}
+.app-credit{font-size:8px;padding:6px 16px;border-color:#202934;background:#0b0f14}
+@media(max-width:560px){
+  .entity-rail,.operations-layout[data-rail=collapsed] .entity-rail{padding:4px 8px;gap:4px;flex-basis:54px;height:54px}
+  .entity-rail>button[role=tab],.operations-layout[data-rail=collapsed] .entity-rail>button[role=tab],.operations-layout[data-rail=expanded] .entity-rail>button[role=tab]{min-width:max-content;width:auto;min-height:42px;margin:0;padding:0 12px;gap:8px;font-size:12px;grid-template-columns:18px auto auto;justify-items:start}
+}
 </style>

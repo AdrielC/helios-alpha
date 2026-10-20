@@ -1,40 +1,49 @@
 :root {
   font-family: "Archivo Variable", system-ui, sans-serif;
-  color: #e7edf2;
-  background: #050b12;
+  color: #edf2f7;
+  background: #0b0f14;
   color-scheme: dark;
+  --ui-accent: #b8ec86;
+  --ui-accent-ink: #13200d;
+  --ui-panel: #121923;
+  --ui-raised: #17212d;
+  --ui-border: #2a3543;
+  --ui-muted: #a3afbe;
+  --ui-subtle: #8594a6;
+  --ui-radius: 12px;
+  font-size: 14px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 
   --vp-font-family-base: "Archivo Variable", system-ui, sans-serif;
   --vp-font-family-mono: "Recursive Variable", ui-monospace, monospace;
-  --atlas-ground: #07101a;
-  --atlas-ink: #e7edf2;
-  --atlas-muted: #9ca9b4;
-  --atlas-axis: #8795a1;
-  --atlas-blue: #4f94ee;
-  --atlas-blue-soft: #10213a;
+  --atlas-ground: #0b0f14;
+  --atlas-ink: #edf2f7;
+  --atlas-muted: #a7b1bf;
+  --atlas-axis: #94a1b1;
+  --atlas-blue: #b8ec86;
+  --atlas-blue-soft: #1d2b21;
   --atlas-oxide: #e17455;
-  --atlas-green: #59b77c;
-  --atlas-green-ink: #79d09a;
+  --atlas-green: #67d9b2;
+  --atlas-green-ink: #83e3be;
   --atlas-cyan: #47c2cf;
   --atlas-amber: #e5a12c;
   --atlas-violet: #a16de0;
-  --atlas-rule: #253544;
-  --atlas-rule-soft: #172533;
+  --atlas-rule: #2a333e;
+  --atlas-rule-soft: #202934;
   --atlas-grid: #162433;
   --atlas-grid-band: #09131e;
   --atlas-grid-rule: #1c2a36;
-  --atlas-chart-axis: #8795a1;
+  --atlas-chart-axis: #94a1b1;
   --atlas-chart-label: #dfe8ec;
-  --atlas-chart-unit: #8795a1;
+  --atlas-chart-unit: #94a1b1;
   --atlas-axis-strong: #3d5266;
   --atlas-brush: #17283a;
   --atlas-cursor-ink: #08111b;
   --atlas-rail: #08121c;
   --atlas-investigation: #0a1724;
-  --atlas-surface-alt: #0a1520;
-  --atlas-surface-strong: #0e1d2a;
+  --atlas-surface-alt: #10161e;
+  --atlas-surface-strong: #17212c;
 }
 
 html,
@@ -48,7 +57,7 @@ body,
 body {
   min-height: 100vh;
   overflow-x: hidden;
-  background: #050b12;
+  background: #0b0f14;
 }
 
 button,
@@ -63,7 +72,7 @@ button {
 }
 
 ::selection {
-  color: #050b12;
+  color: #0b0f14;
   background: var(--atlas-green);
 }
 
@@ -79,4 +88,15 @@ button {
 ::-webkit-scrollbar-thumb {
   background: var(--atlas-axis);
   border: 2px solid #091117;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button:disabled { cursor: not-allowed; }
+::-webkit-scrollbar-thumb { background:#465265; border-radius:8px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior:auto!important; transition-duration:0s!important; animation-duration:0s!important; }
 }

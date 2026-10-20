@@ -120,6 +120,7 @@ test("real account separates manual exits from dynamic paper books and options p
   await expect(monitor.getByText("SOL-USD", { exact: true })).toBeVisible();
   await expect(monitor.getByText("Waiting for price confirmation", { exact: true })).toBeVisible();
   await expect(page.getByText("Manual position", { exact: true })).toBeVisible();
+  await page.getByText("Account permissions", { exact: true }).click();
   await expect(page.getByText("Level 2", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Trade ETH at Robinhood" })).toHaveAttribute("href", "https://robinhood.com/us/en/crypto/eth/");
   await expect(page.getByRole("button", { name: "shadow order" })).toHaveCount(0);
@@ -166,4 +167,21 @@ test("local owner identity does not claim a connected execution service", async 
   await expect(menu.locator("dd").getByText("Owner", { exact: true })).toBeVisible();
   await expect(menu.getByText("Not connected", { exact: true })).toBeVisible();
   await expect(page.getByText("Local viewer", { exact: true })).toHaveCount(0);
+});
+
+test("allocation uses broker balances and keeps zero or negative totals unknown", async ({ page }) => {
+  const response = account();
+  await syncRoute(page);
+  await page.route("**/api/v1/operations/broker-observation", route => route.fulfill({ json: response }));
+  await page.goto("/#positions");
+  const allocation = page.getByLabel("Crypto and cash allocation");
+  await expect(allocation).toContainText("20.2%");
+  await expect(allocation).toContainText("79.8%");
+  response.observation.portfolio.crypto_value = "0";
+  response.observation.portfolio.cash = "0";
+  await expect(page.getByText("Allocation unavailable", { exact: true })).toBeVisible();
+  await expect(allocation).toHaveCount(0);
+  response.observation.portfolio.cash = "-100";
+  await expect(page.locator(".metric").filter({ hasText: "Available cash" })).toContainText("-$100.00");
+  await expect(allocation).toHaveCount(0);
 });

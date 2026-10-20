@@ -196,4 +196,17 @@ button:focus-visible,.table-scroll:focus-visible{outline:2px solid var(--atlas-b
 
 .positions-heading{min-height:60px!important;flex-wrap:wrap;gap:10px 24px;padding:10px 20px}.positions-heading>div:first-child{gap:12px}.positions-heading h1{font-size:22px}.positions-heading .position-account-tabs{border:0;padding:0;margin-left:auto;gap:4px}.positions-heading .position-account-tabs button{font:12px var(--vp-font-family-base);text-transform:none;padding:8px 12px;min-height:34px;border:1px solid transparent;border-radius:6px;background:transparent}.positions-heading .position-account-tabs button[aria-pressed=true]{background:#182538;border-color:#31445e;color:#e4edfc}.positions-heading .position-account-tabs span{font-size:11px}.pane-heading>div:first-child>span{font-size:10px}.pane-heading{min-height:60px}.pane-heading button{font-size:10px}.section-header>span{font-size:10px}
 @media(max-width:700px){.positions-heading{padding:12px 16px}.positions-heading .position-account-tabs{width:100%;margin:0;overflow-x:auto}.positions-heading>div:first-child{width:100%}.positions-heading .position-account-tabs button{white-space:nowrap}}
+
+.pane-section{background:var(--atlas-ground)}
+.pane-heading{min-height:72px;padding:14px 28px;border-color:var(--atlas-rule-soft)}
+.pane-heading h1{font-size:27px;font-weight:650;letter-spacing:-.035em}
+.pane-heading>div:first-child>span{font:12px var(--vp-font-family-base);text-transform:none;color:var(--ui-subtle)}
+.positions-heading{min-height:72px!important;gap:16px;padding:14px 28px}
+.positions-heading>div:first-child{align-items:baseline;gap:16px}
+.positions-heading .position-account-tabs{padding:4px;background:#141c26;border:1px solid var(--ui-border);border-radius:9px;gap:4px}
+.positions-heading .position-account-tabs button{font-size:12px;min-height:34px;padding:7px 12px;color:#a3afbe;border-radius:6px}
+.positions-heading .position-account-tabs button[aria-pressed=true]{background:#293545;border-color:#405064;color:#f1f5fa;box-shadow:0 2px 5px #0003}
+.positions-heading .position-account-tabs span{color:inherit;font-size:11px;opacity:.7}
+.pane-heading button{border-radius:6px;font:12px var(--vp-font-family-base);text-transform:none;min-height:36px}
+@media(max-width:700px){.pane-heading,.positions-heading{padding:18px 18px;min-height:78px}.positions-heading>div:first-child{justify-content:space-between}.positions-heading .position-account-tabs{width:auto;max-width:100%;margin:0}.positions-heading h1{font-size:25px}}
 </style>
