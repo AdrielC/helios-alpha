@@ -3,20 +3,23 @@ import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { BrokerSync, StrategyBook, StrategyFeed } from "../operations/broker-holdings";
 import type { OperationsSnapshot } from "../operations/operations-port";
 import type { TimeSeriesData, TimeSeriesPort } from "../operations/time-series-port";
+import { loadEventRadar, type EventRadarSnapshot } from "../operations/event-radar-port";
 import { ageLabel, bookState, readable } from "../operations/running-index";
 const props = defineProps<{ sync: BrokerSync; now: number; snapshot: OperationsSnapshot; port: TimeSeriesPort }>();
+const events = ref<EventRadarSnapshot|null>(null);
+const eventError = ref(false);
 const channels = ref<readonly TimeSeriesData[]>([]);
 const error = ref('');
 const loaded = ref(false);
 let timer: ReturnType<typeof setInterval> | undefined;
-let busy = false, disposed = false;
+let busy = false, disposed = false, lastHistoryLoad = 0;
 const books = computed(() => props.sync.strategy?.books ?? []);
 const feeds = computed(() => {
   const entries = new Map<string, { feed: StrategyFeed; book: StrategyBook }>();
   for (const book of books.value) for (const feed of book.feeds ?? []) entries.set(`${book.id}:${feed.id}`, { feed, book });
   return [...entries.values()];
 });
-const markets = computed(() => books.value.filter(book => book.reference_source && book.reference_source !== 'unknown'));
+const markets = computed(() => books.value.filter(book => book.reference_source && book.reference_source !== 'unknown' && book.reference_channel !== 'public_rest'));
 const scientific = computed(() => channels.value.filter(series => series.descriptor.domain === 'source' && series.descriptor.sourceNames?.some(name => /^(noaa-|nasa-)/.test(name))));
 const latest = (series: TimeSeriesData) => series.points.length ? Date.parse(series.points.at(-1)!.timestamp) : undefined;
 const marketAge = (book: StrategyBook) => Object.values(book.quote_age_ms ?? {}).length ? Math.max(...Object.values(book.quote_age_ms!)) + Math.max(0, props.now - book.updated_ms) : undefined;
@@ -28,9 +31,14 @@ const atlasSample = (book: StrategyBook) => {
 };
 const observed = computed(() => scientific.value.filter(series => latest(series) != null).length);
 const connected = computed(() => markets.value.filter(marketHealthy).length + feeds.value.filter(({feed, book}) => feedHealthy(feed, book)).length);
+const eventHealthy = (source: EventRadarSnapshot['sources'][number]) => !eventError.value && events.value?.online && props.now - events.value.observed_ms < 15000 && source.state === 'receiving' && source.last_ok_ms != null && props.now - source.last_ok_ms < 90000;
+async function loadEvents() {
+  try { const next = await loadEventRadar(); if (!disposed) { events.value = next; eventError.value = false; } }
+  catch { if (!disposed) eventError.value = true; }
+}
 async function load() {
-  if (busy) return;
-  busy = true;
+  if (busy || Date.now() - lastHistoryLoad < 30_000) return;
+  busy = true; lastHistoryLoad = Date.now();
   try {
     const catalog = await props.port.catalog(props.snapshot.context);
     const now = Date.now();
@@ -39,7 +47,7 @@ async function load() {
   } catch { if (!disposed) error.value = 'Observation history could not refresh. Prior timestamps are preserved.'; }
   finally { busy = false; }
 }
-onMounted(() => { void load(); timer = setInterval(() => { if (!document.hidden) void load(); }, 30_000); });
+onMounted(() => { void load(); void loadEvents(); timer = setInterval(() => { if (!document.hidden) { void load(); void loadEvents(); } }, 10_000); });
 onBeforeUnmount(() => { disposed = true; clearInterval(timer); });
 </script>
 <template>
@@ -51,6 +59,7 @@ onBeforeUnmount(() => { disposed = true; clearInterval(timer); });
       <p v-if="!markets.length" class="empty">Market-feed status is unavailable.</p>
     </section>
     <section><header><div><h2>News &amp; events</h2><p>Polling health and publisher cache age are separate. A successful fetch does not mean a new event.</p></div><span>{{ feeds.length }} feeds</span></header><div class="news-grid"><article v-for="{feed, book} in feeds" :key="`${book.id}:${feed.id}`"><div class="news-title"><h3>{{ readable(feed.id) }}</h3><b :data-ok="feedHealthy(feed, book)">{{ feedHealthy(feed, book) ? 'Polling' : readable(feed.state) === 'running' ? 'Delayed' : readable(feed.state) }}</b></div><dl><div><dt>Last successful poll</dt><dd>{{ ageLabel(feed.last_ok_ms, now) }}</dd></div><div><dt>Cadence</dt><dd>{{ feed.poll_seconds }}s</dd></div><div><dt>Publisher cache age</dt><dd>{{ feed.cache_age_seconds == null ? 'Not reported' : `${feed.cache_age_seconds}s` }}</dd></div><div><dt>Used by</dt><dd>{{ readable(book.engine) }}</dd></div></dl></article></div></section>
+    <section v-if="events"><header><div><h2>Prediction markets</h2><p>Public order books → durable event registry → probability-shock signals. Inspect contracts in Market Atlas → Events &amp; signals.</p></div><span>{{events.config.poll_seconds}}s polling</span></header><div class="source-cards"><article v-for="source in events.sources" :key="source.id"><div class="source-title"><span class="source-monogram">◎</span><div><h3>{{readable(source.id)}}</h3><small>Public REST · research</small></div><b :data-ok="eventHealthy(source)">{{eventHealthy(source)?'Receiving':'Delayed / offline'}}</b></div><dl><div><dt>Watched contracts</dt><dd>{{source.markets}}</dd></div><div><dt>Two-sided quotes</dt><dd>{{source.quotes}}</dd></div><div><dt>Latest successful poll</dt><dd>{{ageLabel(source.last_ok_ms,now)}}</dd></div><div><dt>Detection</dt><dd>{{events.config.enabled?'Enabled':'Paused'}} · rule v{{events.config.revision}}</dd></div><div><dt>Storage</dt><dd>{{events.config.retention_days}} days locally · stream acknowledgements</dd></div></dl></article></div></section>
     <section><header><div><h2>Space weather</h2><p>NASA / NOAA observations for research. Their timestamps show observation age, not collector uptime.</p></div><span>60s collection</span></header><div class="science-list"><article v-for="series in scientific" :key="series.descriptor.id"><i :style="{background: series.descriptor.color}"></i><div><h3>{{ series.descriptor.label }}</h3><small>{{ series.descriptor.provenance }}</small></div><span>{{ latest(series) == null ? 'No sample in 24h' : ageLabel(latest(series), now) }}<small>Latest observation</small></span></article></div></section>
   </div>
 </template>

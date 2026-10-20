@@ -3,9 +3,9 @@ import IndicatorControls from "./IndicatorControls.vue";
 import { defaultIndicators, deriveIndicators, indicatorDescriptors, indicatorLanes, indicatorSource, parseIndicators, type IndicatorSettings } from "../operations/series-indicators";
 import RunningIndex from "./RunningIndex.vue";
 import type { StrategyObservation } from "../operations/broker-holdings";
-import { bookSeries, bookState, readable } from "../operations/running-index";
+import { bookSeries, bookState, readable, isEventBook } from "../operations/running-index";
 import OperatorIcon from "./OperatorIcon.vue";
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createAtlasChart,
   clampScrubRange,
@@ -42,6 +42,8 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ selectOrder: [id: string] }>();
 
+const EventRadar = defineAsyncComponent(() => import("./EventRadar.vue"));
+const atlasView = ref("series");
 const chartHost = ref<HTMLElement>();
 const sourceCatalog = ref<readonly TimeSeriesDescriptor[]>([]);
 const forecastBundles = ref<readonly ForecastBundle[]>([]);
@@ -125,6 +127,8 @@ const selectedBookLabel = computed(() => {
 });
 const refreshInterval = computed(() => selectedBook.value ? 5_000 : 30_000);
 function selectBook(id: string, seriesIds: string[]): void {
+  const book = props.strategy?.books.find(book => book.id === id);
+  if (book && isEventBook(book)) { atlasView.value = "events"; return; }
   if (!workspace.value || !seriesIds.length) return;
   selectedBook.value = id;
   updateWorkspace({...workspace.value, indicators: [], forecastBundleIds: [], lanes: seriesIds.map(id => ({id: `lane-${id}`, seriesIds: [id]}))});
@@ -737,11 +741,13 @@ onMounted(() => {
   void loadResearchContext();
   refreshTimer = setInterval(() => {
     now.value = Date.now();
-    if (props.snapshot.dataClass === "observed" && autoRefresh.value && !refreshing.value && !document.hidden && now.value - lastAttemptAt >= refreshInterval.value) void loadWindow();
+    if (atlasView.value === "series" && props.snapshot.dataClass === "observed" && autoRefresh.value && !refreshing.value && !document.hidden && now.value - lastAttemptAt >= refreshInterval.value) void loadWindow();
   }, 1_000);
 });
 
 onBeforeUnmount(() => { ++contextLoadGeneration; ++windowGeneration; clearInterval(refreshTimer); chart?.destroy(); });
+
+watch(atlasView, async view => { if (view === "series") { await nextTick(); void loadWindow(); } });
 
 watch(() => props.strategy, () => initializeIndex());
 
@@ -756,9 +762,12 @@ watch(() => props.selectedForecastId, (id) => {
   <section class="market-atlas" :class="{'has-running-index': Boolean(selectedBook), 'has-indicators': hasIndicators}" :style="studyPlotStyle" aria-labelledby="market-atlas-heading">
     <header class="atlas-titlebar">
       <div><h1 id="market-atlas-heading">Market Atlas</h1><p>Follow running strategies, markets, and their sources.</p></div>
-      <div class="atlas-session"><span class="data-kind">{{ snapshot.dataClass === 'synthetic' ? 'Demo data' : 'Observed data' }}</span><button v-if="snapshot.dataClass === 'observed'" class="update-toggle" :aria-pressed="autoRefresh" @click="toggleUpdates"><i :data-active="autoRefresh"></i>{{ autoRefresh ? 'Pause updates' : 'Resume updates' }}</button><button class="atlas-refresh" :disabled="refreshing" @click="loadWindow()"><OperatorIcon name="refresh" />{{ refreshing ? 'Refreshing…' : 'Refresh' }}</button></div>
+      <div v-if="atlasView === 'series'" class="atlas-session"><span class="data-kind">{{ snapshot.dataClass === 'synthetic' ? 'Demo data' : 'Observed data' }}</span><button v-if="snapshot.dataClass === 'observed'" class="update-toggle" :aria-pressed="autoRefresh" @click="toggleUpdates"><i :data-active="autoRefresh"></i>{{ autoRefresh ? 'Pause updates' : 'Resume updates' }}</button><button class="atlas-refresh" :disabled="refreshing" @click="loadWindow()"><OperatorIcon name="refresh" />{{ refreshing ? 'Refreshing…' : 'Refresh' }}</button></div>
     </header>
 
+    <div v-if="snapshot.dataClass === 'observed'" class="atlas-view-tabs" role="group" aria-label="Atlas views"><button :aria-pressed="atlasView === 'series'" @click="atlasView = 'series'">Time series</button><button :aria-pressed="atlasView === 'events'" @click="atlasView = 'events'">Events &amp; signals</button></div>
+    <EventRadar v-if="atlasView === 'events'" />
+    <div v-show="atlasView === 'series'">
     <RunningIndex v-if="snapshot.dataClass === 'observed'" :strategy="strategy" :catalog="sourceCatalog" :selected="selectedBook" :now="now" @select="selectBook" />
 
     <div class="atlas-overview" aria-label="Observation coverage">
@@ -860,6 +869,7 @@ watch(() => props.selectedForecastId, (id) => {
       </div>
     </div>
 
+    </div>
     <Teleport to="body">
       <dialog ref="investigationDialog" class="investigation-dialog">
         <header><div><strong>Interval analysis</strong><span>{{ formatTime(interval?.from) }} to {{ formatTime(interval?.to) }}</span></div><button aria-label="Close interval analysis" @click="investigationDialog?.close()"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 3 10 10M13 3 3 13"/></svg></button></header>
@@ -1069,4 +1079,5 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .has-indicators .atlas-overview{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px}.has-indicators .atlas-overview>div:first-child{display:none}.has-indicators .atlas-overview>div{padding:10px 14px;gap:4px}.has-indicators .atlas-overview strong{font-size:18px}.has-indicators .atlas-titlebar{min-height:76px;padding-block:12px}.has-indicators .atlas-toolbar{min-height:46px;padding-block:6px}.has-indicators .forecast-strip{min-height:38px;padding-block:5px}.has-indicators .chart-guidance{min-height:30px;padding-block:6px}.has-indicators .lane-series>span>span>small{display:none}.has-indicators .lane-series>span>b>small{display:none}.has-indicators .lane-series>span>b>small[data-empty=true]{display:block}.has-indicators .lane-series>span{row-gap:3px}.has-indicators .series-register article{padding-block:4px}.has-indicators :deep(.running-index){padding-block:10px}.has-indicators :deep(.running-index footer){padding-block:5px}.has-indicators .study-caption{padding-block:6px;margin-bottom:8px}
 @media(min-width:1101px){.has-indicators :deep(.running-index>header){margin-bottom:7px}.has-indicators :deep(.book-select){padding-block:8px}}
 @media(max-width:720px){.has-indicators .atlas-overview{grid-template-columns:1fr 1fr}.has-indicators .atlas-titlebar{min-height:90px}}
+.atlas-view-tabs{display:flex;gap:4px;border-bottom:1px solid #2d3945;margin-bottom:12px}.atlas-view-tabs button{padding:9px 15px;border:0;border-bottom:2px solid transparent;background:none;color:#8fa5b9;font-size:11px;cursor:pointer}.atlas-view-tabs button[aria-pressed=true]{color:#c9e4a9;border-bottom-color:#b2d483}
 </style>

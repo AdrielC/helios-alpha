@@ -67,6 +67,13 @@ def test_mcp_caps_and_durable_pause(tmp_path):
             tools = {tool.name for tool in (await session.list_tools()).tools}
             assert "update_risk_policy" not in tools
             assert "list_decision_snapshots" in tools
+            assert "get_event_radar" in tools
+            radar = await session.call_tool("get_event_radar", {})
+            assert not radar.isError
+            radar = radar.structuredContent or json.loads(radar.content[0].text)
+            assert radar == {"schema_version": 1, "online": False, "execution_authority": False}
+            resource = await session.read_resource("helios://events/v1")
+            assert json.loads(resource.contents[0].text) == radar
             assert "get_news_study" in tools
             study = await session.call_tool("get_news_study", {})
             assert not study.isError

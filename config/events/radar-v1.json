@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "enabled": true,
+  "poll_seconds": 30,
+  "discovery_seconds": 900,
+  "markets_per_provider": 12,
+  "lookback_seconds": 600,
+  "move_pp": 5,
+  "reset_pp": 2,
+  "cooldown_seconds": 900,
+  "max_spread_pp": 5,
+  "min_depth_usd": 100,
+  "max_cache_age_seconds": 60,
+  "retention_days": 30,
+  "polymarket_tags": ["crypto", "economy"],
+  "kalshi_series": ["KXCPI", "KXFEDDECISION", "KXBTCD", "KXETHD"],
+  "topics": [
+    {"id": "bitcoin", "label": "Bitcoin", "terms": ["bitcoin", "btc"], "symbols": ["BTC-USD"]},
+    {"id": "ethereum", "label": "Ethereum", "terms": ["ethereum", "ether"], "symbols": ["ETH-USD"]},
+    {"id": "macro", "label": "Rates & inflation", "terms": ["fed ", "federal reserve", "interest rate", "inflation", "cpi", "recession", "unemployment"], "symbols": ["BTC-USD", "ETH-USD"]}
+  ]
+}

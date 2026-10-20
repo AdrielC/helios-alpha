@@ -33,3 +33,4 @@ pub use store::{CommandExecutor, OperatorStore, ReadOnlyCommandExecutor};
 pub use time_series::{InMemoryTimeSeriesPort, TimeSeriesPort};
 
 pub mod broker_sync;
+pub mod event_radar;

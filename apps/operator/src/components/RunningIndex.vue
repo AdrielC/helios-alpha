@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import type { StrategyObservation } from "../operations/broker-holdings";
 import type { TimeSeriesDescriptor } from "../operations/time-series-port";
-import { readable, bookState, bookSeries, ageLabel } from "../operations/running-index";
+import { readable, bookState, bookSeries, ageLabel, isEventBook } from "../operations/running-index";
 const props = defineProps<{ strategy?: StrategyObservation; catalog: readonly TimeSeriesDescriptor[]; selected: string; now: number }>();
 const emit = defineEmits<{ select: [id: string, series: string[]] }>();
 const books = computed(() => props.strategy?.books ?? []);
@@ -13,9 +13,9 @@ const running = computed(() => books.value.filter(book => bookState(book, props.
     <header><div><span class="index-kicker">Running index</span><h2>Strategies &amp; markets</h2></div><span>{{ running.length }} running · Golem</span></header>
     <div v-if="books.length" class="index-books">
       <article v-for="book in books" :key="book.id" :data-selected="selected === book.id">
-        <button class="book-select" :aria-pressed="selected === book.id" :disabled="!bookSeries(book, catalog).length" @click="emit('select', book.id, bookSeries(book, catalog))"><i :data-running="bookState(book, strategy, now) === 'running'"></i><span><strong>{{ readable(book.engine) }}</strong><small>{{ book.id }}</small></span><b>{{ book.mode }}</b><em>{{ bookState(book, strategy, now) }}</em></button>
-        <div class="book-markets"><button v-for="symbol in [...new Set([...book.signals.map(s => s.symbol), ...Object.keys(book.quote_age_ms ?? {})])]" :key="symbol" :disabled="!bookSeries(book, catalog, symbol).length" @click="emit('select', book.id, bookSeries(book, catalog, symbol))">{{ symbol }} <span>↗</span></button><small>{{ readable(book.reference_source ?? 'Unknown source') }} · {{ book.feeds?.length ?? 0 }} news feeds</small></div>
-        <footer>{{ book.active_news }} active events <span>Heartbeat {{ ageLabel(book.updated_ms, now) }}</span></footer>
+        <button class="book-select" :aria-pressed="selected === book.id" :disabled="!isEventBook(book) && !bookSeries(book, catalog).length" @click="emit('select', book.id, bookSeries(book, catalog))"><i :data-running="bookState(book, strategy, now) === 'running'"></i><span><strong>{{ readable(book.engine) }}</strong><small>{{ book.id }}</small></span><b>{{ book.mode }}</b><em>{{ bookState(book, strategy, now) }}</em></button>
+        <div class="book-markets"><button v-for="symbol in [...new Set([...book.signals.map(s => s.symbol), ...Object.keys(book.quote_age_ms ?? {})])]" :key="symbol" :disabled="!bookSeries(book, catalog, symbol).length" @click="emit('select', book.id, bookSeries(book, catalog, symbol))">{{ symbol }} <span>↗</span></button><small>{{ readable(book.reference_source ?? 'Unknown source') }}<template v-if="!isEventBook(book)"> · {{ book.feeds?.length ?? 0 }} news feeds</template></small></div>
+        <footer><template v-if="isEventBook(book)">Open events &amp; signals ↗</template><template v-else>{{ book.active_news }} active events</template> <span>Heartbeat {{ ageLabel(book.updated_ms, now) }}</span></footer>
       </article>
     </div>
     <p v-else>{{ strategy ? 'No strategy books are registered.' : 'Waiting for Golem strategy status.' }}</p>

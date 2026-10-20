@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
 from helios_alpha.crypto.account_reader import read_account_availability
+from helios_alpha.crypto.event_radar import read_event_radar
 from helios_alpha.crypto.evidence import read_news_evidence
 from helios_alpha.crypto.news_study import read_news_study
 from helios_alpha.crypto.snapshots import read_decision_input, read_decision_snapshots
@@ -140,6 +141,16 @@ def build_server(store: GolemControlStore | ControlStore, client: str) -> FastMC
         def get_status() -> dict:
             """Read execution mode, pause state, runtime timestamps and admission blockers."""
             return store.status(client)
+
+        @server.tool(annotations=read)
+        def get_event_radar() -> dict:
+            """Read prediction markets, rule states and durable signals. No execution authority."""
+            return read_event_radar(store, client)
+
+        @server.resource("helios://events/v1", mime_type="application/json")
+        def event_radar_resource() -> str:
+            """Public event evidence and detector settings with fresh permission checks."""
+            return json.dumps(read_event_radar(store, client), sort_keys=True)
 
         @server.tool(annotations=read)
         def get_news_evidence(limit: int = 20, before_sequence: int | None = None) -> dict:

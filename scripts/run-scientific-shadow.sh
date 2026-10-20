@@ -47,9 +47,10 @@ shadow_pid=""
 gateway_pid=""
 broker_sync_pid=""
 market_pid=""
+events_pid=""
 cleanup() {
   trap - EXIT INT TERM
-  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid"; do
+  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid"; do
     if [[ -n "$child" ]]; then
       kill "$child" 2>/dev/null || true
     fi
@@ -58,13 +59,13 @@ cleanup() {
   # Bound shutdown, then reap only the children started by this launcher.
   for _ in {1..50}; do
     alive=0
-    for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid"; do
+    for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid"; do
       if [[ -n "$child" ]] && kill -0 "$child" 2>/dev/null; then alive=1; fi
     done
     [[ "$alive" == "0" ]] && break
     sleep 0.1
   done
-  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid"; do
+  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid"; do
     if [[ -n "$child" ]]; then
       kill -KILL "$child" 2>/dev/null || true
       wait "$child" 2>/dev/null || true
@@ -96,6 +97,11 @@ if [[ -f "$market_root/runtime.json" ]]; then
   "$repo_root/.venv/bin/python" -m helios_alpha.crypto.atlas &
   market_pid=$!
 fi
+
+# Prediction-market discovery and durable, non-executing event triggers.
+"$repo_root/.venv/bin/python" -m helios_alpha.crypto.event_radar --prepare
+"$repo_root/.venv/bin/python" -m helios_alpha.crypto.event_radar &
+events_pid=$!
 
 # This entry point supplies observations only; broker execution is disabled.
 env -u HELIOS_OPERATOR_SESSION_TOKEN -u HELIOS_COMMAND_CSRF_SECRET \

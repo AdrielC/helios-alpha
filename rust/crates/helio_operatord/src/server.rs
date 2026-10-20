@@ -86,6 +86,8 @@ pub fn router(state: AppState, static_dir: Option<PathBuf>) -> Router {
         .route("/operations/snapshot", get(snapshot))
         .route("/operations/broker-observation", get(broker_observation))
         .route("/operations/broker-sync", get(broker_sync_status))
+        .route("/events/radar", get(event_radar_status))
+        .route("/events/radar/detection", post(event_radar_update))
         .route("/operations/operator-profile", get(operator_profile))
         .route("/operations/broker-sync/{action}", post(broker_sync_request))
         .route("/operations/stream", get(snapshot_stream))
@@ -234,6 +236,25 @@ async fn broker_sync_status(State(state): State<AppState>, headers: HeaderMap) -
     let mut response = Json(crate::broker_sync::status(root, now_ms).await).into_response();
     response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
+}
+
+async fn event_radar_status(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !local_broker_request(&headers, false) { return StatusCode::FORBIDDEN.into_response(); }
+    let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
+    let root = state.broker_observation_path.as_deref().and_then(|p| p.parent());
+    let mut response = Json(crate::event_radar::status(root, now).await).into_response();
+    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+async fn event_radar_update(State(state): State<AppState>, headers: HeaderMap, Json(update): Json<crate::event_radar::Update>) -> Response {
+    if !local_broker_request(&headers, true) { return StatusCode::FORBIDDEN.into_response(); }
+    let Some(root) = state.broker_observation_path.as_deref().and_then(|p| p.parent()) else { return StatusCode::SERVICE_UNAVAILABLE.into_response(); };
+    let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
+    match crate::event_radar::request(root, update, now).await {
+        Ok(value) => (StatusCode::ACCEPTED, Json(value)).into_response(),
+        Err(()) => StatusCode::CONFLICT.into_response(),
+    }
 }
 
 async fn operator_profile(State(state): State<AppState>, headers: HeaderMap) -> Response {
@@ -894,6 +915,23 @@ mod tests {
                 assert!(body["observation"].is_null());
                 assert_eq!(body["execution_authority"], false);
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn event_controls_require_same_origin_and_reject_execution_fields() {
+        for (origin, payload, expected) in [
+            (None, r#"{"enabled":true,"expected_revision":1}"#, StatusCode::FORBIDDEN),
+            (Some("https://evil.example"), r#"{"enabled":true,"expected_revision":1}"#, StatusCode::FORBIDDEN),
+            (Some("http://127.0.0.1:8080"), r#"{"enabled":true,"expected_revision":1,"execute":true}"#, StatusCode::UNPROCESSABLE_ENTITY),
+            (Some("http://127.0.0.1:8080"), r#"{"enabled":true,"expected_revision":1}"#, StatusCode::SERVICE_UNAVAILABLE),
+        ] {
+            let application = router(state(Arc::new(ReadOnlyCommandExecutor)), None);
+            let mut request = Request::builder().method("POST")
+                .uri("/api/v1/events/radar/detection").header("host", "127.0.0.1:8080")
+                .header("content-type", "application/json");
+            if let Some(origin) = origin { request = request.header("origin", origin); }
+            assert_eq!(application.oneshot(request.body(Body::from(payload)).unwrap()).await.unwrap().status(), expected);
         }
     }
 
