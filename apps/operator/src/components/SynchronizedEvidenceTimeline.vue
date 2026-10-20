@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import OperatorIcon from "./OperatorIcon.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   createAtlasChart,
@@ -43,6 +44,13 @@ const workspace = ref<TimelineWorkspace>();
 const loading = ref(true);
 const error = ref("");
 const seriesOpen = ref(false);
+const autoRefresh = ref(true);
+const refreshing = ref(false);
+const lastReadAt = ref<number>();
+const now = ref(Date.now());
+let refreshTimer: ReturnType<typeof setInterval> | undefined;
+let windowGeneration = 0;
+let lastAttemptAt = 0;
 const search = ref("");
 const cursorRatio = ref(630);
 const cursorTime = ref<number>();
@@ -64,6 +72,14 @@ const activeForecasts = computed(() => forecastBundles.value.filter((bundle) => 
 const descriptorById = computed(() => new Map(catalog.value.map((series) => [series.id, series])));
 const seriesById = computed(() => new Map(dataWindow.value?.series.map((series) => [series.descriptor.id, series]) ?? []));
 const lanes = computed(() => (workspace.value?.lanes ?? []).filter((lane) => lane.seriesIds.some((id) => seriesById.value.has(id))));
+const availableSeries = computed(() => dataWindow.value?.series.filter(series => series.points.length > 0) ?? []);
+const visiblePointCount = computed(() => activeSeriesIds.value.reduce((total, id) => total + (seriesById.value.get(id)?.points.length ?? 0), 0));
+const latestObservation = computed(() => {
+  const times = activeSeriesIds.value.flatMap(id => seriesById.value.get(id)?.points.map(point => Date.parse(point.timestamp)) ?? []);
+  return times.length ? Math.max(...times) : undefined;
+});
+const sourceSummary = computed(() => [...new Set(activeSeriesIds.value.map(id => descriptorById.value.get(id)?.domain).filter(Boolean))].map(domain => ({ source: "Source observations", market: "Market data", signal: "Strategy signals", portfolio: "Portfolio", risk: "Risk", execution: "Execution" }[domain!])).join(" · "));
+const hasDecision = computed(() => Object.keys(cutFacts.value).length > 0);
 const filteredCatalog = computed(() => {
   const needle = search.value.trim().toLowerCase();
   return needle ? catalog.value.filter((series) => `${series.label} ${series.domain} ${series.provenance}`.toLowerCase().includes(needle)) : catalog.value;
@@ -98,7 +114,7 @@ const linkedOrderId = computed(() => {
 });
 const selectedPrice = computed(() => availableSeriesValueAt("market-ohlc")?.value);
 const navigatorPoints = computed(() => {
-  const series = seriesById.value.get("market-ohlc") ?? dataWindow.value?.series[0];
+  const series = activeSeriesIds.value.map(id => seriesById.value.get(id)).find(series => series?.points.length);
   if (!series?.points.length) return "";
   const values = series.points.map(pointValue);
   const min = Math.min(...values);
@@ -166,37 +182,66 @@ function workspaceStorageKey(): string {
   return `helios:operator:market-atlas:v2:${context.organizationId}:${context.workspaceId}:${context.accountId}`;
 }
 
-async function loadWindow(): Promise<void> {
+async function loadWindow(chooseDefaults = false): Promise<void> {
   if (!workspace.value) return;
   const generation = contextLoadGeneration;
+  const requestGeneration = ++windowGeneration;
   const context = props.snapshot.context;
-  loading.value = true;
+  loading.value = !dataWindow.value;
+  refreshing.value = true;
+  lastAttemptAt = Date.now();
   error.value = "";
   try {
     const windowChanged = loadedWindowMinutes !== workspace.value.windowMinutes;
-    const toMs = Number.isFinite(Date.parse(props.snapshot.observedAt)) ? Date.parse(props.snapshot.observedAt) : Date.now();
+    // The observation feed advances independently of the OMS event ledger.
+    const toMs = props.snapshot.dataClass === "observed" ? Date.now() : Date.parse(props.snapshot.observedAt);
     const fromMs = toMs - workspace.value.windowMinutes * 60_000;
     const nextWindow = await props.port.query({
       context,
-      seriesIds: activeSeriesIds.value,
+      seriesIds: catalog.value.map(series => series.id),
       from: new Date(fromMs).toISOString(),
       to: new Date(toMs).toISOString(),
       maxPoints: 480,
     });
-    if (generation !== contextLoadGeneration || props.snapshot.context.accountId !== context.accountId) return;
+    if (generation !== contextLoadGeneration || requestGeneration !== windowGeneration || props.snapshot.context.accountId !== context.accountId) return;
     dataWindow.value = nextWindow;
+    lastReadAt.value = Date.now();
+    now.value = Date.now();
+    if (chooseDefaults && !visiblePointCount.value && availableSeries.value.length) showAvailableSeries();
     if (windowChanged || !visibleRange.value) visibleRange.value = { from: fromMs, to: toMs };
     loadedWindowMinutes = workspace.value.windowMinutes;
-    moveCursor(cursorRatio.value);
+    if (autoRefresh.value && props.snapshot.dataClass === "observed") cursorRatio.value = 1_000;
+    else if (!windowChanged && cursorTime.value !== undefined) cursorRatio.value = Math.max(0, Math.min(1_000, (cursorTime.value - fromMs) / (toMs - fromMs) * 1_000));
+    moveCursor(cursorRatio.value, false);
   } catch (cause) {
-    if (generation !== contextLoadGeneration) return;
+    if (generation !== contextLoadGeneration || requestGeneration !== windowGeneration) return;
     error.value = cause instanceof Error ? cause.message : "Market Atlas could not be loaded";
   } finally {
-    if (generation !== contextLoadGeneration) return;
+    if (generation !== contextLoadGeneration || requestGeneration !== windowGeneration) return;
     loading.value = false;
+    refreshing.value = false;
     await nextTick();
     renderChart();
+    if (autoRefresh.value && props.snapshot.dataClass === "observed") resetViewport();
   }
+}
+
+function showAvailableSeries(): void {
+  if (!workspace.value) return;
+  updateWorkspace({ ...workspace.value, forecastBundleIds: [], lanes: availableSeries.value.slice(0, 4).map(series => ({ id: `lane-${series.descriptor.id}`, seriesIds: [series.descriptor.id] })) }, false);
+}
+
+function toggleUpdates(): void {
+  autoRefresh.value = !autoRefresh.value;
+  if (autoRefresh.value) void loadWindow();
+}
+
+function sampleAge(timestamp: number | string | undefined): string {
+  if (timestamp === undefined) return "No samples";
+  const elapsed = Math.max(0, now.value - (typeof timestamp === "string" ? Date.parse(timestamp) : timestamp));
+  if (elapsed < 60_000) return `${Math.floor(elapsed / 1_000)}s ago`;
+  if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`;
+  return `${Math.floor(elapsed / 3_600_000)}h ago`;
 }
 
 function updateWorkspace(next: TimelineWorkspace, reload = true): void {
@@ -313,7 +358,9 @@ function handlePaneWeights(weights: readonly number[]): void {
 }
 
 function resetWorkspace(): void {
-  updateWorkspace(defaultTimelineWorkspace(catalog.value));
+  workspace.value = defaultTimelineWorkspace(catalog.value);
+  persistWorkspace();
+  void loadWindow(true);
 }
 
 function laneFor(id: string): TimelineLane | undefined {
@@ -398,7 +445,8 @@ function renderChart(): void {
   if (chart) chart.setModel(model);
   else chart = createAtlasChart(chartHost.value, { model, onCursor: handleChartCursor, onVisibleRange: handleVisibleRange, onPaneWeights: handlePaneWeights });
   cursorTime.value = desiredCursor;
-  chart.setCursor(desiredCursor / 1_000);
+  if (autoRefresh.value) chart.clearCursor();
+  else chart.setCursor(desiredCursor / 1_000);
 }
 
 function handleVisibleRange(range: { from: number; to: number } | undefined): void {
@@ -407,14 +455,15 @@ function handleVisibleRange(range: { from: number; to: number } | undefined): vo
 }
 
 function handleChartCursor(snapshot: AtlasCursorSnapshot | undefined): void {
-  if (!snapshot || !dataWindow.value) return;
+  if (!snapshot || !dataWindow.value || autoRefresh.value) return;
   cursorTime.value = snapshot.time * 1_000;
   const from = Date.parse(dataWindow.value.from);
   const span = Date.parse(dataWindow.value.to) - from;
   cursorRatio.value = Math.round(Math.min(1, Math.max(0, (cursorTime.value - from) / Math.max(1, span))) * 1_000);
 }
 
-function moveCursor(value: number): void {
+function moveCursor(value: number, inspect = true): void {
+  if (inspect) autoRefresh.value = false;
   cursorRatio.value = value;
   if (!dataWindow.value) return;
   const from = Date.parse(dataWindow.value.from);
@@ -430,11 +479,11 @@ function changeSelection(edge: "start" | "end", value: number): void {
 }
 
 function zoomSelection(): void {
-  if (interval.value) chart?.setVisibleRange({ from: interval.value.from / 1_000, to: interval.value.to / 1_000 });
+  if (interval.value && visiblePointCount.value) chart?.setVisibleRange({ from: interval.value.from / 1_000, to: interval.value.to / 1_000 });
 }
 
 function resetViewport(): void {
-  if (dataWindow.value) chart?.setVisibleRange({ from: Date.parse(dataWindow.value.from) / 1_000, to: Date.parse(dataWindow.value.to) / 1_000 });
+  if (dataWindow.value && visiblePointCount.value) chart?.setVisibleRange({ from: Date.parse(dataWindow.value.from) / 1_000, to: Date.parse(dataWindow.value.to) / 1_000 });
 }
 
 function markerStyle(marker: TimelineMarker): Record<string, string> {
@@ -479,7 +528,10 @@ function formatValue(value: number, descriptor: TimeSeriesDescriptor): string {
   if (descriptor.unit === "USD") return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: Math.abs(value) >= 100_000 ? "compact" : "standard", maximumFractionDigits: descriptor.precision }).format(value);
   if (descriptor.unit === "volume") return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
   if (descriptor.unit === "%") return `${(descriptor.id.includes("signal") || descriptor.id.includes("quality") || descriptor.id.includes("risk") ? value * 100 : value).toFixed(descriptor.precision)}%`;
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: descriptor.precision }).format(value)}${descriptor.unit}`;
+  const formatted = value !== 0 && Math.abs(value) < 0.001
+    ? value.toExponential(2)
+    : new Intl.NumberFormat("en-US", { maximumFractionDigits: descriptor.precision }).format(value);
+  return `${formatted} ${descriptor.unit}`;
 }
 
 function formatTime(timestamp: number | string | undefined, seconds = true): string {
@@ -489,7 +541,7 @@ function formatTime(timestamp: number | string | undefined, seconds = true): str
     date = new Date(`${props.snapshot.observedAt.slice(0, 10)}T${timestamp}`);
   }
   if (!Number.isFinite(date.getTime())) return timestamp.toString();
-  return new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", second: seconds ? "2-digit" : undefined, fractionalSecondDigits: seconds ? 3 : undefined, hour12: false }).format(date);
+  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: seconds ? "2-digit" : undefined, fractionalSecondDigits: seconds ? 3 : undefined, hour12: false }).format(date);
 }
 
 function formatDuration(milliseconds: number): string {
@@ -563,14 +615,21 @@ async function loadResearchContext(): Promise<void> {
     if (generation !== contextLoadGeneration || props.snapshot.context.accountId !== context.accountId) return;
     catalog.value = nextCatalog;
     forecastBundles.value = nextForecastBundles;
-    const nextWorkspace = parseWorkspace() ?? defaultTimelineWorkspace(nextCatalog);
+    const savedWorkspace = parseWorkspace();
+    const defaults = defaultTimelineWorkspace(nextCatalog);
+    const disconnectedDefaults = savedWorkspace && savedWorkspace.lanes.flatMap(lane => lane.seriesIds).toSorted().join() === defaults.lanes.flatMap(lane => lane.seriesIds).toSorted().join() && defaults.lanes.every(lane => nextCatalog.find(series => series.id === lane.seriesIds[0])?.freshness === "not connected");
+    const nextWorkspace = !savedWorkspace || disconnectedDefaults ? defaults : savedWorkspace;
     const selectedBundle = nextForecastBundles.find((bundle) => bundle.id === props.selectedForecastId);
     workspace.value = selectedBundle
       ? { ...nextWorkspace, forecastBundleIds: [selectedBundle.id], lanes: selectedBundle.seriesIds.map((seriesId) => ({ id: `lane-${seriesId}`, seriesIds: [seriesId] })) }
       : nextWorkspace;
     loadedWindowMinutes = undefined;
     visibleRange.value = undefined;
-    await loadWindow();
+    dataWindow.value = undefined;
+    chart?.destroy();
+    chart = undefined;
+    if (props.snapshot.dataClass === "observed") { selectionStart.value = 0; selectionEnd.value = 1_000; cursorRatio.value = 1_000; }
+    await loadWindow(!selectedBundle && (!savedWorkspace || Boolean(disconnectedDefaults)));
   } catch (cause) {
     if (generation !== contextLoadGeneration) return;
     error.value = cause instanceof Error ? cause.message : "Market Atlas could not be loaded";
@@ -578,9 +637,15 @@ async function loadResearchContext(): Promise<void> {
   }
 }
 
-onMounted(() => { void loadResearchContext(); });
+onMounted(() => {
+  void loadResearchContext();
+  refreshTimer = setInterval(() => {
+    now.value = Date.now();
+    if (props.snapshot.dataClass === "observed" && autoRefresh.value && !refreshing.value && !document.hidden && now.value - lastAttemptAt >= 30_000) void loadWindow();
+  }, 1_000);
+});
 
-onBeforeUnmount(() => chart?.destroy());
+onBeforeUnmount(() => { ++contextLoadGeneration; ++windowGeneration; clearInterval(refreshTimer); chart?.destroy(); });
 
 watch(() => props.snapshot.context.accountId, () => { void loadResearchContext(); });
 
@@ -592,34 +657,34 @@ watch(() => props.selectedForecastId, (id) => {
 <template>
   <section class="market-atlas" aria-labelledby="market-atlas-heading">
     <header class="atlas-titlebar">
-      <div><h1 id="market-atlas-heading">Market Atlas</h1><span>{{ activeForecasts.length ? activeForecasts.map((bundle) => bundle.label).join(' + ') : 'Custom workspace' }}</span></div>
-      <dl><div><dt>Selected interval</dt><dd>{{ formatTime(interval?.from) }} to {{ formatTime(interval?.to) }} <small>({{ formatDuration((interval?.to ?? 0) - (interval?.from ?? 0)) }})</small></dd></div></dl>
+      <div><h1 id="market-atlas-heading">Market Atlas</h1><p>Explore the observations behind a decision.</p></div>
+      <div class="atlas-session"><span class="data-kind">{{ snapshot.dataClass === 'synthetic' ? 'Demo data' : 'Observed data' }}</span><button v-if="snapshot.dataClass === 'observed'" class="update-toggle" :aria-pressed="autoRefresh" @click="toggleUpdates"><i :data-active="autoRefresh"></i>{{ autoRefresh ? 'Pause updates' : 'Resume updates' }}</button><button class="atlas-refresh" :disabled="refreshing" @click="loadWindow()"><OperatorIcon name="refresh" />{{ refreshing ? 'Refreshing…' : 'Refresh' }}</button></div>
     </header>
 
+    <div class="atlas-overview" aria-label="Observation coverage">
+      <div><span>Workspace</span><strong>{{ activeForecasts.length ? activeForecasts.map(bundle => bundle.label).join(' + ') : 'Observation workspace' }}</strong><small>{{ sourceSummary || 'Choose data sources' }}</small></div>
+      <div><span>Series in view</span><strong>{{ activeSeriesIds.length }} <small>/ {{ catalog.length }} registered</small></strong><small>{{ visiblePointCount.toLocaleString() }} samples in this window</small></div>
+      <div><span>Latest sample · UTC</span><strong>{{ latestObservation ? formatTime(latestObservation, false) : 'No samples' }}</strong><small>{{ snapshot.dataClass === 'observed' ? sampleAge(latestObservation) : 'Synthetic preview' }}</small></div>
+      <div><span>Updates</span><strong>{{ snapshot.dataClass === 'synthetic' ? 'Demo preview' : autoRefresh ? 'Every 30 seconds' : 'Paused for inspection' }}</strong><small>{{ lastReadAt && snapshot.dataClass === 'observed' ? `Last checked ${sampleAge(lastReadAt)}` : 'Source timestamps are preserved' }}</small></div>
+    </div>
+
     <div class="atlas-toolbar">
-      <label class="series-search"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><path d="m10 10 4 4"/></svg><input v-model="search" type="search" placeholder="Find observations" aria-label="Search registered observations" @focus="seriesOpen = true"></label>
-      <span class="tool-label">Transform</span>
-      <div class="segmented" role="group" aria-label="Series transform">
-        <button :aria-pressed="workspace?.transform === 'raw'" @click="setTransform('raw')">Raw</button>
-        <button :aria-pressed="workspace?.transform === 'indexed'" @click="setTransform('indexed')">Index</button>
-        <button :aria-pressed="workspace?.transform === 'percent_change'" @click="setTransform('percent_change')">%</button>
-        <button :aria-pressed="workspace?.transform === 'z_score'" @click="setTransform('z_score')">Z</button>
-      </div>
-      <span class="tool-label history-label">History</span>
       <div class="window-buttons" role="group" aria-label="Loaded history window">
         <button v-for="option in [{m:5,l:'5m'},{m:10,l:'10m'},{m:60,l:'1h'},{m:240,l:'4h'},{m:1440,l:'1d'}]" :key="option.m" :aria-pressed="workspace?.windowMinutes === option.m" @click="setWindowMinutes(option.m)">{{ option.l }}</button>
       </div>
-      <button class="manage-series" :aria-expanded="seriesOpen" @click="seriesOpen = !seriesOpen"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12M5 2v4M11 6v4M7 10v4"/></svg>Observations <b>{{ activeSeriesIds.length }}</b></button>
+      <label class="transform-control">Scale<select :value="workspace?.transform" aria-label="Series transform" @change="setTransform(($event.target as HTMLSelectElement).value as SeriesTransform)"><option value="raw">Original units</option><option value="indexed">Indexed to 100</option><option value="percent_change">Change %</option><option value="z_score">Z-score</option></select></label>
+      <button class="available-button" :disabled="!availableSeries.length" @click="showAvailableSeries">Available data <span>{{ availableSeries.length }}</span></button>
+      <button class="manage-series" :aria-expanded="seriesOpen" @click="seriesOpen = !seriesOpen"><OperatorIcon name="sources" />Observations <b>{{ activeSeriesIds.length }}</b></button>
     </div>
 
     <div class="forecast-strip" aria-label="Forecast bundles">
-      <span>Forecast scope</span>
+      <span>Research presets</span>
       <button v-for="bundle in forecastBundles" :key="bundle.id" :aria-pressed="activeForecastIds.includes(bundle.id)" @click="toggleForecastBundle(bundle)"><i :data-state="bundle.state"></i>{{ bundle.label }}<b>{{ bundle.seriesIds.length }}</b></button>
       <button class="forecast-custom" :aria-pressed="activeForecastIds.length === 0" @click="workspace && updateWorkspace({...workspace,forecastBundleIds:[]},false)">Custom</button>
     </div>
 
     <div v-if="seriesOpen" class="series-drawer">
-      <header><div><strong>Workspace composition</strong><span>Add complete forecasts or individual observations. Drag the register to reorder panes.</span></div><button @click="resetWorkspace">Restore default</button></header>
+      <header><div><strong>Workspace composition</strong><span>Add a research preset or choose individual observations.</span></div><button @click="seriesOpen = false" aria-label="Close observations">Done</button></header><div class="drawer-tools"><label class="series-search"><OperatorIcon name="search" /><input v-model="search" type="search" placeholder="Search observations" aria-label="Search registered observations"></label><button @click="resetWorkspace">Restore default</button></div>
       <div class="bundle-registry">
         <details v-for="bundle in forecastBundles" :key="bundle.id" :open="activeForecastIds.includes(bundle.id)">
           <summary><i :data-state="bundle.state"></i><span><strong>{{ bundle.label }}</strong><small>{{ bundle.thesis }}</small></span><b>{{ bundle.horizon }}</b></summary>
@@ -628,22 +693,22 @@ watch(() => props.selectedForecastId, (id) => {
       </div>
       <div class="series-options">
         <article v-for="series in filteredCatalog" :key="series.id" :data-active="activeSeriesIds.includes(series.id)">
-          <button class="series-toggle" :aria-pressed="activeSeriesIds.includes(series.id)" @click="toggleSeries(series.id)"><i :style="{ background: series.color }"></i><span><strong>{{ series.label }}</strong><small>{{ series.domain }} · {{ series.provenance }}</small></span><b>{{ activeSeriesIds.includes(series.id) ? 'Remove' : 'Add' }}</b></button>
+          <button class="series-toggle" :aria-pressed="activeSeriesIds.includes(series.id)" @click="toggleSeries(series.id)"><i :style="{ background: series.color }"></i><span><strong>{{ series.label }}</strong><small>{{ series.provenance }}</small><small>{{ seriesById.get(series.id)?.points.length || 0 }} samples in window</small></span><b>{{ activeSeriesIds.includes(series.id) ? 'Remove' : 'Add' }}</b></button>
           <div v-if="activeSeriesIds.includes(series.id)" class="pane-choices" role="group" :aria-label="`Place ${series.label}`"><span>Display</span><button :aria-pressed="laneFor(series.id)?.seriesIds.length === 1" @click="placeSeries(series.id,'own')">Own lane</button><button v-for="lane in workspace?.lanes.filter((candidate) => !candidate.seriesIds.includes(series.id))" :key="lane.id" :aria-pressed="laneFor(series.id)?.id === lane.id" @click="placeSeries(series.id,lane.id)">With {{ laneLabel(lane) }}</button></div>
         </article>
       </div>
     </div>
 
-    <div v-if="loading" class="atlas-state"><i></i>Building synchronized panes</div>
-    <div v-else-if="error" class="atlas-state error"><i></i><strong>{{ error }}</strong><button @click="loadWindow">Retry</button></div>
-    <div v-else-if="dataWindow" class="atlas-scroll" tabindex="0" aria-label="Market Atlas. Scroll horizontally on narrow screens.">
+    <div v-if="loading && !dataWindow" class="atlas-state"><i></i>Building synchronized panes</div>
+    <div v-else-if="error && !dataWindow" class="atlas-state error"><i></i><strong>{{ error }}</strong><button @click="loadWindow()">Retry</button></div>
+    <div v-else-if="dataWindow" class="atlas-scroll" tabindex="0" aria-label="Market Atlas workspace"><div v-if="error" class="atlas-update-error" role="status"><strong>Update interrupted</strong> {{ error }}. Previous observations remain visible.<button @click="loadWindow()">Retry</button></div><div class="chart-guidance"><span><i></i>{{ autoRefresh ? 'Latest observations' : 'Inspecting history' }}</span><p>Move over the chart to inspect a time. Drag the range below to compare an interval. Times are UTC.</p></div>
       <div class="atlas-frame">
         <div class="atlas-main">
           <aside class="series-register" aria-label="Visible time series">
             <div class="series-register-body" :style="registerRows">
               <article v-for="lane in lanes" :key="lane.id" draggable="true" :data-dragging="draggedLaneId === lane.id" @dragstart="draggedLaneId = lane.id" @dragend="draggedLaneId = undefined" @dragover.prevent @drop="reorderLane(draggedLaneId,lane.id)">
                 <button class="lane-grip" :aria-label="`Drag ${laneLabel(lane)} pane`"><svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1"/><circle cx="7" cy="3" r="1"/><circle cx="3" cy="8" r="1"/><circle cx="7" cy="8" r="1"/><circle cx="3" cy="13" r="1"/><circle cx="7" cy="13" r="1"/></svg></button>
-                <div class="lane-series"><span v-for="id in lane.seriesIds" :key="id"><i :style="{ background: descriptorById.get(id)?.color }"></i><span><strong>{{ descriptorById.get(id)?.label }}</strong><small>{{ descriptorById.get(id)?.provenance }}<b v-if="bundleIdsForSeries(id).length > 1"> · shared</b></small></span><b>{{ seriesDisplay(id) }}</b></span></div>
+                <div class="lane-series"><span v-for="id in lane.seriesIds" :key="id"><i :style="{ background: descriptorById.get(id)?.color }"></i><span><strong>{{ descriptorById.get(id)?.label }}</strong><small :title="descriptorById.get(id)?.provenance">{{ descriptorById.get(id)?.provenance }}</small></span><b>{{ seriesDisplay(id) }}<small>{{ seriesById.get(id)?.points.length ? formatTime(seriesValueAt(id)?.point.timestamp, false) : 'No samples' }}</small></b></span></div>
                 <div class="lane-actions"><button :disabled="lanes[0]?.id === lane.id" :aria-label="`Move ${laneLabel(lane)} up`" @click="moveLane(lane.id,-1)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 7.5 3.5-3 3.5 3"/></svg></button><button :disabled="lanes.at(-1)?.id === lane.id" :aria-label="`Move ${laneLabel(lane)} down`" @click="moveLane(lane.id,1)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3"/></svg></button></div>
               </article>
             </div>
@@ -651,15 +716,16 @@ watch(() => props.selectedForecastId, (id) => {
 
           <div class="chart-column">
             <div v-if="lanes.length" class="chart-stage">
-              <div ref="chartHost" class="chart-host" aria-label="Synchronized financial time series"></div>
-              <div class="selection-window" :style="plotSelectionStyle"><i></i><i></i></div>
+              <div ref="chartHost" class="chart-host" aria-label="Synchronized financial time series" @pointermove="autoRefresh = false" @pointerdown="autoRefresh = false" @wheel="autoRefresh = false"></div>
+              <div v-if="!autoRefresh" class="selection-window" :style="plotSelectionStyle"><i></i><i></i></div>
+              <div v-if="!visiblePointCount" class="chart-no-data"><OperatorIcon name="overview" /><strong>No samples in this window</strong><p>These channels have not published observations for the selected period.</p><button v-if="availableSeries.length" @click="showAvailableSeries">Show available data</button><button v-else @click="setWindowMinutes(1440)">View the last day</button></div>
             </div>
             <div v-else class="empty-atlas">
               <span>No series selected</span>
               <strong>Choose the observations that belong in this workspace.</strong>
               <button @click="seriesOpen = true">Choose series</button>
             </div>
-            <div class="event-rails" aria-label="Lifecycle events">
+            <div v-if="dataWindow.markers.length" class="event-rails" aria-label="Lifecycle events">
               <div v-for="rail in markerRails" :key="rail.id"><strong>{{ rail.label }}</strong><span><button v-for="marker in dataWindow.markers.filter((item) => rail.kinds.includes(item.kind))" :key="marker.id" :data-kind="marker.kind" :style="markerStyle(marker)" :title="marker.detail" @click="moveCursor(Math.round((Date.parse(marker.timestamp)-Date.parse(dataWindow.from))/(Date.parse(dataWindow.to)-Date.parse(dataWindow.from))*1000))"><i></i></button></span></div>
             </div>
             <div class="global-scrubber">
@@ -669,23 +735,23 @@ watch(() => props.selectedForecastId, (id) => {
           </div>
 
           <aside class="evidence-rail">
-            <header><div><span>Evidence rail</span><strong>{{ selectedMarker?.label ?? 'Observation' }}</strong></div><b>{{ formatTime(cursorTime) }}</b></header>
-            <section class="rail-section observation"><h2>Available at decision</h2><dl><div v-for="id in activeSeriesIds.slice(0,8)" :key="id" :data-late="!availableSeriesValueAt(id)"><dt>{{ descriptorById.get(id)?.shortLabel }}</dt><dd>{{ availableSeriesDisplay(id) }}</dd></div></dl></section>
+            <header><div><span>At cursor · UTC</span><strong>{{ formatTime(cursorTime, false) }}</strong></div><OperatorIcon name="forecasts" /></header><p class="inspector-help">Values available at the selected time.</p>
+            <section class="rail-section observation"><h2>Observations</h2><dl><div v-for="id in activeSeriesIds.slice(0,8)" :key="id" :data-late="!availableSeriesValueAt(id)"><dt>{{ descriptorById.get(id)?.shortLabel }}</dt><dd>{{ availableSeriesDisplay(id) }}</dd></div></dl></section>
             <section v-if="activeSeriesIds.some(isMeaningfullyLate)" class="rail-section late"><h2>Late arrivals</h2><p v-for="id in activeSeriesIds.filter(isMeaningfullyLate).slice(0,3)" :key="id"><time>{{ formatTime(seriesValueAt(id)?.point.availableAt) }}</time><span>{{ descriptorById.get(id)?.label }}</span></p></section>
-            <section class="rail-section decision"><dl><div><dt>Model version</dt><dd>{{ cutFact('modelVersion') }}</dd></div><div><dt>Risk decision</dt><dd :data-tone="cutFactTone('riskDecision')">{{ cutFact('riskDecision') }}</dd></div><div><dt>Order intent</dt><dd>{{ cutFact('orderIntent') }}</dd></div><div><dt>Broker ack</dt><dd :data-tone="cutFactTone('brokerAcknowledgement')">{{ cutFact('brokerAcknowledgement') }}</dd></div><div><dt>Fill result</dt><dd>{{ cutFact('fillResult') }}</dd></div><div><dt>Selected price</dt><dd>{{ selectedPrice === undefined ? 'Not available at cut' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(selectedPrice) }}</dd></div></dl></section>
-            <button class="investigate" :disabled="investigating" @click="runInvestigation">{{ investigating ? 'Analyzing selection' : 'Analyze selection' }}</button>
-            <section class="rail-section suggestions"><h2>Additional series</h2><button v-for="series in catalog.filter((item) => !activeSeriesIds.includes(item.id)).slice(0,3)" :key="series.id" @click="toggleSeries(series.id)"><i :style="{ background: series.color }"></i><span>{{ series.label }}<small>{{ series.provenance }}</small></span><b>+ Add</b></button></section>
+            <details v-if="hasDecision" class="rail-section decision"><summary>Execution event · {{ selectedMarker?.label }}</summary><dl><div><dt>Model version</dt><dd>{{ cutFact('modelVersion') }}</dd></div><div><dt>Risk decision</dt><dd :data-tone="cutFactTone('riskDecision')">{{ cutFact('riskDecision') }}</dd></div><div><dt>Order intent</dt><dd>{{ cutFact('orderIntent') }}</dd></div><div><dt>Broker ack</dt><dd :data-tone="cutFactTone('brokerAcknowledgement')">{{ cutFact('brokerAcknowledgement') }}</dd></div><div><dt>Fill result</dt><dd>{{ cutFact('fillResult') }}</dd></div><div><dt>Selected price</dt><dd>{{ selectedPrice === undefined ? 'Not available at cut' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(selectedPrice) }}</dd></div></dl></details>
+            <p v-if="!hasDecision" class="no-decision">No execution event at this time.</p><button class="investigate" :disabled="investigating || !visiblePointCount" @click="runInvestigation">{{ investigating ? 'Analyzing selection' : 'Analyze selection' }}</button>
+            <details class="rail-section suggestions"><summary>Additional observations</summary><button v-for="series in catalog.filter((item) => !activeSeriesIds.includes(item.id)).slice(0,3)" :key="series.id" @click="toggleSeries(series.id)"><i :style="{ background: series.color }"></i><span>{{ series.label }}<small>{{ series.provenance }}</small></span><b>+ Add</b></button></details>
             <button v-if="linkedOrderId" class="linked-record" @click="emit('selectOrder', linkedOrderId)">Open OMS record <span>→</span></button>
             <p v-if="investigationError" class="rail-error">{{ investigationError }}</p>
           </aside>
         </div>
 
-        <div class="ledger-dock">
-          <section><header><h2>Orders</h2><span class="live">Live</span></header><div class="ledger-scroll"><table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Type</th><th>Status</th></tr></thead><tbody><tr v-for="order in snapshot.orders.slice(0,4)" :key="order.clientOrderId" :class="{selected:selectedOrderId===order.clientOrderId}"><td><button class="ledger-order-button" @click="emit('selectOrder',order.clientOrderId)">{{ formatTime(order.submittedAt,false) }}</button></td><td>{{ order.instrument }}</td><td :data-tone="order.side">{{ order.side }}</td><td>{{ quantity(order.quantityMicros) }}</td><td>LMT</td><td>{{ order.state.replaceAll('_',' ') }}</td></tr><tr v-if="!snapshot.orders.length"><td class="ledger-empty" colspan="6">No active orders</td></tr></tbody></table></div></section>
+        <details class="ledger-section"><summary><span>{{ snapshot.context.accountName }} · {{ snapshot.mode }} ledger</span><small>{{ snapshot.orders.length }} orders · {{ snapshot.positions.length }} positions · {{ openAlerts.length }} alerts</small></summary><div class="ledger-dock">
+          <section><header><h2>Orders</h2><span>{{ snapshot.mode }}</span></header><div class="ledger-scroll"><table><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Type</th><th>Status</th></tr></thead><tbody><tr v-for="order in snapshot.orders.slice(0,4)" :key="order.clientOrderId" :class="{selected:selectedOrderId===order.clientOrderId}"><td><button class="ledger-order-button" @click="emit('selectOrder',order.clientOrderId)">{{ formatTime(order.submittedAt,false) }}</button></td><td>{{ order.instrument }}</td><td :data-tone="order.side">{{ order.side }}</td><td>{{ quantity(order.quantityMicros) }}</td><td>LMT</td><td>{{ order.state.replaceAll('_',' ') }}</td></tr><tr v-if="!snapshot.orders.length"><td class="ledger-empty" colspan="6">No active orders</td></tr></tbody></table></div></section>
           <section><header><h2>Positions</h2><span>{{ snapshot.positions.length }}</span></header><div class="ledger-scroll"><table><thead><tr><th>Symbol</th><th>Net</th><th>Average</th><th>Unrealized</th></tr></thead><tbody><tr v-for="position in snapshot.positions.slice(0,4)" :key="`${position.instrument}:${position.strategy}`"><td>{{ position.instrument }}</td><td>{{ quantity(position.quantityMicros) }}</td><td>{{ money(position.averagePriceMicros) }}</td><td :data-tone="Number(position.unrealizedPnlMicros)>=0?'buy':'sell'">{{ money(position.unrealizedPnlMicros) }}</td></tr><tr v-if="!snapshot.positions.length"><td class="ledger-empty" colspan="4">No open positions</td></tr></tbody></table></div></section>
           <section><header><h2>Alerts</h2><span class="alert-count">{{ openAlerts.length }}</span></header><div class="ledger-scroll"><table><thead><tr><th>Time</th><th>Severity</th><th>Message</th></tr></thead><tbody><tr v-for="alert in openAlerts.slice(0,4)" :key="alert.id"><td>{{ formatTime(alert.openedAt,false) }}</td><td :data-tone="alert.severity">{{ alert.severity }}</td><td>{{ alert.title }}</td></tr><tr v-if="!openAlerts.length"><td class="ledger-empty" colspan="3">No open alerts</td></tr></tbody></table></div></section>
           <section><header><h2>Reconciliation</h2><span :class="snapshot.risk.pendingReconciliations ? 'alert-count' : 'live'">{{ snapshot.risk.pendingReconciliations }}</span></header><div class="reconcile-list"><p v-for="row in reconciliationRows.slice(0,4)" :key="row.id"><span>{{ row.label }}</span><b :data-tone="row.status === 'matched' ? 'buy' : 'warning'">{{ row.status }}</b></p><p v-if="!reconciliationRows.length" class="ledger-empty">No reconciliation records</p></div></section>
-        </div>
+        </div></details>
       </div>
     </div>
 
@@ -722,23 +788,162 @@ watch(() => props.selectedForecastId, (id) => {
 .atlas-state{display:flex;min-height:570px;gap:9px;align-items:center;justify-content:center;color:var(--atlas-axis);font:8px var(--vp-font-family-mono);text-transform:uppercase}.atlas-state i{width:7px;height:7px;background:var(--atlas-blue);animation:pulse 1.4s ease-in-out infinite}.atlas-state.error i{background:var(--atlas-oxide)}.atlas-state button{padding:5px 8px;color:var(--atlas-blue);font:8px var(--vp-font-family-mono);border:1px solid var(--atlas-rule);background:transparent;cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,.atlas-scroll:focus-visible{outline:2px solid var(--atlas-blue);outline-offset:-2px}@keyframes pulse{50%{opacity:.25}}
 @media(max-width:1400px) and (min-width:721px){.atlas-frame{min-width:1000px}.atlas-main{grid-template-columns:174px minmax(584px,1fr) 250px}.scrubber-actions time{min-width:92px}.scrubber-actions button{padding-inline:5px}}@media(max-width:1180px){.bundle-registry,.series-options{grid-template-columns:1fr}}@media(max-width:720px){.market-atlas{--atlas-plot-height:546px}.atlas-titlebar{padding:0 11px}.atlas-titlebar h1{font-size:16px}.atlas-titlebar>div span{display:none}.atlas-titlebar dl{display:none}.atlas-toolbar{overflow-x:auto}.series-search{min-width:180px}.tool-label{display:none}.history-label{display:none}.window-buttons{margin-left:0}.manage-series{min-width:max-content}.series-drawer>header span{display:none}.bundle-registry{grid-template-columns:1fr}.atlas-frame{min-width:1080px}.atlas-main{grid-template-columns:174px 660px 246px}.ledger-dock{grid-template-columns:repeat(4,270px)}.atlas-scroll::before{display:block;padding:5px 10px;color:var(--atlas-axis);font:7px var(--vp-font-family-mono);content:"Swipe horizontally to inspect the complete atlas";text-transform:uppercase;border-bottom:1px solid var(--atlas-rule);background:#08121c}.investigation-dialog{width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}.investigation-dialog li{grid-template-columns:1fr}.investigation-dialog li small{display:none}}@media(prefers-reduced-motion:reduce){.atlas-state i,.investigation-loading i{animation:none}}
 
-/* Keep research controls legible at the same scale as the rest of the OMS. */
-.atlas-titlebar{min-height:72px;padding:14px 24px;background:var(--atlas-ground)}
-.atlas-titlebar h1{font-size:26px;letter-spacing:-.035em;text-transform:none;font-weight:650}
-.atlas-titlebar>div span{font:11px var(--vp-font-family-base);text-transform:none}
-.atlas-titlebar dt{font:10px var(--vp-font-family-base);text-transform:none}.atlas-titlebar dd{font-size:11px}
-.atlas-toolbar{min-height:54px;padding:8px 16px;gap:10px;background:#111923}
-.tool-label{font:10px var(--vp-font-family-base);text-transform:none}
-.series-search{min-height:34px;border-radius:6px}.series-search input{font-size:12px}
-.segmented button,.window-buttons button{height:34px;min-width:35px;font:11px var(--vp-font-family-base)}
-.segmented button:first-child,.window-buttons button:first-child{border-radius:6px 0 0 6px}.segmented button:last-child,.window-buttons button:last-child{border-radius:0 6px 6px 0}
-.segmented button[aria-pressed=true],.window-buttons button[aria-pressed=true]{background:#263628;color:#d5ebc3;box-shadow:none;border-color:#4c6443}
-.manage-series{height:34px;border-radius:6px;font:11px var(--vp-font-family-base);color:var(--atlas-ink)}.manage-series b{font-size:9px;border-radius:3px}
-.forecast-strip{padding:8px 16px;gap:8px;background:var(--atlas-ground)}.forecast-strip>span{font:10px var(--vp-font-family-base);text-transform:none}.forecast-strip button{min-height:31px;font:10px var(--vp-font-family-base);border-radius:5px}.forecast-strip button b{font-size:10px}.forecast-strip button[aria-pressed=true]{background:#203123;border-color:#486444;color:#d5ebc3}
-.atlas-main{grid-template-columns:214px minmax(600px,1fr) 286px}.series-register{background:#111923}.lane-series strong{font-size:10px;font-weight:500}.lane-series small{font:9px var(--vp-font-family-base)}.lane-series>span>b{font:10px var(--vp-font-family-base)}
-.evidence-rail{background:#101923}.rail-section h2{font:11px var(--vp-font-family-base);text-transform:none;letter-spacing:0}.rail-section dt,.rail-section dd{font:10px var(--vp-font-family-base)}.rail-section dl>div{padding-top:6px;padding-bottom:6px}
-.investigate{font:12px var(--vp-font-family-base);border-radius:6px;min-height:38px;background:#233727;color:#d5ebc3;border-color:#4c6443}.scrubber-actions button{font:10px var(--vp-font-family-base);min-height:28px;border-radius:4px}
-.ledger-dock h2{font-size:12px}.ledger-dock th{font-size:10px}.ledger-dock td{font-size:11px}
-@media(max-width:1400px) and (min-width:721px){.atlas-main{grid-template-columns:200px minmax(580px,1fr) 250px}.atlas-frame{min-width:1030px}}
-@media(max-width:720px){.atlas-titlebar{padding:16px 18px}.atlas-titlebar h1{font-size:25px}.atlas-toolbar{padding:8px 12px;overflow-x:auto}.forecast-strip{padding:8px 12px}.atlas-main{grid-template-columns:200px 660px 260px}.atlas-frame{min-width:1120px}}
+/* Research workspace: coverage, timeline, then point-in-time evidence. */
+.market-atlas {
+  --atlas-plot-height: clamp(340px, calc(100dvh - 520px), 600px);
+  padding: 0 24px 24px;
+  background: var(--atlas-ground);
+}
+.atlas-titlebar { min-height: 96px; padding: 18px 0; border: 0; background: transparent; flex-wrap: wrap; }
+.atlas-titlebar > div { display: block; }
+.atlas-titlebar h1 { font-size: 28px; font-weight: 650; letter-spacing: -.035em; text-transform: none; }
+.atlas-titlebar p { color: var(--ui-muted); font-size: 12px; margin: 7px 0 0; }
+.atlas-titlebar .atlas-session { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.atlas-session .data-kind { display: inline-block; color: var(--ui-muted); font: 11px var(--vp-font-family-base); text-transform: none; border-right: 1px solid var(--ui-border); padding-right: 14px; }
+.atlas-session button { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--ui-border); border-radius: 7px; background: var(--ui-panel); font-size: 11px; cursor: pointer; }
+.atlas-session button svg { width: 15px; height: 15px; }
+.update-toggle i { width: 5px; height: 5px; border-radius: 50%; background: var(--ui-subtle); }
+.update-toggle i[data-active=true] { background: var(--ui-accent); }
+.atlas-overview { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.25fr; gap: 14px; margin-bottom: 20px; }
+.atlas-overview > div { display: grid; align-content: start; gap: 8px; padding: 16px 18px; border: 1px solid var(--ui-border); border-radius: 10px; background: var(--ui-panel); min-width: 0; }
+.atlas-overview > div:first-child { background: linear-gradient(110deg, #1b2822, #131c22); }
+.atlas-overview span { color: var(--ui-muted); font-size: 11px; }
+.atlas-overview strong { font-size: 17px; font-weight: 550; letter-spacing: -.3px; }
+.atlas-overview small { font-size: 10px; color: var(--ui-subtle); line-height: 1.5; }
+.atlas-overview strong small { font-weight: 400; letter-spacing: 0; }
+.atlas-toolbar { min-height: 60px; padding: 12px 16px; gap: 16px; flex-wrap: wrap; overflow: visible; background: var(--ui-panel); border: 1px solid var(--ui-border); border-radius: 10px 10px 0 0; }
+.window-buttons { margin: 0; }
+.window-buttons button { min-width: 37px; height: 32px; font: 11px var(--vp-font-family-base); }
+.window-buttons button:first-child { border-radius: 6px 0 0 6px; }
+.window-buttons button:last-child { border-radius: 0 6px 6px 0; }
+.window-buttons button[aria-pressed=true] { color: var(--ui-accent); background: #263628; box-shadow: none; border-color: #4c6443; }
+.transform-control { display: flex; align-items: center; gap: 9px; font-size: 11px; color: var(--ui-muted); }
+.transform-control select { min-height: 32px; border: 1px solid var(--ui-border); border-radius: 6px; background: #111820; padding: 0 24px 0 10px; font-size: 11px; }
+.available-button, .manage-series { min-height: 33px; padding: 0 12px; border: 1px solid var(--ui-border); border-radius: 6px; background: #1a2531; font: 11px var(--vp-font-family-base); cursor: pointer; }
+.available-button { margin-left: auto; }
+.available-button span { margin-left: 6px; color: var(--ui-subtle); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.manage-series { gap: 8px; color: var(--atlas-ink); }
+.manage-series svg { width: 16px; height: 16px; stroke-width: 1.6; }
+.manage-series b { border-radius: 3px; font-size: 9px; }
+.forecast-strip { padding: 10px 16px; gap: 8px; flex-wrap: wrap; overflow: visible; background: #101820; border-inline: 1px solid var(--ui-border); }
+.forecast-strip > span { font: 10px var(--vp-font-family-base); text-transform: none; }
+.forecast-strip button { min-height: 30px; font: 10px var(--vp-font-family-base); border-radius: 6px; }
+.forecast-strip button b { font-size: 10px; }
+.forecast-strip button[aria-pressed=true] { background: #203123; border-color: #486444; color: #d5ebc3; }
+.forecast-strip .forecast-custom { margin-left: 0; }
+.series-drawer { border: 1px solid var(--ui-border); background: var(--ui-panel); }
+.series-drawer > header { padding: 16px; gap: 12px; }
+.series-drawer > header div { display: grid; gap: 5px; }
+.series-drawer > header strong { font-size: 14px; }
+.series-drawer > header span { display: block; font: 11px var(--vp-font-family-base); }
+.series-drawer > header button, .drawer-tools > button { border: 0; background: transparent; color: var(--ui-accent); font-size: 12px; cursor: pointer; }
+.drawer-tools { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; gap: 12px; }
+.series-search { width: min(340px, 100%); height: 36px; border-radius: 6px; }
+.series-search input { font: 12px var(--vp-font-family-base); }
+.series-search svg { width: 16px; height: 16px; }
+.bundle-registry summary { padding: 14px; }
+.bundle-registry summary strong { font-size: 12px; }
+.bundle-registry summary small { font-size: 11px; line-height: 1.5; }
+.bundle-registry summary > b { font-size: 9px; }
+.bundle-registry details > div { padding: 0 14px 14px; }
+.bundle-registry p > span { font-size: 9px; }
+.bundle-registry details > div > button, .pane-choices button { font: 10px var(--vp-font-family-base); border-radius: 4px; min-height: 30px; }
+.series-options { max-height: 360px; }
+.series-toggle { padding: 14px; min-height: 74px; }
+.series-toggle strong { font-size: 12px; }
+.series-toggle small { font: 10px var(--vp-font-family-base); }
+.series-toggle b { font: 10px var(--vp-font-family-base); }
+.atlas-scroll { overflow: visible; border: 1px solid var(--ui-border); border-top: 0; border-radius: 0 0 10px 10px; background: var(--ui-panel); }
+.atlas-scroll::before { display: none; }
+.chart-guidance { display: flex; align-items: center; gap: 18px; min-height: 44px; padding: 10px 16px; border-bottom: 1px solid var(--ui-border); }
+.chart-guidance > span { display: flex; align-items: center; gap: 7px; font-size: 11px; white-space: nowrap; }
+.chart-guidance i { height: 5px; width: 5px; border-radius: 50%; background: var(--ui-accent); }
+.chart-guidance p { margin: 0; color: var(--ui-subtle); font-size: 10px; line-height: 1.5; }
+.atlas-update-error { padding: 12px 16px; color: #e6bc8d; font-size: 12px; background: #28221b; line-height: 1.6; }
+.atlas-update-error button { margin-left: 12px; border: 0; background: transparent; color: inherit; text-decoration: underline; cursor: pointer; }
+.atlas-frame { min-width: 0; }
+.atlas-main { display: grid; height: auto; grid-template-columns: 200px minmax(0, 1fr) 260px; align-items: start; }
+.series-register { background: #121b25; }
+.series-register article { grid-template-columns: 14px minmax(0,1fr) 18px; padding: 10px 8px; gap: 4px; }
+.lane-series > span { grid-template-columns: 3px minmax(0,1fr); align-items: start; gap: 6px; }
+.lane-series > span > i { height: 17px; border-radius: 2px; }
+.lane-series strong { font: 550 11px var(--vp-font-family-base); white-space: normal; line-height: 1.35; }
+.lane-series small { font: 9px var(--vp-font-family-base); margin-top: 5px; }
+.lane-series > span > b { grid-column: 2; font: 550 15px var(--vp-font-family-base); margin-top: 7px; font-variant-numeric: tabular-nums; }
+.lane-series > span > b small { display: block; font-size: 9px; font-weight: 400; color: var(--ui-subtle); }
+.chart-column { grid-template-rows: var(--atlas-plot-height) auto auto; }
+.chart-stage { overflow: hidden; }
+.chart-no-data { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; justify-items: center; gap: 12px; background: #0d1520e8; text-align: center; padding: 24px; }
+.chart-no-data > svg { width: 32px; height: 32px; color: var(--ui-subtle); }
+.chart-no-data strong { font-size: 16px; font-weight: 550; }
+.chart-no-data p { font-size: 12px; color: var(--ui-muted); max-width: 35ch; margin: 0; line-height: 1.6; }
+.chart-no-data button { font-size: 12px; padding: 10px 14px; background: #233727; color: var(--ui-accent); border: 1px solid #4c6443; border-radius: 6px; cursor: pointer; }
+.event-rails { min-height: 60px; }
+.event-rails strong { font: 9px var(--vp-font-family-base); }
+.global-scrubber { grid-template-columns: 1fr; padding: 8px; gap: 6px; }
+.navigator { height: 30px; }
+.scrubber-actions { justify-content: flex-end; gap: 6px; }
+.scrubber-actions time { font: 10px var(--vp-font-family-base); margin-right: auto; min-width: 0; }
+.scrubber-actions button { font: 10px var(--vp-font-family-base); min-height: 28px; border-radius: 4px; }
+.evidence-rail { height: 100%; min-width: 0; background: #121b25; padding-bottom: 16px; }
+.evidence-rail > header { display: flex; align-items: center; justify-content: space-between; padding: 18px; }
+.evidence-rail > header > div { display: grid; gap: 7px; }
+.evidence-rail > header span { font: 10px var(--vp-font-family-base); text-transform: none; color: var(--ui-subtle); }
+.evidence-rail > header strong { font: 550 24px var(--vp-font-family-base); letter-spacing: -.5px; }
+.evidence-rail > header svg { width: 22px; height: 22px; color: var(--ui-accent); }
+.inspector-help { margin: 0; padding: 0 18px 12px; color: var(--ui-subtle); font-size: 11px; line-height: 1.5; }
+.rail-section { padding: 12px 18px; }
+.rail-section h2 { font: 550 12px var(--vp-font-family-base); text-transform: none; letter-spacing: 0; margin-bottom: 12px; }
+.rail-section dt, .rail-section dd { font: 11px var(--vp-font-family-base); }
+.rail-section dl > div { padding-top: 7px; padding-bottom: 7px; gap: 12px; }
+.rail-section dd { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.no-decision { margin: 0; padding: 14px 18px; color: var(--ui-subtle); font-size: 11px; border-top: 1px solid var(--ui-border); }
+.investigate { margin: 0 16px; width: calc(100% - 32px); min-height: 38px; font: 12px var(--vp-font-family-base); border-radius: 7px; background: #233727; color: #d5ebc3; border-color: #4c6443; }
+.suggestions { margin-top: 18px; }
+.rail-section > summary { font-size: 11px; color: var(--ui-muted); cursor: pointer; line-height: 1.6; }
+.rail-section[open] > summary { margin-bottom: 12px; }
+.suggestions button { padding-block: 10px; font-size: 11px; }
+.suggestions button small { font: 9px var(--vp-font-family-base); margin-top: 5px; line-height: 1.4; }
+.suggestions button b { font-size: 10px; }
+.ledger-section > summary { display: flex; align-items: center; gap: 16px; padding: 16px 18px; color: var(--ui-muted); font-size: 12px; cursor: pointer; }
+.ledger-section > summary::before { content: '›'; font-size: 19px; }
+.ledger-section[open] > summary::before { transform: rotate(90deg); }
+.ledger-section small { margin-left: auto; color: var(--ui-subtle); font-size: 10px; }
+.ledger-dock { border-top: 1px solid var(--ui-border); grid-template-columns: repeat(2, minmax(0,1fr)); }
+.ledger-dock h2 { font-size: 12px; }.ledger-dock th { font-size: 10px; }.ledger-dock td { font-size: 11px; }
+@media (max-width: 1400px) {
+  .atlas-main { grid-template-columns: 180px minmax(0,1fr) 235px; }
+  .atlas-overview { grid-template-columns: 1.4fr 1fr 1fr; }
+  .atlas-overview > div:last-child { display: none; }
+}
+@media (max-width: 1100px) {
+  .atlas-main { grid-template-columns: 180px minmax(0,1fr); }
+  .evidence-rail { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; border-left: 0; border-top: 1px solid var(--ui-border); }
+  .evidence-rail > header { grid-column: 1; }.inspector-help { grid-column: 1; }
+  .evidence-rail .observation { grid-column: 2; grid-row: 1 / 4; border-left: 1px solid var(--ui-border); }
+  .evidence-rail .suggestions { display: none; }
+  .chart-guidance { flex-wrap: wrap; gap: 6px; }
+  .chart-guidance p { flex-basis: 100%; }
+  .available-button { margin-left: 0; }
+}
+@media (max-width: 720px) {
+  .market-atlas { padding: 0 14px 18px; --atlas-plot-height: 440px; }
+  .atlas-titlebar { min-height: 90px; gap: 16px; }.atlas-titlebar h1 { font-size: 25px; }
+  .atlas-overview { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .atlas-overview > div:first-child { grid-column: 1 / -1; }.atlas-overview > div { padding: 14px; }
+  .atlas-overview strong { font-size: 16px; }
+  .atlas-toolbar { padding: 12px; gap: 10px; }.transform-control { font-size: 10px; }
+  .forecast-strip { padding: 10px 12px; }.forecast-strip > span { flex-basis: 100%; }
+  .atlas-main { grid-template-columns: 125px minmax(0,1fr); }
+  .series-register article { grid-template-columns: minmax(0,1fr) 18px; padding: 8px; }
+  .lane-grip { display: none; }.lane-series strong { font-size: 10px; }.lane-series > span > span > small { display: none; }
+  .lane-series > span > b { font-size: 12px; }.lane-series > span > b small { font-size: 8px; }
+  .scrubber-actions { flex-wrap: wrap; }.scrubber-actions time { order: -1; width: 100%; text-align: left; }
+  .evidence-rail { grid-template-columns: 1fr; }.evidence-rail .observation { grid-column: 1; grid-row: auto; border-left: 0; }
+  .ledger-dock { grid-template-columns: 1fr; }.ledger-section > summary { flex-wrap: wrap; gap: 8px; }.ledger-section small { margin-left: 0; }
+  .series-options { grid-template-columns: 1fr; }.bundle-registry { grid-template-columns: 1fr; }
+  .bundle-registry summary { grid-template-columns: 7px minmax(0,1fr); }.bundle-registry summary > b { grid-column: 2; }
+}
+
 </style>

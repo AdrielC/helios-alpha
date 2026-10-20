@@ -398,7 +398,7 @@ export function defaultTimelineWorkspace(catalog: readonly TimeSeriesDescriptor[
   return {
     schemaVersion: 2,
     transform: "raw",
-    lanes: catalog.filter((series) => series.defaultVisible).map((series) => ({ id: `lane-${series.id}`, seriesIds: [series.id] })),
+    lanes: catalog.filter((series) => series.defaultVisible).slice(0, 4).map((series) => ({ id: `lane-${series.id}`, seriesIds: [series.id] })),
     windowMinutes: 60,
     forecastBundleIds: [],
   };

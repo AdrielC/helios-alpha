@@ -83,7 +83,7 @@ test("operator shell avoids accidental mobile page overflow", async ({ page }) =
     atlasScroll: document.querySelector<HTMLElement>(".atlas-scroll")?.scrollWidth ?? 0,
   }));
   expect(dimensions.page).toBeLessThanOrEqual(dimensions.viewport + 1);
-  expect(dimensions.atlasScroll).toBeGreaterThan(dimensions.atlasClient);
+  expect(dimensions.atlasScroll).toBeLessThanOrEqual(dimensions.atlasClient + 1);
   await expect(page.getByRole("tablist", { name: "Operations panes" })).toHaveAttribute("aria-orientation", "horizontal");
 
   await page.getByRole("tab", { name: /Positions/ }).click();
