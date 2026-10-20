@@ -1,10 +1,11 @@
 use std::collections::BTreeSet;
 
 use helio_execution::{
-    evaluate_capital_admission, BrokerAcknowledgement, CapitalAdmissionPolicy, EvidenceArtifact,
-    EvidenceLedger, ExecutionMode, MoneyMicros, OrderGateway, OrderGatewayPolicy, OrderIntent,
-    OrderProposal, PaperBroker, PaperBrokerFault, PortfolioRiskSnapshot, PriceMicros,
-    QuantityMicros, ReadinessReport, RiskAuthority, RiskContext, RiskDecision, RiskPolicy, Side,
+    evaluate_capital_admission, BrokerAcknowledgement, CapitalAdmissionPolicy,
+    CapitalAuthorization, EvidenceArtifact, EvidenceLedger, ExecutionMode, GatewayError,
+    MoneyMicros, OrderGateway, OrderGatewayPolicy, OrderIntent, OrderProposal, PaperBroker,
+    PaperBrokerFault, PortfolioRiskSnapshot, PriceMicros, QuantityMicros, ReadinessReport,
+    RiskAuthority, RiskContext, RiskDecision, RiskPolicy, Side,
 };
 use helio_scan::{
     drain_outbox, AtomicCommitBundle, Checkpoint, CommitFault, InMemoryAtomicCommitStore,
@@ -113,8 +114,7 @@ fn atomic_outbox_to_broker_survives_both_ambiguous_boundaries() {
     ));
 }
 
-#[test]
-fn live_gateway_accepts_only_an_admitted_authorization() {
+fn synthetic_capital_authorization() -> CapitalAuthorization {
     let policy = CapitalAdmissionPolicy::production_default("capital-1", 500);
     let mut evidence = EvidenceLedger::default();
     for kind in policy.required_evidence() {
@@ -128,7 +128,7 @@ fn live_gateway_accepts_only_an_admitted_authorization() {
             passed: true,
         });
     }
-    let authorization = evaluate_capital_admission(
+    evaluate_capital_admission(
         &policy,
         &evidence,
         &ReadinessReport {
@@ -137,7 +137,12 @@ fn live_gateway_accepts_only_an_admitted_authorization() {
         },
         10_000,
     )
-    .unwrap();
+    .unwrap()
+}
+
+#[test]
+fn live_gateway_accepts_only_an_admitted_authorization() {
+    let authorization = synthetic_capital_authorization();
     let mut gateway = gateway(PaperBroker::new(10_001));
     let receipt = gateway
         .dispatch(
@@ -148,4 +153,31 @@ fn live_gateway_accepts_only_an_admitted_authorization() {
         .unwrap();
     assert_eq!(receipt.acknowledgement.client_order_id, "shock/43/order/0");
     assert_eq!(gateway.broker().accepted_order_count(), 1);
+}
+
+#[test]
+fn reconciliation_cannot_retry_an_order_after_its_authorization_expires() {
+    let authorization = synthetic_capital_authorization();
+    let mut broker = PaperBroker::new(10_001);
+    broker.inject_fault(PaperBrokerFault::UnavailableBeforeAcceptOnce);
+    let mut gateway = gateway(broker);
+    let intent = authorize("shock/44/order/0", ExecutionMode::Live);
+    assert_eq!(
+        gateway.dispatch(&intent, Some(&authorization), 10_001),
+        Err(GatewayError::PendingReconciliation)
+    );
+    for _ in 0..10 {
+        assert_eq!(
+            gateway.reconcile(&intent.client_order_id),
+            Err(GatewayError::PendingReconciliation)
+        );
+    }
+    assert_eq!(gateway.broker().accepted_order_count(), 0);
+    assert_eq!(gateway.record(&intent.client_order_id).unwrap().attempts, 1);
+    assert_eq!(
+        gateway.dispatch(&intent, Some(&authorization), 10_501),
+        Err(GatewayError::CapitalAuthorizationRequired)
+    );
+    assert_eq!(gateway.broker().accepted_order_count(), 0);
+    assert_eq!(gateway.record(&intent.client_order_id).unwrap().attempts, 1);
 }

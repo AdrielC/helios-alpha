@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/helio_crypto",
+    "crates/helio_decision",
     "crates/helio_scan",
     "crates/helio_stats",
     "crates/helio_hypothesis",
@@ -20,6 +22,8 @@ members = [
     "crates/helios_signald",
 ]
 default-members = [
+    "crates/helio_crypto",
+    "crates/helio_decision",
     "crates/helio_scan",
     "crates/helio_stats",
     "crates/helio_hypothesis",

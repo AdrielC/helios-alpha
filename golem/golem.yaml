@@ -32,6 +32,67 @@ components:
   helios:hypothesis-shard:
     dir: ""
     templates: rust
+    # Path dependencies contain the durable control kernel; include them in build invalidation.
+    presets:
+      debug:
+        buildMergeMode: replace
+        build:
+          - command: cargo build --locked --target wasm32-wasip2
+            sources:
+              - src
+              - Cargo.toml
+              - Cargo.lock
+              - ../rust/Cargo.toml
+              - ../rust/crates/*/Cargo.toml
+              - ../rust/crates/*/src
+            targets:
+              - "{{ cargoTarget }}/wasm32-wasip2/debug/helios_hypothesis_shard.wasm"
+      release:
+        buildMergeMode: replace
+        build:
+          - command: cargo build --locked --target wasm32-wasip2 --release
+            sources:
+              - src
+              - Cargo.toml
+              - Cargo.lock
+              - ../rust/Cargo.toml
+              - ../rust/crates/*/Cargo.toml
+              - ../rust/crates/*/src
+            targets:
+              - "{{ cargoTarget }}/wasm32-wasip2/release/helios_hypothesis_shard.wasm"
+
+  helios:crypto-broker-journal:
+    dir: broker-journal
+    templates: rust
+    presets:
+      debug:
+        buildMergeMode: replace
+        build:
+          - command: cargo build --locked --target wasm32-wasip2
+            sources:
+              - src
+              - Cargo.toml
+              - ../Cargo.toml
+              - ../Cargo.lock
+              - ../../rust/Cargo.toml
+              - ../../rust/crates/*/Cargo.toml
+              - ../../rust/crates/*/src
+            targets:
+              - "{{ cargoTarget }}/wasm32-wasip2/debug/helios_crypto_broker_journal.wasm"
+      release:
+        buildMergeMode: replace
+        build:
+          - command: cargo build --locked --target wasm32-wasip2 --release
+            sources:
+              - src
+              - Cargo.toml
+              - ../Cargo.toml
+              - ../Cargo.lock
+              - ../../rust/Cargo.toml
+              - ../../rust/crates/*/Cargo.toml
+              - ../../rust/crates/*/src
+            targets:
+              - "{{ cargoTarget }}/wasm32-wasip2/release/helios_crypto_broker_journal.wasm"
 
 bridge:
   rust:

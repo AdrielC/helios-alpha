@@ -31,6 +31,12 @@ dependencies = [
 [project.scripts]
 helios-pipeline = "helios_alpha.cli:main"
 helios-shadow = "helios_alpha.shadow.cli:main"
+helios-control = "helios_alpha.control.cli:main"
+helios-mcp = "helios_alpha.control.mcp_server:main"
+helios-local = "helios_alpha.control.local:main"
+helios-order-recovery = "helios_alpha.crypto.order_recovery:main"
+helios-account-read = "helios_alpha.crypto.account_reader:main"
+helios-allocation-value = "helios_alpha.crypto.valuation_reconciler:main"
 
 [project.optional-dependencies]
 dev = [
@@ -44,7 +50,13 @@ forecasting = [
     "prophet>=1.1",
 ]
 execution = [
-    "pyzmq>=26.0",
+    "nats-py==2.12.0",
+    "websockets==16.0",
+    "defusedxml==0.7.1",
+]
+control = [
+    "mcp==1.30.0",
+    "cryptography==50.0.2",
 ]
 
 [tool.hatch.build.targets.wheel]

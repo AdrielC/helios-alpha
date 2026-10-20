@@ -355,6 +355,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "helio_crypto"
+version = "0.1.0"
+dependencies = [
+ "helio_execution",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+]
+
+[[package]]
 name = "helio_execution"
 version = "0.1.0"
 dependencies = [
@@ -416,10 +428,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "helios_crypto_broker_journal"
+version = "0.0.1"
+dependencies = [
+ "golem-rust",
+ "helio_crypto",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "helios_hypothesis_shard"
 version = "0.0.1"
 dependencies = [
  "golem-rust",
+ "helio_crypto",
  "helio_execution",
  "helio_golem",
  "helio_hypothesis",

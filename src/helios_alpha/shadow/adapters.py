@@ -450,7 +450,7 @@ DEFAULT_SHADOW_FEEDS: tuple[ShadowFeed, ...] = (
     ),
     ShadowFeed(
         "nasa-ccmc-donki-cme-v1",
-        "https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/CME",
+        "https://ccmc.gsfc.nasa.gov/DONKI-API/get/CME",
         normalize_donki_cme,
         timedelta(days=7),
         revision_lookback=timedelta(days=7),
@@ -458,7 +458,7 @@ DEFAULT_SHADOW_FEEDS: tuple[ShadowFeed, ...] = (
     ),
     ShadowFeed(
         "nasa-ccmc-donki-flare-v1",
-        "https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/FLR",
+        "https://ccmc.gsfc.nasa.gov/DONKI-API/get/FLR",
         normalize_donki_flare,
         timedelta(days=7),
         revision_lookback=timedelta(days=7),

@@ -1,52 +1,104 @@
 from __future__ import annotations
 
+import re
+
 from helios_alpha.signals.schema import HeliosSignalV1
-from helios_alpha.timekeeping import Clock, SystemClock
+
+SIGNAL_STREAM = "HELIOS_SIGNALS_V1"
+
+
+async def ensure_stream(js, name: str, subjects: list[str], *, max_bytes=128 * 1024 * 1024):
+    from nats.js.api import DiscardPolicy, RetentionPolicy, StorageType, StreamConfig
+    from nats.js.errors import NotFoundError
+
+    expected = StreamConfig(
+        name=name,
+        subjects=subjects,
+        retention=RetentionPolicy.LIMITS,
+        storage=StorageType.FILE,
+        num_replicas=1,
+        max_msgs=200_000,
+        max_bytes=max_bytes,
+        max_age=14 * 86400,
+        max_msg_size=65536,
+        discard=DiscardPolicy.NEW,
+        duplicate_window=600,
+        deny_delete=True,
+        deny_purge=True,
+    )
+    try:
+        info = await js.stream_info(name)
+    except NotFoundError:
+        info = await js.add_stream(config=expected)
+    for field in (
+        "subjects",
+        "retention",
+        "storage",
+        "num_replicas",
+        "max_msgs",
+        "max_bytes",
+        "max_age",
+        "max_msg_size",
+        "discard",
+        "duplicate_window",
+        "deny_delete",
+        "deny_purge",
+        "no_ack",
+    ):
+        if getattr(info.config, field) != getattr(expected, field):
+            raise ValueError("JetStream configuration does not match durability bounds")
+    return info
 
 
 class SignalPublisher:
-    """
-    ZMQ PUB socket. Install: ``pip install helios-alpha[execution]``.
+    """Acknowledged JetStream publisher. Await connect/publish/close.
 
-    Multipart message: ``[topic, json_utf8]`` so Rust/Python SUB can prefix-match.
+    Retries must reuse the same immutable envelope (including ID and timestamp).
+    Broker-side deduplication is bounded; consumers must persist their own cursor.
+    A timeout has an unknown publish outcome, never a success.
     """
 
-    def __init__(
-        self,
-        bind_address: str = "tcp://127.0.0.1:7779",
-        *,
-        topic_prefix: str = "helios.signal",
-        clock: Clock | None = None,
-    ) -> None:
+    def __init__(self, connection, js):
+        self._connection = connection
+        self._js = js
+
+    @classmethod
+    async def connect(cls, url="nats://127.0.0.1:4222", *, token: str | None = None):
+        import nats
+
+        connection = await nats.connect(
+            url, token=token, connect_timeout=3, max_reconnect_attempts=3
+        )
         try:
-            import zmq
-        except ImportError as e:
-            msg = "Install pyzmq: pip install helios-alpha[execution]"
-            raise ImportError(msg) from e
-        self._ctx = zmq.Context.instance()
-        self._sock = self._ctx.socket(zmq.PUB)
-        self._sock.bind(bind_address)
-        self._topic_prefix = topic_prefix.rstrip(".")
-        self._zmq = zmq
-        self._clock = clock or SystemClock()
+            js = connection.jetstream(timeout=5)
+            await ensure_stream(js, SIGNAL_STREAM, ["helios.signal.>"])
+            return cls(connection, js)
+        except BaseException:
+            await connection.close()
+            raise
 
-    @property
-    def topic_prefix(self) -> str:
-        return self._topic_prefix
+    async def publish(self, signal: HeliosSignalV1) -> dict:
+        if not re.fullmatch(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*", signal.topic_suffix):
+            raise ValueError("invalid signal subject")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", signal.signal_id):
+            raise ValueError("invalid signal identity")
+        if not signal.emitted_at_utc:
+            raise ValueError("signal needs an immutable emission timestamp before publishing")
+        topic = f"helios.signal.{signal.topic_suffix}.{signal.kind.value}"
+        ack = await self._js.publish(
+            topic,
+            signal.to_json_bytes(),
+            headers={"Nats-Msg-Id": signal.signal_id},
+        )
+        if ack.stream != SIGNAL_STREAM:
+            raise ValueError("unexpected JetStream acknowledgement")
+        return {"stream": ack.stream, "sequence": ack.seq, "duplicate": ack.duplicate}
 
-    def publish(self, signal: HeliosSignalV1) -> None:
-        ts = self._clock.now_utc().to_iso8601_string()
-        payload = signal.model_dump()
-        payload["emitted_at_utc"] = ts
-        topic = f"{self._topic_prefix}.{signal.topic_suffix}.{signal.kind.value}"
-        body = HeliosSignalV1(**payload).to_json_bytes()
-        self._sock.send_multipart([topic.encode("utf-8"), body])
+    async def close(self) -> None:
+        await self._connection.drain()
 
-    def close(self) -> None:
-        self._sock.close(linger=0)
-
-    def __enter__(self) -> SignalPublisher:
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *args: object) -> None:
-        self.close()
+    async def __aexit__(self, *args):
+        await self.close()

@@ -2,6 +2,7 @@ pub mod alpaca_feed;
 pub mod alpaca_paper;
 pub mod alpaca_trade_stream;
 pub mod auth;
+pub mod broker_observation;
 pub mod fixtures;
 pub mod forecast;
 #[cfg(feature = "golem")]
@@ -30,3 +31,5 @@ pub use projection_file::{load_projection_file, watch_projection_file, Projectio
 pub use server::{router, AppState};
 pub use store::{CommandExecutor, OperatorStore, ReadOnlyCommandExecutor};
 pub use time_series::{InMemoryTimeSeriesPort, TimeSeriesPort};
+
+pub mod broker_sync;

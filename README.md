@@ -75,7 +75,7 @@ Helios uses Rust types and values as dependency injection:
   parameters. There is no reflection-based container and no hidden service locator.
 - `FlushableScan` separates watermarks, session close, shutdown, and end-of-input from domain data.
 - `SnapshottingScan` separates runtime state from a stable persistence contract.
-- Iterator, batch, async stream, channel, and ZMQ adapters stay outside the core algebra.
+- Iterator, batch, async stream, channel, and NATS adapters stay outside the core algebra.
 
 Static dispatch is the default. Dynamic dispatch remains an application choice at a plugin boundary,
 not a tax paid by every observation.
@@ -174,6 +174,7 @@ still has to map that contract to its own serializable transaction.
 |---|---|---|
 | `helio_scan` | State machines, composition, emit sinks, controls, persistence seams | Markets, transports, business policy |
 | `helio_hypothesis` | Keyed conditional lifecycle, deadlines, atomic model effects, snapshots, typed actor service | Domain meaning, durable transactions, execution authority |
+| `helio_decision` | Typed OpenAI Decisions, Jev and Clef adapters; bounded native inference; local SQLite replay | Trading policy, broker access, calibrated market predictions |
 | `helio_golem` | Atomic source-offset batches, deterministic invocation identities, validated shard snapshots | Golem SDK types, event-shock meaning, cloud credentials |
 | `helio_time` | Frequencies, interval bounds, bucket grids, causal availability | Buffers and eviction machinery |
 | `helio_window` | Bounded reorder, bucket reduction, rolling and session state | Signal meaning |
@@ -186,7 +187,7 @@ still has to map that contract to its own serializable transaction.
 | `helio_relay` | Validated committed-event batches, acknowledged JetStream publication, stable de-duplication identity, durable Golem cursor advancement, and bounded retry | OMS command authority, consumer projection state, production NATS credentials |
 | `helio_robinhood` | Official Robinhood Crypto signing, limit orders, lifecycle polling, cancellation, and decimal normalization | Credentials, rate scheduling, paper trading, equities and options, broker certification |
 | `helio_backtest` | Fixed clocks, fingerprints, guarded Kalman research, replay harnesses | Live execution guarantees |
-| `helios_signald` | Optional ZMQ integration | Kernel abstractions |
+| `helios_signald` | Durable NATS JetStream diagnostic consumer | Kernel abstractions, order execution |
 | `helio_bench` | Criterion workloads and baselines | Runtime dependencies |
 
 Dependencies point from applications toward the small substrate crates. The substrate has no
@@ -207,6 +208,15 @@ Run the focused statistical suite and benchmarks:
 cd rust
 cargo test -p helio_stats
 cargo bench -p helio_bench --bench online_stats -- --noplot
+```
+
+Decision-model inference uses property-based tests, injected effects, and durable
+local receipts. See [Decision models](docs/operations/decision-models.md) for local
+credentials and the scientific observation bridge, and
+[Property-based testing](docs/guide/testing.md) for the repository testing policy.
+
+```bash
+cargo test --manifest-path rust/Cargo.toml -p helio_decision --all-features
 ```
 
 Run the typed space-weather reference and its restart proof:

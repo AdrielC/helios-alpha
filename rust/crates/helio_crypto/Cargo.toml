@@ -1,0 +1,20 @@
+[package]
+name = "helio_crypto"
+version = "0.1.0"
+edition = "2021"
+description = "Strategy-independent crypto risk checks and causal fixed-point replay"
+
+[dependencies]
+helio_execution = { path = "../helio_execution" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "2"
+
+[dev-dependencies]
+proptest = "1"
+
+[[bin]]
+name = "helios-crypto-replay"
+path = "src/main.rs"

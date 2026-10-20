@@ -1,0 +1,33 @@
+[package]
+name = "helio_decision"
+version = "0.1.0"
+edition = "2021"
+description = "Typed decision-model ports, provider codecs, and replayable local inference"
+
+[features]
+default = []
+native = ["dep:reqwest", "dep:tokio", "dep:rusqlite", "dep:zeroize", "dep:clap"]
+
+[dependencies]
+helio_hypothesis = { path = "../helio_hypothesis" }
+helio_time = { path = "../helio_time" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+hex = "0.4"
+thiserror = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"], optional = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "io-util", "io-std", "fs"], optional = true }
+rusqlite = { version = "0.37", features = ["bundled"], optional = true }
+zeroize = { version = "1", optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
+
+[dev-dependencies]
+proptest = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "macros", "time", "test-util", "sync"] }
+
+[[bin]]
+name = "helios-decision"
+path = "src/main.rs"
+required-features = ["native"]

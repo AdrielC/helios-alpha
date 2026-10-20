@@ -20,7 +20,7 @@ Arrow-style combinators (`Arr`, `Split`, `Merge`, `Choose`, `Fanin`, `First`, `S
 
 ## Workspace
 
-This crate lives under `rust/crates/helio_scan` in the workspace defined in `../../Cargo.toml`. Default members include this crate but not `helios_signald`, so `cargo test` in `rust/` does not require ZMQ.
+This crate lives under `rust/crates/helio_scan` in the workspace defined in `../../Cargo.toml`. Default members include this crate but not `helios_signald`, so `cargo test` in `rust/` does not require a running NATS server.
 
 ## Design slogan
 

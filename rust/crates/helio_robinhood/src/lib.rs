@@ -10,7 +10,7 @@
 //!
 //! This crate never reads credentials from the environment and never logs secret key material.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -26,12 +26,26 @@ use helio_execution::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
+use url::Url;
 use uuid::Uuid;
 use zeroize::Zeroize;
 
 pub const ROBINHOOD_CRYPTO_API_ORIGIN: &str = "https://trading.robinhood.com";
 pub const ROBINHOOD_AGENTIC_MCP_URL: &str = "https://agent.robinhood.com/mcp/trading";
 const V2_ORDERS_PATH: &str = "/api/v2/crypto/trading/orders/";
+const MAX_ORDER_RESPONSE_BYTES: usize = 1_048_576;
+
+mod crypto_journal;
+pub use crypto_journal::{CryptoJournalBinding, CryptoLimitOrderDraft};
+mod crypto_account;
+pub use crypto_account::{
+    CryptoAccountAvailability, CryptoAccountAvailabilityData, CryptoApiAccountStatus,
+    CryptoBrokerAllocationCaps, CryptoBrokerHolding,
+};
+mod crypto_market;
+pub use crypto_market::{
+    CryptoMarketAvailability, CryptoMarketAvailabilityData, CryptoPreparationReads,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HttpMethod {
@@ -62,7 +76,7 @@ impl fmt::Debug for HttpRequest {
         formatter
             .debug_struct("HttpRequest")
             .field("method", &self.method)
-            .field("path_and_query", &self.path_and_query)
+            .field("path_and_query", &"[redacted]")
             .field("header_names", &self.headers.keys().collect::<Vec<_>>())
             .field("body_bytes", &self.body.len())
             .finish()
@@ -91,12 +105,22 @@ pub trait RobinhoodTransport {
 
 pub trait UnixClock {
     fn unix_seconds(&mut self) -> Result<u64, ClockError>;
+
+    /// Receipt timestamps need millisecond precision. Existing clocks can use the
+    /// conservative whole-second default; native clocks override it.
+    fn unix_millis(&mut self) -> Result<u64, ClockError> {
+        self.unix_seconds()?
+            .checked_mul(1000)
+            .ok_or(ClockError::OutOfRange)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum ClockError {
     #[error("system clock is before the Unix epoch")]
     BeforeUnixEpoch,
+    #[error("clock is outside the supported timestamp range")]
+    OutOfRange,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -108,6 +132,13 @@ impl UnixClock for SystemUnixClock {
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_secs())
             .map_err(|_| ClockError::BeforeUnixEpoch)
+    }
+
+    fn unix_millis(&mut self) -> Result<u64, ClockError> {
+        let duration = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| ClockError::BeforeUnixEpoch)?;
+        u64::try_from(duration.as_millis()).map_err(|_| ClockError::OutOfRange)
     }
 }
 
@@ -322,25 +353,58 @@ struct LimitOrderConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-enum ApiDecimal {
-    String(String),
-    Number(serde_json::Number),
-}
+#[serde(transparent)]
+struct ApiDecimal(Box<serde_json::value::RawValue>);
 
 impl ApiDecimal {
     fn into_broker_decimal(self) -> Result<BrokerDecimal, BrokerError> {
-        let value = match self {
-            Self::String(value) => value,
-            Self::Number(value) => value.to_string(),
+        let raw = self.0.get();
+        // Parse only this scalar from raw JSON. A workspace-wide arbitrary-precision
+        // feature changes serde's untagged-enum behavior in unrelated consumers.
+        let value = if raw.starts_with('"') {
+            serde_json::from_str::<String>(raw).map_err(|_| BrokerError::Unavailable)?
+        } else {
+            expand_json_decimal(raw)?
         };
+        if value.len() > 128 {
+            return Err(BrokerError::Unavailable);
+        }
         BrokerDecimal::try_new(value)
             .map_err(|_| BrokerError::Rejected("broker returned an invalid decimal".to_owned()))
     }
 }
 
-fn zero_decimal() -> ApiDecimal {
-    ApiDecimal::String("0".to_owned())
+fn expand_json_decimal(value: &str) -> Result<String, BrokerError> {
+    if value.len() > 128 || value.starts_with('-') {
+        return Err(BrokerError::Unavailable);
+    }
+    let Some((mantissa, exponent)) = value.split_once(['e', 'E']) else {
+        return Ok(value.to_owned());
+    };
+    let exponent: i32 = exponent.parse().map_err(|_| BrokerError::Unavailable)?;
+    let whole_len = mantissa.find('.').unwrap_or(mantissa.len()) as i32;
+    let digits = mantissa.replace('.', "");
+    let point = whole_len
+        .checked_add(exponent)
+        .ok_or(BrokerError::Unavailable)?;
+    if !(-126..=128).contains(&point) {
+        return Err(BrokerError::Unavailable);
+    }
+    let result = if point <= 0 {
+        format!("0.{}{}", "0".repeat((-point) as usize), digits)
+    } else if point as usize >= digits.len() {
+        format!("{digits}{}", "0".repeat(point as usize - digits.len()))
+    } else {
+        format!(
+            "{}.{}",
+            &digits[..point as usize],
+            &digits[point as usize..]
+        )
+    };
+    if result.len() > 128 {
+        return Err(BrokerError::Unavailable);
+    }
+    Ok(result)
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -351,25 +415,48 @@ struct ApiExecution {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+struct ApiLimitOrderConfig {
+    #[serde(default)]
+    asset_quantity: Option<ApiDecimal>,
+    #[serde(default)]
+    limit_price: Option<ApiDecimal>,
+    #[serde(default)]
+    time_in_force: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct ApiOrder {
     id: String,
+    account_number: String,
     client_order_id: String,
+    symbol: String,
+    side: String,
+    #[serde(rename = "type")]
+    order_type: String,
     state: String,
-    #[serde(default)]
     executions: Vec<ApiExecution>,
-    #[serde(default = "zero_decimal")]
     filled_asset_quantity: ApiDecimal,
     #[serde(default)]
     average_price: Option<ApiDecimal>,
+    #[serde(default)]
+    limit_order_config: Option<ApiLimitOrderConfig>,
+    #[serde(default)]
+    fee_charged: Option<ApiDecimal>,
     created_at: String,
     updated_at: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct ApiOrdersPage {
+    #[serde(deserialize_with = "required_next")]
     next: Option<String>,
-    #[serde(default)]
     results: Vec<ApiOrder>,
+}
+
+fn required_next<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<String>, D::Error> {
+    Option::<String>::deserialize(deserializer)
 }
 
 pub struct RobinhoodCryptoBroker<T, C, S> {
@@ -463,9 +550,7 @@ where
         self.transport
             .execute(request)
             .map_err(|error| match error {
-                TransportError::OutcomeUnknown if method == HttpMethod::Post => {
-                    BrokerError::AmbiguousOutcome
-                }
+                _ if method == HttpMethod::Post => BrokerError::AmbiguousOutcome,
                 TransportError::Unavailable
                 | TransportError::OutcomeUnknown
                 | TransportError::ResponseTooLarge => BrokerError::Unavailable,
@@ -489,6 +574,16 @@ where
         }
     }
 
+    fn write_response(response: HttpResponse, expected: u16) -> Result<ApiOrder, BrokerError> {
+        // A reply failure is not proof that a write did not happen. In particular,
+        // a duplicate-client-ID validation response may refer to an earlier acceptance.
+        // Only local, pre-transmission validation is an unequivocal rejection here.
+        if response.status != expected {
+            return Err(BrokerError::AmbiguousOutcome);
+        }
+        serde_json::from_slice(&response.body).map_err(|_| BrokerError::AmbiguousOutcome)
+    }
+
     fn accepted_at_ns(created_at: &str) -> Result<u64, BrokerError> {
         let timestamp = DateTime::parse_from_rfc3339(created_at).map_err(|_| {
             BrokerError::Rejected("broker returned an invalid timestamp".to_owned())
@@ -499,8 +594,21 @@ where
         .map_err(|_| BrokerError::Rejected("broker timestamp predates Unix epoch".to_owned()))
     }
 
-    fn normalize_order(order: ApiOrder) -> Result<BrokerOrderSnapshot, BrokerError> {
+    fn normalize_order(&self, order: ApiOrder) -> Result<BrokerOrderSnapshot, BrokerError> {
+        let canonical_uuid = |value: &str| {
+            Uuid::parse_str(value).is_ok_and(|id| id.hyphenated().to_string() == value)
+        };
+        if order.account_number != self.config.account_number
+            || !canonical_uuid(&order.id)
+            || !canonical_uuid(&order.client_order_id)
+        {
+            return Err(BrokerError::Unavailable);
+        }
         let accepted_at_ns = Self::accepted_at_ns(&order.created_at)?;
+        let updated_at_ns = Self::accepted_at_ns(&order.updated_at)?;
+        if updated_at_ns < accepted_at_ns {
+            return Err(BrokerError::Unavailable);
+        }
         let acknowledgement = BrokerAcknowledgement {
             broker_order_id: order.id.clone(),
             client_order_id: order.client_order_id.clone(),
@@ -520,18 +628,31 @@ where
             }
         };
         let mut executions = Vec::with_capacity(order.executions.len());
-        for (index, execution) in order.executions.into_iter().enumerate() {
+        let mut occurrences = BTreeMap::<(u64, String, String), u64>::new();
+        for execution in order.executions {
             let effective_price = execution.effective_price.into_broker_decimal()?;
             let quantity = execution.quantity.into_broker_decimal()?;
+            let occurred_ns = Self::accepted_at_ns(&execution.timestamp)?;
+            let occurrence = occurrences
+                .entry((
+                    occurred_ns,
+                    effective_price.as_str().to_owned(),
+                    quantity.as_str().to_owned(),
+                ))
+                .or_default();
             let mut identity = Sha256::new();
             identity.update(order.id.as_bytes());
             identity.update([0]);
-            identity.update(index.to_be_bytes());
-            identity.update(execution.timestamp.as_bytes());
+            // Fixed-width identity is identical on native and wasm32. Occurrence
+            // counts distinguish identical fills without depending on list order.
+            identity.update(occurred_ns.to_be_bytes());
             identity.update([0]);
             identity.update(effective_price.as_str().as_bytes());
             identity.update([0]);
             identity.update(quantity.as_str().as_bytes());
+            identity.update([0]);
+            identity.update(occurrence.to_be_bytes());
+            *occurrence += 1;
             executions.push(BrokerExecution {
                 execution_id: hex::encode(identity.finalize()),
                 effective_price,
@@ -600,20 +721,93 @@ where
     fn list_page(&mut self, path: String) -> Result<ApiOrdersPage, BrokerError> {
         let response = self.execute(HttpMethod::Get, path, Vec::new())?;
         let body = Self::require_success(response, 200)?;
-        serde_json::from_slice(&body)
-            .map_err(|_| BrokerError::Rejected("broker returned invalid order JSON".to_owned()))
+        if body.len() > MAX_ORDER_RESPONSE_BYTES {
+            return Err(BrokerError::Unavailable);
+        }
+        let page: ApiOrdersPage =
+            serde_json::from_slice(&body).map_err(|_| BrokerError::Unavailable)?;
+        if page
+            .results
+            .iter()
+            .any(|order| order.account_number != self.config.account_number)
+        {
+            return Err(BrokerError::Unavailable);
+        }
+        Ok(page)
     }
 
-    fn next_path(next: String) -> Result<String, BrokerError> {
-        let relative = next
-            .strip_prefix(ROBINHOOD_CRYPTO_API_ORIGIN)
-            .unwrap_or(&next);
-        if !relative.starts_with(V2_ORDERS_PATH) {
+    fn lookup_api_order(&mut self, client_order_id: &str) -> Result<Option<ApiOrder>, BrokerError> {
+        let parsed = Uuid::parse_str(client_order_id)
+            .map_err(|_| BrokerError::Rejected("client order ID must be a UUID".to_owned()))?;
+        if parsed.hyphenated().to_string() != client_order_id {
             return Err(BrokerError::Rejected(
-                "broker pagination escaped the orders endpoint".to_owned(),
+                "client order ID must use canonical lowercase UUID form".to_owned(),
             ));
         }
-        Ok(relative.to_owned())
+        let mut path = format!("{V2_ORDERS_PATH}{}", self.account_query());
+        let mut visited = BTreeSet::new();
+        for page_index in 0..self.config.max_reconciliation_pages {
+            if !visited.insert(path.clone()) {
+                return Err(BrokerError::Unavailable);
+            }
+            let page = self.list_page(path)?;
+            let mut matches = page
+                .results
+                .into_iter()
+                .filter(|order| order.client_order_id == client_order_id);
+            let found = matches.next();
+            if matches.next().is_some() {
+                return Err(BrokerError::Unavailable);
+            }
+            if found.is_some() {
+                return Ok(found);
+            }
+            match page.next {
+                Some(next) if page_index + 1 < self.config.max_reconciliation_pages => {
+                    path = self.next_path(next)?;
+                }
+                Some(_) => return Err(BrokerError::Unavailable),
+                None => return Ok(None),
+            }
+        }
+        Err(BrokerError::Unavailable)
+    }
+
+    fn next_path(&self, next: String) -> Result<String, BrokerError> {
+        if next.len() > 4096 || next.chars().any(char::is_control) {
+            return Err(BrokerError::Unavailable);
+        }
+        let base = Url::parse(ROBINHOOD_CRYPTO_API_ORIGIN).expect("constant API origin");
+        let url = base.join(&next).map_err(|_| BrokerError::Unavailable)?;
+        if url.origin() != base.origin()
+            || url.path() != V2_ORDERS_PATH
+            || url.fragment().is_some()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err(BrokerError::Unavailable);
+        }
+        let mut cursor = None;
+        let mut account_seen = false;
+        for (key, value) in url.query_pairs() {
+            match key.as_ref() {
+                "account_number"
+                    if !account_seen && value.as_ref() == self.config.account_number =>
+                {
+                    account_seen = true;
+                }
+                "cursor" if cursor.is_none() && !value.is_empty() && value.len() <= 2048 => {
+                    cursor = Some(value.into_owned());
+                }
+                _ => return Err(BrokerError::Unavailable),
+            }
+        }
+        let cursor = cursor.ok_or(BrokerError::Unavailable)?;
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("account_number", &self.config.account_number)
+            .append_pair("cursor", &cursor)
+            .finish();
+        Ok(format!("{V2_ORDERS_PATH}?{query}"))
     }
 }
 
@@ -642,14 +836,22 @@ where
         .map_err(|_| BrokerError::Rejected("order serialization failed".to_owned()))?;
         let path = format!("{V2_ORDERS_PATH}{}", self.account_query());
         let response = self.execute(HttpMethod::Post, path, body)?;
-        let body = Self::require_success(response, 201)?;
-        let order: ApiOrder = serde_json::from_slice(&body)
-            .map_err(|_| BrokerError::Rejected("broker returned invalid order JSON".to_owned()))?;
-        let snapshot = Self::normalize_order(order)?;
+        let order = Self::write_response(response, 201)?;
+        if order.symbol != intent.proposal.symbol
+            || order.side
+                != match intent.proposal.side {
+                    Side::Buy => "buy",
+                    Side::Sell => "sell",
+                }
+            || order.order_type != "limit"
+        {
+            return Err(BrokerError::AmbiguousOutcome);
+        }
+        let snapshot = self
+            .normalize_order(order)
+            .map_err(|_| BrokerError::AmbiguousOutcome)?;
         if snapshot.acknowledgement.client_order_id != intent.client_order_id {
-            return Err(BrokerError::Rejected(
-                "broker returned a different client order identity".to_owned(),
-            ));
+            return Err(BrokerError::AmbiguousOutcome);
         }
         Ok(snapshot.acknowledgement)
     }
@@ -673,32 +875,9 @@ where
         &mut self,
         client_order_id: &str,
     ) -> Result<Option<BrokerOrderSnapshot>, BrokerError> {
-        let parsed = Uuid::parse_str(client_order_id)
-            .map_err(|_| BrokerError::Rejected("client order ID must be a UUID".to_owned()))?;
-        if parsed.hyphenated().to_string() != client_order_id {
-            return Err(BrokerError::Rejected(
-                "client order ID must use canonical lowercase UUID form".to_owned(),
-            ));
-        }
-        let mut path = format!("{V2_ORDERS_PATH}{}", self.account_query());
-        for page_index in 0..self.config.max_reconciliation_pages {
-            let page = self.list_page(path)?;
-            if let Some(order) = page
-                .results
-                .into_iter()
-                .find(|order| order.client_order_id == client_order_id)
-            {
-                return Self::normalize_order(order).map(Some);
-            }
-            match page.next {
-                Some(next) if page_index + 1 < self.config.max_reconciliation_pages => {
-                    path = Self::next_path(next)?;
-                }
-                Some(_) => return Err(BrokerError::Unavailable),
-                None => return Ok(None),
-            }
-        }
-        Err(BrokerError::Unavailable)
+        self.lookup_api_order(client_order_id)?
+            .map(|order| self.normalize_order(order))
+            .transpose()
     }
 
     fn cancel_by_client_order_id(
@@ -716,14 +895,14 @@ where
             current.acknowledgement.broker_order_id
         );
         let response = self.execute(HttpMethod::Post, path, Vec::new())?;
-        let body = Self::require_success(response, 200)?;
-        let order: ApiOrder = serde_json::from_slice(&body)
-            .map_err(|_| BrokerError::Rejected("broker returned invalid order JSON".to_owned()))?;
-        let snapshot = Self::normalize_order(order)?;
-        if snapshot.acknowledgement.client_order_id != client_order_id {
-            return Err(BrokerError::Rejected(
-                "broker returned a different client order identity".to_owned(),
-            ));
+        let order = Self::write_response(response, 200)?;
+        let snapshot = self
+            .normalize_order(order)
+            .map_err(|_| BrokerError::AmbiguousOutcome)?;
+        if snapshot.acknowledgement.client_order_id != client_order_id
+            || snapshot.acknowledgement.broker_order_id != current.acknowledgement.broker_order_id
+        {
+            return Err(BrokerError::AmbiguousOutcome);
         }
         Ok(snapshot)
     }
@@ -847,7 +1026,11 @@ mod tests {
     fn order_json(state: &str) -> serde_json::Value {
         serde_json::json!({
             "id": "497f6eca-6276-4993-bfeb-53cbbbba6f08",
+            "account_number": "cryptoaccount1",
             "client_order_id": CLIENT_ID,
+            "symbol": "BTC-USD",
+            "side": "buy",
+            "type": "limit",
             "state": state,
             "executions": [{
                 "effective_price": "12345.600000",
@@ -1011,5 +1194,277 @@ mod tests {
         );
         assert!(BrokerDecimal::try_new("1e-6").is_err());
         assert!(BrokerDecimal::try_new("-1").is_err());
+    }
+
+    #[test]
+    fn lost_or_unusable_submit_replies_are_reconciled_not_rejected() {
+        for fault in [
+            TransportError::OutcomeUnknown,
+            TransportError::Unavailable,
+            TransportError::ResponseTooLarge,
+        ] {
+            let mut transport = RecordingTransport::default();
+            transport.responses.push_back(Err(fault));
+            transport.respond_json(
+                200,
+                serde_json::json!({"next":null,"results":[order_json("open")]}),
+            );
+            let mut broker = broker(transport);
+            assert_eq!(
+                broker.submit(&intent(ExecutionMode::Live)),
+                Err(BrokerError::AmbiguousOutcome)
+            );
+            assert!(broker
+                .lookup_by_client_order_id(CLIENT_ID)
+                .unwrap()
+                .is_some());
+            assert_eq!(
+                broker
+                    .transport
+                    .requests
+                    .iter()
+                    .map(|r| r.method)
+                    .collect::<Vec<_>>(),
+                vec![HttpMethod::Post, HttpMethod::Get]
+            );
+        }
+        for status in [200, 204, 400, 401, 403, 404, 408, 409, 429, 500, 503] {
+            let mut transport = RecordingTransport::default();
+            transport.respond_json(status, serde_json::json!({"error":"synthetic"}));
+            let mut broker = broker(transport);
+            assert_eq!(
+                broker.submit(&intent(ExecutionMode::Live)),
+                Err(BrokerError::AmbiguousOutcome)
+            );
+            assert_eq!(broker.transport.requests.len(), 1);
+        }
+    }
+
+    #[test]
+    fn successful_http_status_does_not_certify_an_invalid_acknowledgement() {
+        let mut replies = vec![b"{".to_vec(), b"{}".to_vec()];
+        for (field, value) in [
+            ("account_number", "different"),
+            ("client_order_id", "00000000-0000-4000-8000-000000000002"),
+            ("id", "../other/cancel"),
+            ("side", "sell"),
+            ("symbol", "ETH-USD"),
+            ("type", "market"),
+            ("state", "future_state"),
+            ("created_at", "invalid"),
+            ("updated_at", "2026-08-30T11:00:00Z"),
+        ] {
+            let mut order = order_json("open");
+            order[field] = value.into();
+            replies.push(serde_json::to_vec(&order).unwrap());
+        }
+        for body in replies {
+            let mut transport = RecordingTransport::default();
+            transport
+                .responses
+                .push_back(Ok(HttpResponse { status: 201, body }));
+            let mut broker = broker(transport);
+            assert_eq!(
+                broker.submit(&intent(ExecutionMode::Live)),
+                Err(BrokerError::AmbiguousOutcome)
+            );
+            assert_eq!(broker.transport.requests.len(), 1);
+        }
+    }
+
+    #[test]
+    fn missing_page_fields_and_cross_account_rows_never_prove_absence() {
+        let mut other_account = order_json("open");
+        other_account["account_number"] = "different".into();
+        for page in [
+            serde_json::json!({}),
+            serde_json::json!({"next":null}),
+            serde_json::json!({"results":[]}),
+            serde_json::json!({"next":null,"results":null}),
+            serde_json::json!({"next":null,"results":[other_account]}),
+        ] {
+            let mut transport = RecordingTransport::default();
+            transport.respond_json(200, page);
+            let mut broker = broker(transport);
+            assert_eq!(
+                broker.lookup_by_client_order_id(CLIENT_ID),
+                Err(BrokerError::Unavailable)
+            );
+            assert_eq!(broker.transport.requests.len(), 1);
+        }
+    }
+
+    #[test]
+    fn pagination_keeps_the_bound_account_and_cannot_narrow_or_escape_the_search() {
+        for next in [
+            "https://example.com/api/v2/crypto/trading/orders/?cursor=next",
+            "https://trading.robinhood.com:444/api/v2/crypto/trading/orders/?cursor=next",
+            "https://name@trading.robinhood.com/api/v2/crypto/trading/orders/?cursor=next",
+            "/api/v2/crypto/trading/orders/id/cancel/?cursor=next",
+            "/api/v2/crypto/trading/orders/?account_number=other&cursor=next",
+            "/api/v2/crypto/trading/orders/?account_number=cryptoaccount1&account_number=cryptoaccount1&cursor=next",
+            "/api/v2/crypto/trading/orders/?cursor=next&cursor=other",
+            "/api/v2/crypto/trading/orders/?cursor=next&state=filled",
+            "/api/v2/crypto/trading/orders/?cursor=",
+            "/api/v2/crypto/trading/orders/?cursor=next#fragment",
+        ] {
+            let mut transport = RecordingTransport::default();
+            transport.respond_json(200, serde_json::json!({"next":next,"results":[]}));
+            let mut broker = broker(transport);
+            assert_eq!(
+                broker.lookup_by_client_order_id(CLIENT_ID),
+                Err(BrokerError::Unavailable)
+            );
+            assert_eq!(broker.transport.requests.len(), 1);
+        }
+        let mut transport = RecordingTransport::default();
+        transport.respond_json(
+            200,
+            serde_json::json!({
+                "next":"/api/v2/crypto/trading/orders/?cursor=opaque%2B%3D%26",
+                "results":[]
+            }),
+        );
+        transport.respond_json(200, serde_json::json!({"next":null,"results":[]}));
+        let mut broker = broker(transport);
+        assert!(broker
+            .lookup_by_client_order_id(CLIENT_ID)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            broker.transport.requests[1].path_and_query,
+            "/api/v2/crypto/trading/orders/?account_number=cryptoaccount1&cursor=opaque%2B%3D%26"
+        );
+        assert!(!format!("{:?}", broker.transport.requests[1]).contains("cryptoaccount1"));
+    }
+
+    #[test]
+    fn broker_json_numbers_preserve_precision_including_scientific_notation() {
+        for (wire, exact) in [
+            (
+                "0.12345678901234567890123456789",
+                "0.12345678901234567890123456789",
+            ),
+            ("1.234567890123456789e-8", "0.00000001234567890123456789"),
+            ("123456789012345678901", "123456789012345678901"),
+            ("1e-8", "0.00000001"),
+        ] {
+            let body = serde_json::to_string(&serde_json::json!({
+                "next":null,"results":[order_json("partially_filled")]
+            }))
+            .unwrap()
+            .replace("\"0.100000\"", wire);
+            let mut transport = RecordingTransport::default();
+            transport.responses.push_back(Ok(HttpResponse {
+                status: 200,
+                body: body.into_bytes(),
+            }));
+            let mut broker = broker(transport);
+            let snapshot = broker
+                .fetch_order_by_client_order_id(CLIENT_ID)
+                .unwrap()
+                .unwrap();
+            assert_eq!(snapshot.filled_quantity.as_str(), exact);
+            assert_eq!(snapshot.executions[0].quantity.as_str(), exact);
+        }
+        for excessive in ["1e1000000", "1e-1000000", "-1", "1".repeat(129).as_str()] {
+            assert!(expand_json_decimal(excessive).is_err());
+        }
+    }
+
+    #[test]
+    fn fill_identities_survive_reordering_format_changes_and_identical_fills() {
+        let mut order = order_json("partially_filled");
+        let first = order["executions"][0].clone();
+        let mut second = first.clone();
+        second["quantity"] = "0.00000001".into();
+        order["executions"] = serde_json::json!([first.clone(), second.clone(), first]);
+        let mut reordered = order.clone();
+        reordered["executions"] =
+            serde_json::json!([order["executions"][2], order["executions"][0], second]);
+        for execution in reordered["executions"].as_array_mut().unwrap() {
+            execution["timestamp"] = "2026-08-30T06:00:01-06:00".into();
+            execution["effective_price"] = "12345.6".into();
+        }
+        let broker = broker(RecordingTransport::default());
+        let ids = |wire| {
+            broker
+                .normalize_order(serde_json::from_value(wire).unwrap())
+                .unwrap()
+                .executions
+                .into_iter()
+                .map(|execution| execution.execution_id)
+                .collect::<std::collections::BTreeSet<_>>()
+        };
+        let original = ids(order);
+        assert_eq!(original.len(), 3);
+        assert_eq!(original, ids(reordered));
+    }
+
+    #[test]
+    fn cancel_requires_the_same_broker_identity_and_keeps_ambiguous_outcomes_open() {
+        for wrong_identity in [false, true] {
+            let mut transport = RecordingTransport::default();
+            transport.respond_json(
+                200,
+                serde_json::json!({"next":null,"results":[order_json("open")]}),
+            );
+            let mut reply = order_json("canceled");
+            if wrong_identity {
+                reply["id"] = "00000000-0000-4000-8000-000000000002".into();
+                transport.respond_json(200, reply);
+            } else {
+                transport
+                    .responses
+                    .push_back(Err(TransportError::OutcomeUnknown));
+            }
+            let mut broker = broker(transport);
+            assert_eq!(
+                broker.cancel_by_client_order_id(CLIENT_ID),
+                Err(BrokerError::AmbiguousOutcome)
+            );
+            assert_eq!(broker.transport.requests.len(), 2);
+        }
+        let mut transport = RecordingTransport::default();
+        transport.respond_json(
+            200,
+            serde_json::json!({"next":null,"results":[order_json("filled")]}),
+        );
+        let mut broker = broker(transport);
+        assert_eq!(
+            broker.cancel_by_client_order_id(CLIENT_ID).unwrap().state,
+            BrokerOrderState::Filled
+        );
+        assert_eq!(broker.transport.requests.len(), 1);
+    }
+
+    proptest::proptest! {
+        #[test]
+        fn json_asset_quantities_roundtrip_exactly(
+            whole in 0_u64..1_000_000_000,
+            fraction in 0_u64..1_000_000_000_000_000_000,
+        ) {
+            let literal = format!("{whole}.{fraction:018}");
+            let decoded: ApiDecimal = serde_json::from_str(&literal).unwrap();
+            proptest::prop_assert_eq!(
+                decoded.into_broker_decimal().unwrap(),
+                BrokerDecimal::try_new(literal).unwrap()
+            );
+        }
+
+        #[test]
+        fn opaque_cursors_cannot_inject_query_parameters(cursor in "[a-zA-Z0-9&=+:/?#%]{1,100}") {
+            let broker = broker(RecordingTransport::default());
+            let query = url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("cursor", &cursor).finish();
+            let next = broker.next_path(format!("{V2_ORDERS_PATH}?{query}")).unwrap();
+            let parsed = Url::parse(&format!("{ROBINHOOD_CRYPTO_API_ORIGIN}{next}")).unwrap();
+            let params = parsed.query_pairs().collect::<Vec<_>>();
+            proptest::prop_assert_eq!(params.len(), 2);
+            proptest::prop_assert_eq!(&*params[0].0, "account_number");
+            proptest::prop_assert_eq!(&*params[0].1, "cryptoaccount1");
+            proptest::prop_assert_eq!(&*params[1].0, "cursor");
+            proptest::prop_assert_eq!(&*params[1].1, cursor);
+        }
     }
 }

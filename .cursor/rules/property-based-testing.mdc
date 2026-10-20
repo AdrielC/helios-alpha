@@ -1,0 +1,24 @@
+---
+description: Property-based testing is the default for Helios Alpha behavior and state transitions.
+alwaysApply: true
+---
+
+# Testing
+
+- For new or changed Rust behavior, prefer `proptest` properties over a collection
+  of handpicked examples. State the invariant before choosing generators.
+- Generate valid domain inputs, invalid boundary inputs, and sequences of operations.
+  Compare stateful behavior with a small independent reference model.
+- Inject clocks, transports, journals, and randomness. Use Tokio paused time for
+  asynchronous deadlines; avoid sleeps in unit tests.
+- Keep generators small enough to shrink. Preserve minimized failures in version
+  control using proptest regression files; do not ignore or delete those files.
+- Use focused examples for documented provider contracts, regressions, and integration
+  boundaries that cannot be proved by a property alone.
+- Tests must exercise observable behavior, not reproduce the implementation.
+- Normal tests must not require credentials, invoke paid services, or place trades.
+  Live provider smoke checks are separate, explicit operations.
+- Keep portable kernels testable without native networking or persistence features.
+- Follow `docs/guide/testing.md` for commands and the ZIO Test principles translated
+  to Rust. Apply the same invariant-first approach to other languages without
+  rewriting unrelated existing tests.

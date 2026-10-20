@@ -55,10 +55,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
     let command_executor = command_executor(&account_id, &store, &time_series).await;
-    let state = AppState::new(store, auth, command_executor, time_series);
+    let bind = env::var("HELIOS_BIND").unwrap_or_else(|_| "127.0.0.1:8080".into());
+    let mut state = AppState::new(store, auth, command_executor, time_series);
+    if bind.parse::<std::net::SocketAddr>().is_ok_and(|address| address.ip().is_loopback()) {
+        state.broker_observation_path = env::var_os("HELIOS_BROKER_OBSERVATION_PATH")
+            .map(PathBuf::from)
+            .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home)
+                .join(".local/share/helios-alpha/private/broker-observation.json")));
+    }
     let static_dir = env::var_os("HELIOS_STATIC_DIR").map(PathBuf::from);
     let application = router(state, static_dir);
-    let bind = env::var("HELIOS_BIND").unwrap_or_else(|_| "127.0.0.1:8080".into());
     let listener = TcpListener::bind(&bind).await?;
     info!(bind = %bind, "Helios operator gateway listening");
     axum::serve(listener, application)

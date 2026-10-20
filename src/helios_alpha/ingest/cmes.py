@@ -7,7 +7,7 @@ from pathlib import Path
 import polars as pl
 
 from helios_alpha.config import load_settings
-from helios_alpha.utils.http import get_json
+from helios_alpha.ingest.donki import fetch_donki
 from helios_alpha.utils.time import daterange_chunks, parse_iso_z
 
 
@@ -61,14 +61,7 @@ def _earth_directed_heuristic(
 
 
 def _donki_cme(start: date, end: date, api_key: str) -> list[dict]:
-    url = "https://api.nasa.gov/DONKI/CME"
-    params = {
-        "startDate": start.isoformat(),
-        "endDate": end.isoformat(),
-        "api_key": api_key,
-    }
-    data = get_json(url, params=params)
-    return data if isinstance(data, list) else []
+    return fetch_donki("CME", start, end, api_key)
 
 
 def fetch_cmes_range(start: date, end: date, api_key: str | None = None) -> pl.DataFrame:

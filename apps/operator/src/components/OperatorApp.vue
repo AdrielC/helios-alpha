@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
+import { computed, defineAsyncComponent, markRaw, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from "vue";
 import { createCommandPort, type CommandAuthority } from "../operations/command-port";
 import type { AlertSeverity, AlertView, OperationsPort, OperationsSnapshot } from "../operations/operations-port";
 import type { TimeSeriesPort } from "../operations/time-series-port";
 import type { InvestigationPort } from "../operations/investigation-port";
+import { useOperatorProfile } from "../operations/operator-profile";
+import { useBrokerHoldings } from "../operations/broker-holdings";
 
 const CommandPlane = defineAsyncComponent(() => import("./CommandPlane.vue"));
 const OperationsWorkspace = defineAsyncComponent(() => import("./OperationsWorkspace.vue"));
@@ -34,13 +36,24 @@ const bootstrapSnapshot: OperationsSnapshot = {
   strategies: [], stages: [], signals: [], positions: [], orders: [], fills: [], sources: [], alerts: [], metrics: [], activity: [],
   risk: { grossExposureMicros: "0", grossLimitMicros: "0", reservedGrossMicros: "0", dailyOrderCount: 0, dailyOrderLimit: 0, pendingReconciliations: 0, openIncidents: 0, killSwitchActive: false, capitalGate: "closed", capitalGateReason: "Connecting", checkpointAgeMs: 0, sourceLagMs: 0, clockOffsetMs: 0 },
 };
+const operatorProfile = useOperatorProfile();
+const workspace = ref<HTMLElement>();
 const snapshot = shallowRef<OperationsSnapshot>(bootstrapSnapshot);
 const hasSnapshot = ref(false);
+const { observation: brokerObservation, sync: brokerSync, brokerAction, error: brokerError, loading: brokerLoading, now: brokerNow } = useBrokerHoldings();
 const lastSuccessfulAt = ref<string>();
 const failureReason = ref("");
 const view = ref<WorkspaceView>("operations");
 const activePane = ref<OperationsPane>("overview");
+const positionAccount = ref("broker");
 const connection = ref<ConnectionState>("connecting");
+const portfolioView = computed(() => activePane.value === "positions" && positionAccount.value === "broker");
+const headerConnection = computed<ConnectionState>(() => portfolioView.value
+  ? ["connected", "syncing"].includes(brokerSync.value.state) ? "streaming" : "reconnecting"
+  : connection.value);
+const headerConnectionLabel = computed(() => portfolioView.value
+  ? ({ connected: "Account synced", syncing: "Syncing account", degraded: "Sync interrupted", offline: "Monitor offline", authorizing: "Authorizing", authorization_required: "Connect account" }[brokerSync.value.state])
+  : connectionLabel.value);
 const selectedSignalId = ref("");
 const selectedForecastId = ref("");
 const selectedOrderId = ref("");
@@ -78,7 +91,7 @@ const alertCounts = computed(() => ({
   info: activeAlerts.value.filter((alert) => alert.severity === "info").length,
 }));
 const lastObservationLabel = computed(() => !lastSuccessfulAt.value ? "Never" : new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZoneName: "short" }).format(new Date(lastSuccessfulAt.value)));
-const connectionLabel = computed(() => ({ connecting: "Connecting", streaming: "Live", reconnecting: "Reconnecting", snapshot: "Snapshot", paused: "Frozen", error: "Offline" }[connection.value]));
+const connectionLabel = computed(() => ({ connecting: "Connecting", streaming: "Feed connected", reconnecting: "Reconnecting", snapshot: "Snapshot", paused: "Frozen", error: "Offline" }[connection.value]));
 const commandLabel = computed(() => commandAuthority.value.state === "authenticated" ? "Command ready" : "Read only");
 const announcement = computed(() => !hasSnapshot.value ? connection.value === "error" ? "Operations source unavailable" : "Connecting to operations" : `${connectionLabel.value}. ${activeAlerts.value.length} active alerts. ${snapshot.value.orders.length} active orders.`);
 const railStyle = computed(() => ({ "--rail-width": `${railWidth.value}px` }));
@@ -168,7 +181,7 @@ function alertActionLabel(alert: AlertView): string {
   return "Inspect";
 }
 function paneCount(pane: OperationsPane): number | undefined {
-  if (pane === "positions") return snapshot.value.positions.length;
+  if (pane === "positions") return snapshot.value.positions.length + (brokerObservation.value?.positions.length ?? 0);
   if (pane === "orders") return snapshot.value.orders.length;
   if (pane === "forecasts") return snapshot.value.signals.length;
   if (pane === "activity") return snapshot.value.activity.length;
@@ -247,6 +260,10 @@ onMounted(() => {
     investigationPort.value = markRaw(createInvestigationPort());
   });
 });
+watch([activePane, view], async () => {
+  await nextTick();
+  workspace.value?.scrollTo({ top: 0, left: 0, behavior: "instant" });
+}, { flush: "post" });
 watch(railCollapsed, (collapsed) => window.localStorage.setItem("helios:operator:rail", collapsed ? "collapsed" : "expanded"));
 watch(railWidth, (width) => window.localStorage.setItem("helios:operator:rail-width", String(width)));
 onBeforeUnmount(() => {
@@ -261,7 +278,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="operator-app">
-    <Suspense><OperatorHeader :active-alerts="activeAlerts" :command-authority="commandAuthority" :command-label="commandLabel" :connection="connection" :connection-label="connectionLabel" :context="snapshot.context" :data-class="snapshot.dataClass" :has-snapshot="hasSnapshot" :mode="snapshot.mode" :observed-at="snapshot.observedAt" @act-alert="actOnAlert" @open-alert="openAlert" @select-view="selectWorkspace($event)"/><template #fallback><div class="header-fallback"><span></span><strong>Helios</strong><small>Connecting</small></div></template></Suspense>
+    <Suspense><OperatorHeader :profile="operatorProfile" :broker-account="activePane === 'positions' && positionAccount === 'broker' ? brokerObservation?.account.crypto : undefined" :active-alerts="activeAlerts" :command-authority="commandAuthority" :command-label="commandLabel" :connection="headerConnection" :connection-label="headerConnectionLabel" :context="snapshot.context" :data-class="snapshot.dataClass" :has-snapshot="hasSnapshot" :mode="snapshot.mode" :observed-at="snapshot.observedAt" @act-alert="actOnAlert" @open-alert="openAlert" @select-view="selectWorkspace($event)"/><template #fallback><div class="header-fallback"><span></span><strong>Helios</strong><small>Connecting</small></div></template></Suspense>
     <p class="sr-only" aria-live="polite" aria-atomic="true">{{ announcement }}</p>
     <section v-if="!hasSnapshot" class="unavailable" :data-state="connection" aria-labelledby="unavailable-heading"><span aria-hidden="true"></span><h1 id="unavailable-heading">{{ connection === "error" ? "Operations unavailable" : "Connecting to operations" }}</h1><p>{{ failureReason || "Waiting for a validated account snapshot." }}</p><small>Last update {{ lastObservationLabel }}</small><button v-if="connection === 'error'" @click="connectOperations">Retry</button></section>
 
@@ -273,15 +290,15 @@ onBeforeUnmount(() => {
           <button v-for="(pane, index) in panes" :id="`operations-tab-${pane.id}`" :key="pane.id" role="tab" :aria-controls="`operations-panel-${pane.id}`" :aria-selected="activePane === pane.id" :tabindex="activePane === pane.id ? 0 : -1" :title="pane.label" @click="selectPane(pane.id)" @keydown="paneKey($event, index)"><b aria-hidden="true">{{ pane.short }}</b><em>{{ pane.label }}</em><span v-if="paneCount(pane.id) !== undefined">{{ paneCount(pane.id) }}</span></button>
           <div v-if="!effectiveRailCollapsed && !tabletNavigation" class="rail-resizer" role="separator" aria-label="Resize operations navigation" aria-orientation="vertical" aria-valuemin="156" aria-valuemax="264" :aria-valuenow="railWidth" tabindex="0" @keydown="railKey" @pointerdown="resizeRail"></div>
         </aside>
-        <main :id="`operations-panel-${activePane}`" class="operations-workspace" role="tabpanel" :aria-labelledby="`operations-tab-${activePane}`" tabindex="0">
+        <main ref="workspace" :id="`operations-panel-${activePane}`" class="operations-workspace" role="tabpanel" :aria-labelledby="`operations-tab-${activePane}`" tabindex="0">
           <Suspense v-if="activePane === 'control'"><CommandPlane :authority="commandAuthority" :port="commandPort" :snapshot="snapshot" :stale="stale" @authority="commandAuthority = $event"/><template #fallback><div class="view-loading">Loading risk control</div></template></Suspense>
           <Suspense v-else-if="activePane === 'explorer'"><PerspectiveExplorer :snapshot="snapshot"/><template #fallback><div class="view-loading">Loading data explorer</div></template></Suspense>
-          <Suspense v-else><OperationsWorkspace v-if="timeSeriesPort && investigationPort" :active-pane="activePane" :authority="commandAuthority" :connection-label="connectionLabel" :investigation-port="investigationPort" :port="commandPort" :selected-forecast-id="selectedForecastId" :selected-order-id="selectedOrderId" :selected-signal-id="selectedSignalId" :snapshot="snapshot" :stale="stale" :time-series-port="timeSeriesPort" @authority="commandAuthority = $event" @explore="selectPane('explorer')" @open-forecast="openForecast" @select-order="openOrder" @select-signal="selectedSignalId = $event"/><div v-else class="view-loading">Loading evidence services</div><template #fallback><div class="view-loading">Loading operations</div></template></Suspense>
+          <Suspense v-else><OperationsWorkspace v-if="timeSeriesPort && investigationPort" @position-account-changed="positionAccount = $event" :broker-observation="brokerObservation" :broker-sync="brokerSync" @connect-broker="brokerAction('connect')" :broker-error="brokerError" :broker-loading="brokerLoading" :broker-now="brokerNow" @refresh-broker="brokerAction('refresh')" :active-pane="activePane" :authority="commandAuthority" :connection-label="connectionLabel" :investigation-port="investigationPort" :port="commandPort" :selected-forecast-id="selectedForecastId" :selected-order-id="selectedOrderId" :selected-signal-id="selectedSignalId" :snapshot="snapshot" :stale="stale" :time-series-port="timeSeriesPort" @authority="commandAuthority = $event" @explore="selectPane('explorer')" @open-forecast="openForecast" @select-order="openOrder" @select-signal="selectedSignalId = $event"/><div v-else class="view-loading">Loading evidence services</div><template #fallback><div class="view-loading">Loading operations</div></template></Suspense>
         </main>
       </div>
     </template>
 
-    <main v-else-if="view === 'alerts'" class="alerts-workspace"><header class="alerts-header"><div><h1>Alerts</h1><span>{{ activeAlerts.length }} active</span></div><div class="alert-filters" role="group" aria-label="Filter alerts"><button :aria-pressed="alertFilter === 'all'" @click="alertFilter = 'all'">All {{ activeAlerts.length }}</button><button :aria-pressed="alertFilter === 'critical'" @click="alertFilter = 'critical'">Critical {{ alertCounts.critical }}</button><button :aria-pressed="alertFilter === 'warning'" @click="alertFilter = 'warning'">Warning {{ alertCounts.warning }}</button><button :aria-pressed="alertFilter === 'info'" @click="alertFilter = 'info'">Info {{ alertCounts.info }}</button></div></header><div class="alerts-layout"><div class="alert-register" role="list"><button v-for="alert in filteredAlerts" :key="alert.id" :class="{ selected: selectedAlert?.id === alert.id }" :data-severity="alert.severity" @click="selectedAlertId = alert.id"><i aria-hidden="true"></i><span><strong>{{ alert.title }}</strong><small>{{ alert.category }} · {{ relativeTime(alert.updatedAt) }}</small></span><b>{{ alert.status }}</b></button><p v-if="filteredAlerts.length === 0" class="empty-state">No alerts in this filter</p></div><article v-if="selectedAlert" class="alert-inspector" :data-severity="selectedAlert.severity"><header><span>{{ selectedAlert.severity }} · {{ selectedAlert.category }}</span><h2>{{ selectedAlert.title }}</h2></header><p>{{ selectedAlert.detail }}</p><dl><div><dt>Status</dt><dd>{{ selectedAlert.status }}</dd></div><div><dt>Opened</dt><dd>{{ new Date(selectedAlert.openedAt).toLocaleString() }}</dd></div><div><dt>Updated</dt><dd>{{ new Date(selectedAlert.updatedAt).toLocaleString() }}</dd></div><div v-if="selectedAlert.relatedEntity"><dt>Related</dt><dd>{{ selectedAlert.relatedEntity.label }}</dd></div></dl><button @click="actOnAlert(selectedAlert)">{{ alertActionLabel(selectedAlert) }}</button></article></div></main>
+    <main ref="workspace" v-else-if="view === 'alerts'" class="alerts-workspace"><header class="alerts-header"><div><h1>Alerts</h1><span>{{ activeAlerts.length }} active</span></div><div class="alert-filters" role="group" aria-label="Filter alerts"><button :aria-pressed="alertFilter === 'all'" @click="alertFilter = 'all'">All {{ activeAlerts.length }}</button><button :aria-pressed="alertFilter === 'critical'" @click="alertFilter = 'critical'">Critical {{ alertCounts.critical }}</button><button :aria-pressed="alertFilter === 'warning'" @click="alertFilter = 'warning'">Warning {{ alertCounts.warning }}</button><button :aria-pressed="alertFilter === 'info'" @click="alertFilter = 'info'">Info {{ alertCounts.info }}</button></div></header><div class="alerts-layout"><div class="alert-register" role="list"><button v-for="alert in filteredAlerts" :key="alert.id" :class="{ selected: selectedAlert?.id === alert.id }" :data-severity="alert.severity" @click="selectedAlertId = alert.id"><i aria-hidden="true"></i><span><strong>{{ alert.title }}</strong><small>{{ alert.category }} · {{ relativeTime(alert.updatedAt) }}</small></span><b>{{ alert.status }}</b></button><p v-if="filteredAlerts.length === 0" class="empty-state">No alerts in this filter</p></div><article v-if="selectedAlert" class="alert-inspector" :data-severity="selectedAlert.severity"><header><span>{{ selectedAlert.severity }} · {{ selectedAlert.category }}</span><h2>{{ selectedAlert.title }}</h2></header><p>{{ selectedAlert.detail }}</p><dl><div><dt>Status</dt><dd>{{ selectedAlert.status }}</dd></div><div><dt>Opened</dt><dd>{{ new Date(selectedAlert.openedAt).toLocaleString() }}</dd></div><div><dt>Updated</dt><dd>{{ new Date(selectedAlert.updatedAt).toLocaleString() }}</dd></div><div v-if="selectedAlert.relatedEntity"><dt>Related</dt><dd>{{ selectedAlert.relatedEntity.label }}</dd></div></dl><button @click="actOnAlert(selectedAlert)">{{ alertActionLabel(selectedAlert) }}</button></article></div></main>
     <footer class="app-credit"><a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">TradingView Lightweight Charts™</a><span>© 2025 TradingView, Inc.</span></footer>
   </div>
 </template>
@@ -297,4 +314,16 @@ onBeforeUnmount(() => {
 @media(max-width:560px){.operations-layout,.operations-layout[data-rail=collapsed],.operations-layout[data-rail=expanded]{display:block;border:0}.entity-rail{position:sticky;top:64px;display:flex;min-height:45px;padding:0;overflow-x:auto;border-right:0;border-bottom:1px solid var(--atlas-rule)}.rail-toggle,.runtime-facts,.rail-resizer{display:none!important}.entity-rail>button[role=tab],.operations-layout[data-rail=collapsed] .entity-rail>button[role=tab],.operations-layout[data-rail=expanded] .entity-rail>button[role=tab]{display:grid;min-width:112px;min-height:45px;grid-template-columns:22px auto auto;gap:7px;padding:0 11px;text-align:left}.operations-layout[data-rail=collapsed] .entity-rail>button[role=tab] em,.operations-layout[data-rail=collapsed] .entity-rail>button[role=tab] span,.operations-layout[data-rail=expanded] .entity-rail>button[role=tab] em,.operations-layout[data-rail=expanded] .entity-rail>button[role=tab] span{display:block}.entity-rail>button[role=tab][aria-selected=true]{box-shadow:inset 0 -2px 0 var(--atlas-blue)}.app-credit{justify-content:flex-start;overflow-x:auto;white-space:nowrap}}
 @media(prefers-reduced-motion:reduce){.unavailable>span{animation:none}}
 .operator-app{--operator-black:#050b12}
+
+/* The shell owns the viewport; each pane has one vertical scroll surface. */
+.operator-app{height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.operator-app :deep(.app-header),.header-fallback,.stale-strip,.app-credit{flex-shrink:0}
+.operations-layout{flex:1;min-height:0;width:100%;max-width:none;overflow:hidden;margin:0;border:0}
+.entity-rail{position:relative;top:0;align-self:stretch;height:100%;min-height:0;overflow-y:auto;overflow-x:hidden}
+.operations-workspace{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-behavior:auto}
+.alerts-workspace{flex:1;min-height:0;overflow-y:auto;width:100%;max-width:none}
+.view-loading{min-height:100%}.operator-app>.unavailable{flex:1;min-height:0}
+.entity-rail>button[role=tab]{min-height:44px;font:12px var(--vp-font-family-base)}
+.entity-rail>button[role=tab] b{font-size:9px}.rail-toggle{font-size:9px;min-height:38px}
+@media(max-width:560px){.operations-layout,.operations-layout[data-rail=collapsed],.operations-layout[data-rail=expanded]{display:flex;flex-direction:column}.entity-rail{position:relative;top:0;flex:0 0 44px;height:44px;min-height:0;overflow-y:hidden;overflow-x:auto}.operations-workspace{height:auto;flex:1;min-height:0}.app-credit{display:none}}
 </style>

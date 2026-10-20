@@ -42,6 +42,7 @@ export default defineConfig({
         text: "Researcher walkthrough",
         items: [
           { text: "Start with a question", link: "/guide/quickstart" },
+          { text: "Property-based testing", link: "/guide/testing" },
           {
             text: "Trade space weather",
             link: "/guide/space-weather-reference",
@@ -142,6 +143,7 @@ export default defineConfig({
             text: "Incident response",
             link: "/operations/incident-response",
           },
+          { text: "Decision models", link: "/operations/decision-models" },
           {
             text: "Golem durability",
             link: "/operations/golem-cloud",

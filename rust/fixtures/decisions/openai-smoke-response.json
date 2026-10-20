@@ -1,0 +1,5 @@
+{
+  "model": "fixture-only",
+  "answers": [{"name": "verified", "type": "predicate", "probability": 0.99}],
+  "usage": {"fixture": true, "input_tokens": 0}
+}

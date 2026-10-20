@@ -201,6 +201,24 @@ cython_debug/
 # helios-alpha data artifacts (regenerate with helios-pipeline)
 data/raw/**/*.parquet
 data/processed/**/*.parquet
+data/shadow/
+data/decisions/
+data/crypto/
+
+# Personal trading state and credentials. Production strategies live outside this repo.
+.env.*
+!.env.example
+*.pem
+*.key
+*credentials*.json
+private/
+.private/
+private-strategies/
+strategies/local/
+config/local/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
 
 # Rust
 rust/**/target/

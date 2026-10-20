@@ -277,11 +277,13 @@ where
                 },
             );
         }
-        self.submit_or_reconcile(&intent.client_order_id)
+        self.submit_or_reconcile(&intent.client_order_id, true)
     }
 
+    /// Observe an existing attempt without transmitting an order. A retry must
+    /// enter through `dispatch`, which rechecks capital and risk authorization.
     pub fn reconcile(&mut self, client_order_id: &str) -> Result<GatewayReceipt, GatewayError> {
-        self.submit_or_reconcile(client_order_id)
+        self.submit_or_reconcile(client_order_id, false)
     }
 
     pub fn pending_reconciliation_count(&self) -> usize {
@@ -302,6 +304,7 @@ where
     fn submit_or_reconcile(
         &mut self,
         client_order_id: &str,
+        allow_submit: bool,
     ) -> Result<GatewayReceipt, GatewayError> {
         let record = self
             .orders
@@ -331,6 +334,9 @@ where
                 replayed: true,
                 reconciled: true,
             });
+        }
+        if !allow_submit {
+            return Err(GatewayError::PendingReconciliation);
         }
 
         let intent = self
@@ -571,7 +577,7 @@ mod tests {
     }
 
     #[test]
-    fn definite_unavailability_stays_pending_until_reconciled() {
+    fn absent_order_stays_pending_until_a_new_authorized_dispatch() {
         let mut broker = PaperBroker::new(100);
         broker.inject_fault(PaperBrokerFault::UnavailableBeforeAcceptOnce);
         let mut gateway = gateway(broker);
@@ -580,8 +586,66 @@ mod tests {
             Err(GatewayError::PendingReconciliation)
         );
         assert_eq!(gateway.pending_reconciliation_count(), 1);
-        assert!(gateway.reconcile("order-1").is_ok());
+        assert_eq!(
+            gateway.reconcile("order-1"),
+            Err(GatewayError::PendingReconciliation)
+        );
+        assert_eq!(gateway.broker().accepted_order_count(), 0);
+        assert_eq!(gateway.record("order-1").unwrap().attempts, 1);
+        assert!(gateway
+            .dispatch(&intent(ExecutionMode::Paper), None, 101)
+            .is_ok());
         assert_eq!(gateway.broker().accepted_order_count(), 1);
+    }
+
+    #[test]
+    fn delayed_acceptance_is_found_by_read_only_reconciliation() {
+        struct DelayedVisibility {
+            inner: PaperBroker,
+            lookups: u32,
+            submits: u32,
+        }
+        impl BrokerPort for DelayedVisibility {
+            fn submit(
+                &mut self,
+                intent: &OrderIntent,
+            ) -> Result<BrokerAcknowledgement, BrokerError> {
+                self.submits += 1;
+                self.inner.submit(intent)
+            }
+            fn lookup_by_client_order_id(
+                &mut self,
+                id: &str,
+            ) -> Result<Option<BrokerAcknowledgement>, BrokerError> {
+                self.lookups += 1;
+                if self.lookups < 3 {
+                    Ok(None)
+                } else {
+                    self.inner.lookup_by_client_order_id(id)
+                }
+            }
+        }
+        let mut inner = PaperBroker::new(100);
+        inner.inject_fault(PaperBrokerFault::AcceptThenTimeoutOnce);
+        let mut gateway = OrderGateway::new(
+            OrderGatewayPolicy {
+                environment: "production".into(),
+                max_risk_authorization_age_ns: 1000,
+                allowed_risk_policy_versions: BTreeSet::from(["risk-1".into()]),
+            },
+            DelayedVisibility {
+                inner,
+                lookups: 0,
+                submits: 0,
+            },
+        );
+        assert_eq!(
+            gateway.dispatch(&intent(ExecutionMode::Paper), None, 100),
+            Err(GatewayError::PendingReconciliation)
+        );
+        assert!(gateway.reconcile("order-1").unwrap().reconciled);
+        assert_eq!(gateway.broker().submits, 1);
+        assert_eq!(gateway.broker().inner.accepted_order_count(), 1);
     }
 
     #[test]

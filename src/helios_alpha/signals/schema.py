@@ -20,7 +20,7 @@ class SignalKind(StrEnum):
 
 class HeliosSignalV1(BaseModel):
     """
-    Versioned broadcast envelope. JSON-serializable for ZMQ / Redis / NATS.
+    Versioned JSON envelope for NATS JetStream.
 
     Subscribers should dedupe on ``signal_id`` and respect ``causal_ts_utc``
     for replay / backtest alignment.
@@ -37,7 +37,7 @@ class HeliosSignalV1(BaseModel):
     kind: SignalKind
     topic_suffix: str = Field(
         default="default",
-        description="Subtopic for ZMQ filter, e.g. ssi, execution.intent",
+        description="NATS subject suffix, e.g. ssi or research.event",
     )
     payload: dict[str, Any] = Field(default_factory=dict)
     requires_ack: bool = False

@@ -3,6 +3,16 @@ name = "helios_hypothesis_shard"
 version = "0.0.1"
 edition = "2024"
 
+[workspace]
+members = ["broker-journal"]
+default-members = ["."]
+exclude = [
+    "bridge-sdk/rust/oms-account-agent-client",
+    "bridge-sdk/rust/projection-cursor-agent-client",
+    "bridge-sdk/rust/risk-account-agent-client",
+]
+resolver = "3"
+
 [profile.release]
 opt-level = "s"
 lto = true
@@ -20,6 +30,7 @@ golem-rust = { version = "2.0.0", features = ["export_golem_agentic"] }
 helio_golem = { path = "../rust/crates/helio_golem" }
 helio_hypothesis = { path = "../rust/crates/helio_hypothesis" }
 helio_execution = { path = "../rust/crates/helio_execution" }
+helio_crypto = { path = "../rust/crates/helio_crypto" }
 helio_oms = { path = "../rust/crates/helio_oms" }
 helio_time = { path = "../rust/crates/helio_time" }
 hex = "0.4"

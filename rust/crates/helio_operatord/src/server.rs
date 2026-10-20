@@ -48,6 +48,7 @@ pub struct AppState {
     pub auth: CommandAuth,
     pub command_executor: Arc<dyn CommandExecutor>,
     pub time_series: Arc<dyn TimeSeriesPort>,
+    pub broker_observation_path: Option<PathBuf>,
     command_gate: Arc<Mutex<HashMap<String, RecordedCommand>>>,
 }
 
@@ -73,6 +74,7 @@ impl AppState {
             auth,
             command_executor,
             time_series,
+            broker_observation_path: None,
             command_gate: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -82,6 +84,10 @@ pub fn router(state: AppState, static_dir: Option<PathBuf>) -> Router {
     let api = Router::new()
         .route("/health", get(health))
         .route("/operations/snapshot", get(snapshot))
+        .route("/operations/broker-observation", get(broker_observation))
+        .route("/operations/broker-sync", get(broker_sync_status))
+        .route("/operations/operator-profile", get(operator_profile))
+        .route("/operations/broker-sync/{action}", post(broker_sync_request))
         .route("/operations/stream", get(snapshot_stream))
         .route("/series/catalog", get(series_catalog))
         .route("/forecasts", get(forecast_bundles))
@@ -193,6 +199,60 @@ async fn snapshot(State(state): State<AppState>) -> Response {
     response
         .headers_mut()
         .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+async fn broker_observation(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    // Private account observations are exposed only by the loopback gateway.
+    // Refuse cross-site browser reads even when cookies are not needed locally.
+    let cross_site = headers.get("sec-fetch-site").is_some_and(|v| v != "same-origin" && v != "none");
+    let local_host = headers.get("host").and_then(|v| v.to_str().ok())
+        .and_then(|value| value.parse::<axum::http::uri::Authority>().ok())
+        .is_some_and(|authority| matches!(authority.host(), "127.0.0.1" | "localhost" | "[::1]"));
+    if cross_site || !local_host { return StatusCode::FORBIDDEN.into_response(); }
+    let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
+    let value = crate::broker_observation::read(state.broker_observation_path.as_deref(), now_ms).await;
+    let mut response = Json(value).into_response();
+    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+fn local_broker_request(headers: &HeaderMap, write: bool) -> bool {
+    let host = headers.get("host").and_then(|v| v.to_str().ok());
+    let local = host.and_then(|v| v.parse::<axum::http::uri::Authority>().ok())
+        .is_some_and(|a| matches!(a.host(), "127.0.0.1" | "localhost" | "[::1]"));
+    let cross_site = headers.get("sec-fetch-site").is_some_and(|v| v != "same-origin" && v != "none");
+    let origin_ok = !write || host.is_some_and(|host| headers.get("origin")
+        .and_then(|v| v.to_str().ok()) == Some(format!("http://{host}").as_str()));
+    local && !cross_site && origin_ok
+}
+
+async fn broker_sync_status(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !local_broker_request(&headers, false) { return StatusCode::FORBIDDEN.into_response(); }
+    let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
+    let root = state.broker_observation_path.as_deref().and_then(|p| p.parent());
+    let mut response = Json(crate::broker_sync::status(root, now_ms).await).into_response();
+    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+async fn operator_profile(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !local_broker_request(&headers, false) { return StatusCode::FORBIDDEN.into_response(); }
+    let root = state.broker_observation_path.as_deref().and_then(|p| p.parent());
+    let mut response = Json(crate::broker_sync::operator_profile(root).await).into_response();
+    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+async fn broker_sync_request(State(state): State<AppState>, headers: HeaderMap, Path(action): Path<String>) -> Response {
+    if !local_broker_request(&headers, true) { return StatusCode::FORBIDDEN.into_response(); }
+    if !["connect", "refresh"].contains(&action.as_str()) { return StatusCode::BAD_REQUEST.into_response(); }
+    let Some(root) = state.broker_observation_path.as_deref().and_then(|p| p.parent()) else { return StatusCode::SERVICE_UNAVAILABLE.into_response(); };
+    let now_ms = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
+    let result = crate::broker_sync::request(root, &action, now_ms).await;
+    let mut response = if result.is_ok() { (StatusCode::ACCEPTED, Json(serde_json::json!({"accepted":true,"execution_authority":false}))).into_response() }
+        else { StatusCode::SERVICE_UNAVAILABLE.into_response() };
+    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
 }
 
@@ -811,6 +871,47 @@ mod tests {
         assert_eq!(response.headers()[ETAG], "\"1\"");
         assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
         assert_eq!(json_body(response).await["schemaVersion"], 2);
+    }
+
+    #[tokio::test]
+    async fn account_observations_require_local_origin_and_are_never_cached() {
+        for (host, site, status) in [
+            ("127.0.0.1:8080", "same-origin", StatusCode::OK),
+            ("localhost:8080", "none", StatusCode::OK),
+            ("127.0.0.1:8080", "cross-site", StatusCode::FORBIDDEN),
+            ("other.example", "same-origin", StatusCode::FORBIDDEN),
+        ] {
+            let application = router(state(Arc::new(ReadOnlyCommandExecutor)), None);
+            let response = application.oneshot(Request::builder()
+                .uri("/api/v1/operations/broker-observation")
+                .header("host", host).header("sec-fetch-site", site)
+                .body(Body::empty()).unwrap()).await.unwrap();
+            assert_eq!(response.status(), status);
+            if status == StatusCode::OK {
+                assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+                let body = json_body(response).await;
+                assert_eq!(body["state"], "not_connected");
+                assert!(body["observation"].is_null());
+                assert_eq!(body["execution_authority"], false);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn broker_sync_controls_require_same_origin_and_cannot_trade() {
+        for (origin, action, expected) in [
+            (None, "refresh", StatusCode::FORBIDDEN),
+            (Some("https://evil.example"), "connect", StatusCode::FORBIDDEN),
+            (Some("http://127.0.0.1:8080"), "place_order", StatusCode::BAD_REQUEST),
+            (Some("http://127.0.0.1:8080"), "refresh", StatusCode::SERVICE_UNAVAILABLE),
+        ] {
+            let application = router(state(Arc::new(ReadOnlyCommandExecutor)), None);
+            let mut request = Request::builder().method("POST")
+                .uri(format!("/api/v1/operations/broker-sync/{action}"))
+                .header("host", "127.0.0.1:8080");
+            if let Some(origin) = origin { request = request.header("origin", origin); }
+            assert_eq!(application.oneshot(request.body(Body::empty()).unwrap()).await.unwrap().status(), expected);
+        }
     }
 
     #[tokio::test]

@@ -11,9 +11,10 @@ test("workspace navigation opens durable panes and the order ticket", async ({ p
 
   await page.getByRole("tab", { name: /Positions/ }).click();
   await expect(page).toHaveURL(/#positions$/);
-  await expect(page.getByRole("heading", { name: "Positions" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Positions", exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "New order" }).click();
+  await page.getByRole("navigation", { name: "Position account" }).getByRole("button", { name: /Shadow 01/ }).click();
+  await page.getByRole("button", { name: "shadow order" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "New order" }).first()).toBeVisible();
@@ -86,6 +87,7 @@ test("operator shell avoids accidental mobile page overflow", async ({ page }) =
   await expect(page.getByRole("tablist", { name: "Operations panes" })).toHaveAttribute("aria-orientation", "horizontal");
 
   await page.getByRole("tab", { name: /Positions/ }).click();
+  await page.getByRole("navigation", { name: "Position account" }).getByRole("button", { name: /Shadow 01/ }).click();
   await expect(page.getByLabel(/Positions\. Scroll horizontally/)).toBeVisible();
 });
 
