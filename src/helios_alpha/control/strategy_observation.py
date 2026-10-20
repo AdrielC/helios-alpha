@@ -36,6 +36,27 @@ def project(status, observed_ms):
                 "updated_ms": number(entry["updated_ns"] // 1_000_000),
                 "feed_connected": data.get("feed_connected") is True,
                 "active_news": number(data.get("active_news", 0)),
+                "reference_source": identifier(data.get("reference_source", "unknown")),
+                "reference_channel": identifier(data.get("reference_channel", "unknown")),
+                "quote_age_ms": {
+                    identifier(symbol): number(age)
+                    for symbol, age in list(data.get("quote_age_ms", {}).items())[:100]
+                },
+                "feeds": [
+                    {
+                        "id": identifier(feed_id),
+                        "state": identifier(feed["state"]),
+                        "poll_seconds": number(feed.get("poll_seconds", 0)),
+                        "last_ok_ms": number(feed["last_ok_ms"])
+                        if feed.get("last_ok_ms") is not None
+                        else None,
+                        "cache_age_seconds": number(feed["response_cache_age_seconds"])
+                        if feed.get("response_cache_age_seconds") is not None
+                        else None,
+                        "consecutive_failures": number(feed.get("consecutive_failures", 0)),
+                    }
+                    for feed_id, feed in sorted(data.get("feeds", {}).items())[:50]
+                ],
                 "signals": [
                     {"symbol": identifier(symbol), "reason": identifier(reason)}
                     for symbol, reason in sorted(data.get("last_reasons", {}).items())

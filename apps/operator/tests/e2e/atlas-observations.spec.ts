@@ -95,3 +95,31 @@ test("empty channels show an actionable empty state without manufactured samples
   await expect(page.getByLabel("Observation coverage")).toContainText("0 samples");
   expect(errors).toEqual([]);
 });
+
+test("running books drive Atlas selection and source health follows original timestamps", async ({ page }) => {
+  await observedWorkspace(page);
+  const market = { ...descriptors[0], id: 'custom-sol-mid', label: 'SOL-USD midpoint', shortLabel: 'SOL-USD', sourceNames: ['venue-x', 'SOL-USD'], defaultVisible: false };
+  await page.route("**/test/catalog", route => route.fulfill({ json: [market, descriptors[1]] }));
+  await page.route("**/test/query", route => {
+    const request = route.request().postDataJSON();
+    return route.fulfill({ json: { schemaVersion: 2, sequence: 1, from: request.from, to: request.to, markers: [], series: [market, descriptors[1]].map(descriptor => ({ descriptor, points: [20, 10, 5].map(seconds => ({kind: 'scalar', timestamp: new Date(fixedNow.getTime() - seconds * 1000).toISOString(), availableAt: new Date(fixedNow.getTime() - seconds * 1000 + 100).toISOString(), value: 22})) })) } });
+  });
+  const strategy = { observed_ms: fixedNow.getTime(), mode: 'paper', paused: false, live_admitted: false, live_blockers: [], paper_orders: 0, paper_positions: 0, model_calls_reserved: 0, model_daily_limit: 12, books: [{id: 'custom-book', engine: 'momentum', state: 'running', mode: 'paper', updated_ms: fixedNow.getTime(), feed_connected: true, active_news: 0, reference_source: 'venue-x', reference_channel: 'level2_batch', quote_age_ms: {'SOL-USD': 42}, signals: [{symbol: 'SOL-USD', reason: 'no_news'}], feeds: [{id: 'coindesk', state: 'running', poll_seconds: 15, last_ok_ms: fixedNow.getTime(), cache_age_seconds: 580, consecutive_failures: 0}]}] };
+  await page.route("**/api/v1/operations/broker-sync", route => route.fulfill({json: {state: 'connected', execution_authority: false, strategy}}));
+  await page.goto('/#overview');
+  const index = page.getByLabel('Running index');
+  await expect(index).toContainText('1 running');
+  await expect(index.getByRole('button', {name: /momentum custom-book/})).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Visible time series')).toContainText('SOL-USD midpoint');
+  await expect(page.getByLabel('Observation coverage')).toContainText('Every 5 seconds');
+  await page.setViewportSize({width: 390, height: 844});
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('tab', {name: /Sources/}).click();
+  const sources = page.getByLabel('Live source inventory');
+  await expect(sources).toContainText('2 / 2 healthy');
+  await expect(sources).toContainText('580s');
+  await page.clock.fastForward(32_000);
+  await expect(sources).toContainText('0 / 2 healthy');
+  await expect(sources).toContainText('Delayed / offline');
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

@@ -46,9 +46,10 @@ fi
 shadow_pid=""
 gateway_pid=""
 broker_sync_pid=""
+market_pid=""
 cleanup() {
   trap - EXIT INT TERM
-  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid"; do
+  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid"; do
     if [[ -n "$child" ]]; then
       kill "$child" 2>/dev/null || true
     fi
@@ -57,13 +58,13 @@ cleanup() {
   # Bound shutdown, then reap only the children started by this launcher.
   for _ in {1..50}; do
     alive=0
-    for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid"; do
+    for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid"; do
       if [[ -n "$child" ]] && kill -0 "$child" 2>/dev/null; then alive=1; fi
     done
     [[ "$alive" == "0" ]] && break
     sleep 0.1
   done
-  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid"; do
+  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid"; do
     if [[ -n "$child" ]]; then
       kill -KILL "$child" 2>/dev/null || true
       wait "$child" 2>/dev/null || true
@@ -74,7 +75,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-uv run --no-sync helios-shadow "${shadow_args[@]}" --interval-seconds 60 &
+"$repo_root/.venv/bin/helios-shadow" "${shadow_args[@]}" --interval-seconds 60 &
 shadow_pid=$!
 
 # The monitor has its own persisted OAuth grant and only calls broker read tools.
@@ -84,6 +85,18 @@ if [[ -f "$HOME/.local/share/helios-alpha/private/broker-sync-config.json" ]]; t
   broker_sync_pid=$!
 fi
 
+# The Atlas observer reuses the public adapter and configured symbols. It has
+# no order authority and its durable quote history survives viewer restarts.
+projection_paths="$repo_root/data/shadow/operator-projection.json"
+market_root="$HOME/.local/share/helios-alpha/private"
+if [[ -f "$market_root/runtime.json" ]]; then
+  "$repo_root/.venv/bin/python" -m helios_alpha.crypto.atlas --prepare
+  export HELIOS_EXTRA_SERIES_CATALOG_PATH="$market_root/atlas-market-catalog.json"
+  projection_paths="$projection_paths:$market_root/atlas-market-projection.json"
+  "$repo_root/.venv/bin/python" -m helios_alpha.crypto.atlas &
+  market_pid=$!
+fi
+
 # This entry point supplies observations only; broker execution is disabled.
 env -u HELIOS_OPERATOR_SESSION_TOKEN -u HELIOS_COMMAND_CSRF_SECRET \
   -u HELIOS_SNAPSHOT_PATH \
@@ -91,7 +104,7 @@ env -u HELIOS_OPERATOR_SESSION_TOKEN -u HELIOS_COMMAND_CSRF_SECRET \
   HELIOS_GOLEM_ENABLED=0 \
   HELIOS_BIND=127.0.0.1:8080 \
   HELIOS_STATIC_DIR="$repo_root/apps/operator/dist" \
-  HELIOS_TIME_SERIES_PROJECTION_PATH="$repo_root/data/shadow/operator-projection.json" \
+  HELIOS_TIME_SERIES_PROJECTION_PATHS="$projection_paths" \
   HELIOS_TIME_SERIES_PROJECTION_POLL_MS=1000 \
   "$repo_root/rust/target/debug/helio_operatord" &
 gateway_pid=$!

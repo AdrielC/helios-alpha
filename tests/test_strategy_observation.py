@@ -46,3 +46,38 @@ def test_projection_uses_runtime_books_and_excludes_private_payloads():
 def test_unknown_authority_never_becomes_zero_live_strategies(bad):
     with pytest.raises(ControlError):
         project({"authority": "golem", "live_admitted": bad}, 456)
+
+
+def test_source_projection_preserves_cache_age_and_excludes_unlisted_fields():
+    state = {
+        "authority": "golem",
+        "live_admitted": False,
+        "mode": "paper",
+        "runtime": {
+            "book": {
+                "updated_ns": 100_000_000,
+                "status": {
+                    "engine": "news_shock",
+                    "state": "running",
+                    "mode": "paper",
+                    "reference_source": "coinbase",
+                    "reference_channel": "level2_batch",
+                    "quote_age_ms": {"BTC-USD": 42},
+                    "feeds": {
+                        "coindesk": {
+                            "state": "running",
+                            "last_ok_ms": 99,
+                            "poll_seconds": 15,
+                            "response_cache_age_seconds": 580,
+                            "secret": "excluded",
+                        }
+                    },
+                },
+            }
+        },
+    }
+    book = project(state, 100)["books"][0]
+    assert book["quote_age_ms"] == {"BTC-USD": 42}
+    assert book["feeds"][0]["cache_age_seconds"] == 580
+    assert book["feeds"][0]["last_ok_ms"] == 99
+    assert "excluded" not in str(book)

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import RunningIndex from "./RunningIndex.vue";
+import type { StrategyObservation } from "../operations/broker-holdings";
+import { bookSeries, bookState, readable } from "../operations/running-index";
 import OperatorIcon from "./OperatorIcon.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
@@ -29,6 +32,7 @@ import {
 
 const props = defineProps<{
   snapshot: OperationsSnapshot;
+  strategy?: StrategyObservation;
   port: TimeSeriesPort;
   investigationPort: InvestigationPort;
   selectedOrderId: string;
@@ -52,6 +56,23 @@ let refreshTimer: ReturnType<typeof setInterval> | undefined;
 let windowGeneration = 0;
 let lastAttemptAt = 0;
 const search = ref("");
+const selectedBook = ref("");
+let indexInitialized = false;
+const selectedBookLabel = computed(() => {
+  const book = props.strategy?.books.find(book => book.id === selectedBook.value);
+  return book ? `${readable(book.engine)} · ${book.mode}` : "";
+});
+const refreshInterval = computed(() => selectedBook.value ? 5_000 : 30_000);
+function selectBook(id: string, seriesIds: string[]): void {
+  if (!workspace.value || !seriesIds.length) return;
+  selectedBook.value = id;
+  updateWorkspace({...workspace.value, forecastBundleIds: [], lanes: seriesIds.map(id => ({id: `lane-${id}`, seriesIds: [id]}))});
+}
+function initializeIndex(): void {
+  if (indexInitialized || props.selectedForecastId || !workspace.value) return;
+  const book = props.strategy?.books.find(book => bookState(book, props.strategy, Date.now()) === "running" && bookSeries(book, catalog.value).length);
+  if (book) { indexInitialized = true; selectBook(book.id, bookSeries(book, catalog.value)); }
+}
 const cursorRatio = ref(630);
 const cursorTime = ref<number>();
 const selectionStart = ref(430);
@@ -227,6 +248,7 @@ async function loadWindow(chooseDefaults = false): Promise<void> {
 }
 
 function showAvailableSeries(): void {
+  selectedBook.value = "";
   if (!workspace.value) return;
   updateWorkspace({ ...workspace.value, forecastBundleIds: [], lanes: availableSeries.value.slice(0, 4).map(series => ({ id: `lane-${series.descriptor.id}`, seriesIds: [series.descriptor.id] })) }, false);
 }
@@ -296,6 +318,7 @@ function bundleIdsForSeries(seriesId: string): readonly string[] {
 }
 
 function toggleForecastBundle(bundle: ForecastBundle): void {
+  selectedBook.value = "";
   if (!workspace.value) return;
   const active = activeForecastIds.value.includes(bundle.id);
   const forecastBundleIds = active
@@ -318,6 +341,7 @@ function toggleForecastBundle(bundle: ForecastBundle): void {
 }
 
 function focusForecastBundle(bundleId: string): void {
+  selectedBook.value = "";
   const bundle = forecastBundles.value.find((candidate) => candidate.id === bundleId);
   if (!workspace.value || !bundle) return;
   updateWorkspace({
@@ -630,6 +654,7 @@ async function loadResearchContext(): Promise<void> {
     chart = undefined;
     if (props.snapshot.dataClass === "observed") { selectionStart.value = 0; selectionEnd.value = 1_000; cursorRatio.value = 1_000; }
     await loadWindow(!selectedBundle && (!savedWorkspace || Boolean(disconnectedDefaults)));
+    initializeIndex();
   } catch (cause) {
     if (generation !== contextLoadGeneration) return;
     error.value = cause instanceof Error ? cause.message : "Market Atlas could not be loaded";
@@ -641,13 +666,15 @@ onMounted(() => {
   void loadResearchContext();
   refreshTimer = setInterval(() => {
     now.value = Date.now();
-    if (props.snapshot.dataClass === "observed" && autoRefresh.value && !refreshing.value && !document.hidden && now.value - lastAttemptAt >= 30_000) void loadWindow();
+    if (props.snapshot.dataClass === "observed" && autoRefresh.value && !refreshing.value && !document.hidden && now.value - lastAttemptAt >= refreshInterval.value) void loadWindow();
   }, 1_000);
 });
 
 onBeforeUnmount(() => { ++contextLoadGeneration; ++windowGeneration; clearInterval(refreshTimer); chart?.destroy(); });
 
-watch(() => props.snapshot.context.accountId, () => { void loadResearchContext(); });
+watch(() => props.strategy, () => initializeIndex());
+
+watch(() => props.snapshot.context.accountId, () => { indexInitialized = false; selectedBook.value = ""; void loadResearchContext(); });
 
 watch(() => props.selectedForecastId, (id) => {
   if (id) focusForecastBundle(id);
@@ -655,17 +682,19 @@ watch(() => props.selectedForecastId, (id) => {
 </script>
 
 <template>
-  <section class="market-atlas" aria-labelledby="market-atlas-heading">
+  <section class="market-atlas" :class="{'has-running-index': Boolean(selectedBook)}" aria-labelledby="market-atlas-heading">
     <header class="atlas-titlebar">
-      <div><h1 id="market-atlas-heading">Market Atlas</h1><p>Explore the observations behind a decision.</p></div>
+      <div><h1 id="market-atlas-heading">Market Atlas</h1><p>Follow running strategies, markets, and their sources.</p></div>
       <div class="atlas-session"><span class="data-kind">{{ snapshot.dataClass === 'synthetic' ? 'Demo data' : 'Observed data' }}</span><button v-if="snapshot.dataClass === 'observed'" class="update-toggle" :aria-pressed="autoRefresh" @click="toggleUpdates"><i :data-active="autoRefresh"></i>{{ autoRefresh ? 'Pause updates' : 'Resume updates' }}</button><button class="atlas-refresh" :disabled="refreshing" @click="loadWindow()"><OperatorIcon name="refresh" />{{ refreshing ? 'Refreshing…' : 'Refresh' }}</button></div>
     </header>
 
+    <RunningIndex v-if="snapshot.dataClass === 'observed'" :strategy="strategy" :catalog="catalog" :selected="selectedBook" :now="now" @select="selectBook" />
+
     <div class="atlas-overview" aria-label="Observation coverage">
-      <div><span>Workspace</span><strong>{{ activeForecasts.length ? activeForecasts.map(bundle => bundle.label).join(' + ') : 'Observation workspace' }}</strong><small>{{ sourceSummary || 'Choose data sources' }}</small></div>
+      <div><span>Workspace</span><strong>{{ selectedBookLabel || (activeForecasts.length ? activeForecasts.map(bundle => bundle.label).join(' + ') : 'Observation workspace') }}</strong><small>{{ sourceSummary || 'Choose data sources' }}</small></div>
       <div><span>Series in view</span><strong>{{ activeSeriesIds.length }} <small>/ {{ catalog.length }} registered</small></strong><small>{{ visiblePointCount.toLocaleString() }} samples in this window</small></div>
       <div><span>Latest sample · UTC</span><strong>{{ latestObservation ? formatTime(latestObservation, false) : 'No samples' }}</strong><small>{{ snapshot.dataClass === 'observed' ? sampleAge(latestObservation) : 'Synthetic preview' }}</small></div>
-      <div><span>Updates</span><strong>{{ snapshot.dataClass === 'synthetic' ? 'Demo preview' : autoRefresh ? 'Every 30 seconds' : 'Paused for inspection' }}</strong><small>{{ lastReadAt && snapshot.dataClass === 'observed' ? `Last checked ${sampleAge(lastReadAt)}` : 'Source timestamps are preserved' }}</small></div>
+      <div><span>Updates</span><strong>{{ snapshot.dataClass === 'synthetic' ? 'Demo preview' : autoRefresh ? `Every ${refreshInterval / 1000} seconds` : 'Paused for inspection' }}</strong><small>{{ lastReadAt && snapshot.dataClass === 'observed' ? `Last checked ${sampleAge(lastReadAt)}` : 'Source timestamps are preserved' }}</small></div>
     </div>
 
     <div class="atlas-toolbar">
@@ -946,4 +975,17 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   .bundle-registry summary { grid-template-columns: 7px minmax(0,1fr); }.bundle-registry summary > b { grid-column: 2; }
 }
 
+
+.has-running-index .atlas-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 14px; }
+.has-running-index .atlas-overview > div { padding: 12px 16px; gap: 5px; }
+.has-running-index .atlas-overview > div:first-child { display: none; }
+@media(min-width:1101px) {
+  .has-running-index { --atlas-plot-height: clamp(280px, calc(100dvh - 610px), 600px); }
+  .has-running-index .atlas-titlebar { min-height: 84px; padding-block: 14px; }
+  .has-running-index .atlas-toolbar { min-height: 50px; padding-block: 8px; }
+  .has-running-index .forecast-strip { padding-block: 6px; }
+  .has-running-index .chart-guidance { min-height: 34px; padding-block: 7px; }
+  .has-running-index .lane-series > span > small { display: none; }
+}
+@media(max-width:1100px) { .has-running-index .atlas-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

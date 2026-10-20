@@ -34,8 +34,13 @@ export interface BrokerSync {
   strategy?: StrategyObservation;
   account_permissions?: { observed_ms: number; options_level: "option_level_2" | "option_level_3" | "none"; approval_required: boolean };
 }
+export interface StrategyFeed {
+  id: string; state: string; poll_seconds: number; last_ok_ms: number | null;
+  cache_age_seconds: number | null; consecutive_failures: number;
+}
 export interface StrategyBook {
   id: string; engine: string; state: string; mode: string; updated_ms: number;
+  reference_source?: string; reference_channel?: string; quote_age_ms?: Record<string, number>; feeds?: StrategyFeed[];
   feed_connected: boolean; active_news: number; signals: { symbol: string; reason: string }[];
 }
 export interface StrategyObservation {
@@ -61,7 +66,18 @@ export function parseStrategy(value: unknown): StrategyObservation | undefined {
     books: data.books.map(value => {
       const book = object(value);
       if (!Array.isArray(book.signals) || book.signals.length > 100) throw new Error("Invalid strategy signals");
-      return { id: identifier(book.id), engine: identifier(book.engine), mode: identifier(book.mode), state: identifier(book.state), updated_ms: timestamp(book.updated_ms), feed_connected: flag(book.feed_connected), active_news: timestamp(book.active_news), signals: book.signals.map(value => { const signal = object(value); return { symbol: identifier(signal.symbol), reason: identifier(signal.reason) }; }) };
+      if (book.feeds != null && (!Array.isArray(book.feeds) || book.feeds.length > 50)) throw new Error("Invalid strategy feeds");
+      const feeds = ((book.feeds ?? []) as unknown[]).map(value => {
+        const feed = object(value);
+        return { id: identifier(feed.id), state: identifier(feed.state), poll_seconds: timestamp(feed.poll_seconds),
+          last_ok_ms: feed.last_ok_ms == null ? null : timestamp(feed.last_ok_ms),
+          cache_age_seconds: feed.cache_age_seconds == null ? null : timestamp(feed.cache_age_seconds), consecutive_failures: timestamp(feed.consecutive_failures) };
+      });
+      const ages = book.quote_age_ms == null ? {} : object(book.quote_age_ms);
+      if (Object.keys(ages).length > 100) throw new Error("Invalid quote ages");
+      return { feeds, quote_age_ms: Object.fromEntries(Object.entries(ages).map(([key, value]) => [identifier(key), timestamp(value)])),
+        reference_source: book.reference_source == null ? undefined : identifier(book.reference_source),
+        reference_channel: book.reference_channel == null ? undefined : identifier(book.reference_channel), id: identifier(book.id), engine: identifier(book.engine), mode: identifier(book.mode), state: identifier(book.state), updated_ms: timestamp(book.updated_ms), feed_connected: flag(book.feed_connected), active_news: timestamp(book.active_news), signals: book.signals.map(value => { const signal = object(value); return { symbol: identifier(signal.symbol), reason: identifier(signal.reason) }; }) };
     }),
   };
 }

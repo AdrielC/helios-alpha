@@ -39,12 +39,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account_id = snapshot.context.account_id.clone();
     let store = OperatorStore::new(snapshot)?;
     let auth = command_auth();
+    let mut catalog = default_catalog();
+    if let Some(path) = env::var_os("HELIOS_EXTRA_SERIES_CATALOG_PATH") {
+        let extra: Vec<helio_operatord::types::TimeSeriesDescriptor> =
+            serde_json::from_slice(&std::fs::read(path)?)?;
+        for descriptor in extra {
+            if catalog.iter().any(|existing| existing.id == descriptor.id) {
+                return Err("duplicate time-series descriptor".into());
+            }
+            catalog.push(descriptor);
+        }
+    }
     let time_series = Arc::new(InMemoryTimeSeriesPort::new(
         account_id.clone(),
-        default_catalog(),
+        catalog,
         default_forecast_bundles(),
     ));
-    if let Some(path) = env::var_os("HELIOS_TIME_SERIES_PROJECTION_PATH").map(PathBuf::from) {
+    let paths = env::var_os("HELIOS_TIME_SERIES_PROJECTION_PATHS")
+        .map(|paths| env::split_paths(&paths).collect::<Vec<_>>())
+        .unwrap_or_else(|| {
+            env::var_os("HELIOS_TIME_SERIES_PROJECTION_PATH")
+                .map(PathBuf::from)
+                .into_iter()
+                .collect()
+        });
+    for path in paths {
         let digest = helio_operatord::load_projection_file(&path, time_series.as_ref())?;
         let interval = projection_poll_interval()?;
         tokio::spawn(watch_projection_file(

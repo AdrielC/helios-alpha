@@ -26,6 +26,24 @@ struct StrategyBook {
     feed_connected: bool,
     active_news: u64,
     signals: Vec<StrategySignal>,
+    #[serde(default)]
+    reference_source: Option<String>,
+    #[serde(default)]
+    reference_channel: Option<String>,
+    #[serde(default)]
+    quote_age_ms: std::collections::BTreeMap<String, u64>,
+    #[serde(default)]
+    feeds: Vec<StrategyFeed>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+struct StrategyFeed {
+    id: String,
+    state: String,
+    poll_seconds: u64,
+    last_ok_ms: Option<u64>,
+    cache_age_seconds: Option<u64>,
+    consecutive_failures: u64,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -45,6 +63,11 @@ fn recent(timestamp: u64, now: u64, max_age: u64) -> bool {
 fn project_strategy(value: &Value, now: u64) -> Value {
     let Ok(data) = serde_json::from_value::<StrategyObservation>(value.clone()) else { return Value::Null; };
     if !recent(data.observed_ms, now, 15_000) || data.books.len() > 20 || data.live_blockers.len() > 20 {
+        return Value::Null;
+    }
+    if data.books.iter().any(|book| {
+        book.feeds.len() > 50 || book.quote_age_ms.len() > 100 || book.signals.len() > 100
+    }) {
         return Value::Null;
     }
     // Typed reserialization excludes arbitrary source, account IDs and credentials.
@@ -179,10 +202,14 @@ mod tests {
             "model_calls_reserved":0,"model_daily_limit":12,"books":[{
                 "id":"worker","engine":"custom","state":"running","mode":"paper",
                 "updated_ms":900,"feed_connected":true,"active_news":0,"signals":[],
-                "strategy_source":"secret"}],"access_token":"secret"});
+                "strategy_source":"secret", "reference_source":"coinbase", "reference_channel":"level2_batch",
+                "quote_age_ms":{"BTC-USD":42}, "feeds":[{"id":"coindesk","state":"running",
+                "poll_seconds":15,"last_ok_ms":950,"cache_age_seconds":580,"consecutive_failures":0,"token":"secret"}]}],"access_token":"secret"});
         let output = project_strategy(&source, 1500);
         assert_eq!(output["books"][0]["engine"], "custom");
         assert!(!output.to_string().contains("secret"));
+        assert_eq!(output["books"][0]["quote_age_ms"]["BTC-USD"], 42);
+        assert_eq!(output["books"][0]["feeds"][0]["cache_age_seconds"], 580);
         assert!(project_strategy(&source, 16001).is_null());
         assert!(project_strategy(&source, 999).is_null());
     }

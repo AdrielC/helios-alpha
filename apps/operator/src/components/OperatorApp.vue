@@ -186,7 +186,7 @@ function paneCount(pane: OperationsPane): number | undefined {
   if (pane === "orders") return snapshot.value.orders.length;
   if (pane === "forecasts") return snapshot.value.signals.length;
   if (pane === "activity") return snapshot.value.activity.length;
-  if (pane === "sources") return snapshot.value.sources.length;
+  if (pane === "sources") return snapshot.value.dataClass === "observed" ? undefined : snapshot.value.sources.length;
   return undefined;
 }
 function relativeTime(timestamp: string): string {
