@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import IndicatorControls from "./IndicatorControls.vue";
+import { defaultIndicators, deriveIndicators, indicatorDescriptors, indicatorLanes, indicatorSource, parseIndicators, type IndicatorSettings } from "../operations/series-indicators";
 import RunningIndex from "./RunningIndex.vue";
 import type { StrategyObservation } from "../operations/broker-holdings";
 import { bookSeries, bookState, readable } from "../operations/running-index";
@@ -41,10 +43,69 @@ const props = defineProps<{
 const emit = defineEmits<{ selectOrder: [id: string] }>();
 
 const chartHost = ref<HTMLElement>();
-const catalog = ref<readonly TimeSeriesDescriptor[]>([]);
+const sourceCatalog = ref<readonly TimeSeriesDescriptor[]>([]);
 const forecastBundles = ref<readonly ForecastBundle[]>([]);
-const dataWindow = ref<TimeSeriesWindow>();
+const sourceWindow = ref<TimeSeriesWindow>();
+const sourceHistoryFull = ref(false);
 const workspace = ref<TimelineWorkspace>();
+
+const indicatorsOpen = ref(false);
+const indicatorSettings = computed(() => workspace.value?.indicators ?? []);
+const hasIndicators = computed(() => indicatorSettings.value.length > 0);
+const catalog = computed(() => [...sourceCatalog.value, ...indicatorSettings.value.flatMap(settings => {
+  const source = sourceCatalog.value.find(item => item.id === settings.sourceId);
+  return source ? indicatorDescriptors(source, settings) : [];
+})]);
+const dataWindow = computed<TimeSeriesWindow | undefined>(() => {
+  const loaded = sourceWindow.value;
+  if (!loaded) return undefined;
+  if (!hasIndicators.value) return loaded;
+  const from = new Date(Date.parse(loaded.to) - (workspace.value?.windowMinutes ?? 60) * 60_000).toISOString();
+  const derived = indicatorSettings.value.flatMap(settings => {
+    const source = loaded.series.find(item => item.descriptor.id === settings.sourceId);
+    return source ? (sourceHistoryFull.value ? deriveIndicators(source, settings) : indicatorDescriptors(source.descriptor, settings).map(descriptor => ({descriptor, points: []}))) : [];
+  });
+  return {...loaded, from, series: [...loaded.series, ...derived].map(series => ({...series, points: series.points.filter(point => Date.parse(point.timestamp) >= Date.parse(from))})), markers: loaded.markers.filter(marker => Date.parse(marker.timestamp) >= Date.parse(from))};
+});
+const fluxSources = computed(() => sourceCatalog.value.filter(source => /flux/i.test(source.label)));
+const studyPlotStyle = computed(() => hasIndicators.value ? {'--atlas-plot-height': `${Math.max(360, (workspace.value?.lanes.length ?? 1) * 90)}px`} : {});
+function applyIndicators(settings: IndicatorSettings): void {
+  if (!workspace.value) return;
+  const remaining = indicatorSettings.value.filter(item => item.sourceId !== settings.sourceId);
+  const enabled = settings.ewma || settings.zscore || settings.deviation || settings.macd;
+  if (enabled && remaining.length >= 12) return;
+  const nextSettings = enabled ? [...remaining, settings] : remaining;
+  const remainingLanes = workspace.value.lanes.flatMap(lane => {
+    const seriesIds = lane.seriesIds.filter(id => indicatorSource(id) !== settings.sourceId);
+    return seriesIds.length ? [{...lane, seriesIds}] : [];
+  });
+  selectedBook.value = ""; indexInitialized = true;
+  updateWorkspace({...workspace.value, transform: "raw", indicators: nextSettings, lanes: [...remainingLanes, ...indicatorLanes(settings)]});
+  indicatorsOpen.value = false;
+}
+function clearIndicators(): void {
+  if (!workspace.value) return;
+  updateWorkspace({...workspace.value, indicators: [], lanes: workspace.value.lanes.flatMap(lane => {
+    const seriesIds = lane.seriesIds.filter(id => !id.startsWith("indicator:"));
+    return seriesIds.length ? [{...lane, seriesIds}] : [];
+  })});
+}
+function analyzeFluxes(): void {
+  if (!workspace.value) return;
+  const settings = fluxSources.value.slice(0, 12).map(source => defaultIndicators(source.id));
+  selectedBook.value = ""; indexInitialized = true;
+  updateWorkspace({...workspace.value, transform: "raw", forecastBundleIds: [], windowMinutes: 240, indicators: settings, lanes: settings.flatMap(indicatorLanes)});
+}
+function studyStatus(id: string): string {
+  if (!id.startsWith("indicator:")) return "No samples";
+  const settings = indicatorSettings.value.find(item => item.sourceId === indicatorSource(id));
+  if (!settings) return "No samples";
+  const count = sourceWindow.value?.series.find(series => series.descriptor.id === settings.sourceId)?.points.length ?? 0;
+  if (!sourceHistoryFull.value) return "Loading history";
+  const needed = id.endsWith(":ewma") ? settings.span : id.endsWith(":macd") ? settings.slow : id.endsWith(":signal") || id.endsWith(":histogram") ? settings.slow + settings.signal - 1 : settings.window;
+  return count < needed ? `Warming up · ${count}/${needed}` : "No samples in view";
+}
+
 const loading = ref(true);
 const error = ref("");
 const seriesOpen = ref(false);
@@ -66,12 +127,12 @@ const refreshInterval = computed(() => selectedBook.value ? 5_000 : 30_000);
 function selectBook(id: string, seriesIds: string[]): void {
   if (!workspace.value || !seriesIds.length) return;
   selectedBook.value = id;
-  updateWorkspace({...workspace.value, forecastBundleIds: [], lanes: seriesIds.map(id => ({id: `lane-${id}`, seriesIds: [id]}))});
+  updateWorkspace({...workspace.value, indicators: [], forecastBundleIds: [], lanes: seriesIds.map(id => ({id: `lane-${id}`, seriesIds: [id]}))});
 }
 function initializeIndex(): void {
-  if (indexInitialized || props.selectedForecastId || !workspace.value) return;
-  const book = props.strategy?.books.find(book => bookState(book, props.strategy, Date.now()) === "running" && bookSeries(book, catalog.value).length);
-  if (book) { indexInitialized = true; selectBook(book.id, bookSeries(book, catalog.value)); }
+  if (indexInitialized || hasIndicators.value || props.selectedForecastId || !workspace.value) return;
+  const book = props.strategy?.books.find(book => bookState(book, props.strategy, Date.now()) === "running" && bookSeries(book, sourceCatalog.value).length);
+  if (book) { indexInitialized = true; selectBook(book.id, bookSeries(book, sourceCatalog.value)); }
 }
 const cursorRatio = ref(630);
 const cursorTime = ref<number>();
@@ -177,7 +238,8 @@ function parseWorkspace(): TimelineWorkspace | undefined {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(workspaceStorageKey()) ?? "null") as Partial<TimelineWorkspace> | null;
     if (!parsed || parsed.schemaVersion !== 2 || !Array.isArray(parsed.lanes)) return undefined;
-    const validIds = new Set(catalog.value.map((series) => series.id));
+    const indicators = parseIndicators(parsed.indicators, sourceCatalog.value);
+    const validIds = new Set([...sourceCatalog.value.map(series => series.id), ...indicators.flatMap(settings => indicatorDescriptors(sourceCatalog.value.find(source => source.id === settings.sourceId)!, settings).map(series => series.id))]);
     const parsedLanes = parsed.lanes.flatMap((lane) => {
       if (!lane || typeof lane.id !== "string" || !Array.isArray(lane.seriesIds)) return [];
       const seriesIds = lane.seriesIds.filter((id: unknown): id is string => typeof id === "string" && validIds.has(id));
@@ -188,7 +250,7 @@ function parseWorkspace(): TimelineWorkspace | undefined {
     const forecastBundleIds = Array.isArray(parsed.forecastBundleIds)
       ? parsed.forecastBundleIds.filter((id: unknown): id is string => typeof id === "string" && forecastBundles.value.some((bundle) => bundle.id === id))
       : [];
-    return { schemaVersion: 2, transform, lanes: parsedLanes, windowMinutes, forecastBundleIds };
+    return { schemaVersion: 2, transform: indicators.length ? "raw" : transform, lanes: parsedLanes, windowMinutes, forecastBundleIds, indicators };
   } catch {
     return undefined;
   }
@@ -217,15 +279,17 @@ async function loadWindow(chooseDefaults = false): Promise<void> {
     // The observation feed advances independently of the OMS event ledger.
     const toMs = props.snapshot.dataClass === "observed" ? Date.now() : Date.parse(props.snapshot.observedAt);
     const fromMs = toMs - workspace.value.windowMinutes * 60_000;
+    const fullHistory = hasIndicators.value;
     const nextWindow = await props.port.query({
       context,
-      seriesIds: catalog.value.map(series => series.id),
-      from: new Date(fromMs).toISOString(),
+      seriesIds: sourceCatalog.value.map(series => series.id),
+      from: new Date(hasIndicators.value ? toMs - 86_400_000 : fromMs).toISOString(),
       to: new Date(toMs).toISOString(),
-      maxPoints: 480,
+      maxPoints: hasIndicators.value ? 5_000 : 480,
     });
     if (generation !== contextLoadGeneration || requestGeneration !== windowGeneration || props.snapshot.context.accountId !== context.accountId) return;
-    dataWindow.value = nextWindow;
+    sourceHistoryFull.value = fullHistory;
+    sourceWindow.value = nextWindow;
     lastReadAt.value = Date.now();
     now.value = Date.now();
     if (chooseDefaults && !visiblePointCount.value && availableSeries.value.length) showAvailableSeries();
@@ -296,8 +360,13 @@ function toggleSeries(id: string): void {
   updateWorkspace({ ...workspace.value, lanes: active ? without : [...without, { id: `lane-${id}`, seriesIds: [id] }] });
 }
 
+function compatiblePane(id: string, lane: TimelineLane): boolean {
+  return !hasIndicators.value || lane.seriesIds.every(other => descriptorById.value.get(other)?.unit === descriptorById.value.get(id)?.unit);
+}
+
 function placeSeries(id: string, target: string): void {
   if (!workspace.value || !activeSeriesIds.value.includes(id)) return;
+  if (target !== "own" && !compatiblePane(id, workspace.value.lanes.find(lane => lane.id === target) ?? {id: target, seriesIds: []})) return;
   const without = workspace.value.lanes.flatMap((lane) => {
     const seriesIds = lane.seriesIds.filter((current) => current !== id);
     return seriesIds.length ? [{ ...lane, seriesIds }] : [];
@@ -382,7 +451,7 @@ function handlePaneWeights(weights: readonly number[]): void {
 }
 
 function resetWorkspace(): void {
-  workspace.value = defaultTimelineWorkspace(catalog.value);
+  workspace.value = defaultTimelineWorkspace(sourceCatalog.value);
   persistWorkspace();
   void loadWindow(true);
 }
@@ -400,7 +469,7 @@ function laneWeight(lane: TimelineLane): number {
 }
 
 function effectiveTransform(lane: TimelineLane): SeriesTransform {
-  if (!workspace.value) return "raw";
+  if (!workspace.value || hasIndicators.value) return "raw";
   const units = new Set(lane.seriesIds.map((id) => descriptorById.value.get(id)?.unit));
   return workspace.value.transform === "raw" && units.size > 1 ? "indexed" : workspace.value.transform;
 }
@@ -451,6 +520,7 @@ function buildModel(): AtlasChartModel {
         unit: effectiveTransform(lane) === "raw" ? series.descriptor.unit : effectiveTransform(lane),
         precision: effectiveTransform(lane) === "raw" ? series.descriptor.precision : 2,
         data: chartPoints(series, lane),
+        referenceLines: id.endsWith(":zscore") ? [-2, 0, 2] : id.endsWith(":macd") ? [0] : undefined,
       }];
     })),
   };
@@ -538,7 +608,7 @@ function availableSeriesValueAt(id: string): { value: number; point: TimeSeriesP
 
 function seriesDisplay(id: string): string {
   const descriptor = descriptorById.value.get(id);
-  const sample = seriesValueAt(id);
+  const sample = id.startsWith("indicator:") ? availableSeriesValueAt(id) : seriesValueAt(id);
   return descriptor && sample ? formatValue(sample.value, descriptor) : "n/a";
 }
 
@@ -617,7 +687,7 @@ async function runInvestigation(): Promise<void> {
       to: new Date(interval.value?.to ?? Date.parse(dataWindow.value.to)).toISOString(),
       cursor: new Date(cursorTime.value).toISOString(),
       markerId: selectedMarker.value?.id,
-      seriesIds: activeSeriesIds.value,
+      seriesIds: [...new Set(activeSeriesIds.value.map(indicatorSource))],
     });
   } catch (cause) {
     investigationError.value = cause instanceof Error ? cause.message : "Investigation failed";
@@ -637,9 +707,10 @@ async function loadResearchContext(): Promise<void> {
       props.port.forecastBundles(context),
     ]);
     if (generation !== contextLoadGeneration || props.snapshot.context.accountId !== context.accountId) return;
-    catalog.value = nextCatalog;
+    sourceCatalog.value = nextCatalog;
     forecastBundles.value = nextForecastBundles;
     const savedWorkspace = parseWorkspace();
+    if (savedWorkspace?.indicators?.length) indexInitialized = true;
     const defaults = defaultTimelineWorkspace(nextCatalog);
     const disconnectedDefaults = savedWorkspace && savedWorkspace.lanes.flatMap(lane => lane.seriesIds).toSorted().join() === defaults.lanes.flatMap(lane => lane.seriesIds).toSorted().join() && defaults.lanes.every(lane => nextCatalog.find(series => series.id === lane.seriesIds[0])?.freshness === "not connected");
     const nextWorkspace = !savedWorkspace || disconnectedDefaults ? defaults : savedWorkspace;
@@ -649,7 +720,7 @@ async function loadResearchContext(): Promise<void> {
       : nextWorkspace;
     loadedWindowMinutes = undefined;
     visibleRange.value = undefined;
-    dataWindow.value = undefined;
+    sourceWindow.value = undefined;
     chart?.destroy();
     chart = undefined;
     if (props.snapshot.dataClass === "observed") { selectionStart.value = 0; selectionEnd.value = 1_000; cursorRatio.value = 1_000; }
@@ -682,13 +753,13 @@ watch(() => props.selectedForecastId, (id) => {
 </script>
 
 <template>
-  <section class="market-atlas" :class="{'has-running-index': Boolean(selectedBook)}" aria-labelledby="market-atlas-heading">
+  <section class="market-atlas" :class="{'has-running-index': Boolean(selectedBook), 'has-indicators': hasIndicators}" :style="studyPlotStyle" aria-labelledby="market-atlas-heading">
     <header class="atlas-titlebar">
       <div><h1 id="market-atlas-heading">Market Atlas</h1><p>Follow running strategies, markets, and their sources.</p></div>
       <div class="atlas-session"><span class="data-kind">{{ snapshot.dataClass === 'synthetic' ? 'Demo data' : 'Observed data' }}</span><button v-if="snapshot.dataClass === 'observed'" class="update-toggle" :aria-pressed="autoRefresh" @click="toggleUpdates"><i :data-active="autoRefresh"></i>{{ autoRefresh ? 'Pause updates' : 'Resume updates' }}</button><button class="atlas-refresh" :disabled="refreshing" @click="loadWindow()"><OperatorIcon name="refresh" />{{ refreshing ? 'Refreshing…' : 'Refresh' }}</button></div>
     </header>
 
-    <RunningIndex v-if="snapshot.dataClass === 'observed'" :strategy="strategy" :catalog="catalog" :selected="selectedBook" :now="now" @select="selectBook" />
+    <RunningIndex v-if="snapshot.dataClass === 'observed'" :strategy="strategy" :catalog="sourceCatalog" :selected="selectedBook" :now="now" @select="selectBook" />
 
     <div class="atlas-overview" aria-label="Observation coverage">
       <div><span>Workspace</span><strong>{{ selectedBookLabel || (activeForecasts.length ? activeForecasts.map(bundle => bundle.label).join(' + ') : 'Observation workspace') }}</strong><small>{{ sourceSummary || 'Choose data sources' }}</small></div>
@@ -701,16 +772,21 @@ watch(() => props.selectedForecastId, (id) => {
       <div class="window-buttons" role="group" aria-label="Loaded history window">
         <button v-for="option in [{m:5,l:'5m'},{m:10,l:'10m'},{m:60,l:'1h'},{m:240,l:'4h'},{m:1440,l:'1d'}]" :key="option.m" :aria-pressed="workspace?.windowMinutes === option.m" @click="setWindowMinutes(option.m)">{{ option.l }}</button>
       </div>
-      <label class="transform-control">Scale<select :value="workspace?.transform" aria-label="Series transform" @change="setTransform(($event.target as HTMLSelectElement).value as SeriesTransform)"><option value="raw">Original units</option><option value="indexed">Indexed to 100</option><option value="percent_change">Change %</option><option value="z_score">Z-score</option></select></label>
+      <label class="transform-control">Scale<select :value="workspace?.transform" aria-label="Series transform" :disabled="hasIndicators" @change="setTransform(($event.target as HTMLSelectElement).value as SeriesTransform)"><option value="raw">Original units</option><option value="indexed">Indexed to 100</option><option value="percent_change">Change %</option><option value="z_score">Window z-score</option></select></label>
       <button class="available-button" :disabled="!availableSeries.length" @click="showAvailableSeries">Available data <span>{{ availableSeries.length }}</span></button>
       <button class="manage-series" :aria-expanded="seriesOpen" @click="seriesOpen = !seriesOpen"><OperatorIcon name="sources" />Observations <b>{{ activeSeriesIds.length }}</b></button>
     </div>
 
     <div class="forecast-strip" aria-label="Forecast bundles">
       <span>Research presets</span>
+      <button v-if="fluxSources.length" @click="analyzeFluxes">Flux analysis <b>σ</b></button>
+      <button :aria-expanded="indicatorsOpen" @click="indicatorsOpen = !indicatorsOpen">Indicators <b>{{ indicatorSettings.length || '＋' }}</b></button>
       <button v-for="bundle in forecastBundles" :key="bundle.id" :aria-pressed="activeForecastIds.includes(bundle.id)" @click="toggleForecastBundle(bundle)"><i :data-state="bundle.state"></i>{{ bundle.label }}<b>{{ bundle.seriesIds.length }}</b></button>
       <button class="forecast-custom" :aria-pressed="activeForecastIds.length === 0" @click="workspace && updateWorkspace({...workspace,forecastBundleIds:[]},false)">Custom</button>
     </div>
+
+    <IndicatorControls v-if="indicatorsOpen" :catalog="sourceCatalog" :settings="indicatorSettings" :preferred="activeSeriesIds.map(indicatorSource).find(id => sourceCatalog.some(source => source.id === id))" @apply="applyIndicators" @clear="clearIndicators" @close="indicatorsOpen = false" />
+    <div v-if="hasIndicators" class="study-caption"><span><i></i>Rolling studies</span><p>Periods = samples · 0σ = trailing mean · ±2σ guides · Original units preserved</p><button @click="indicatorsOpen = !indicatorsOpen">Edit indicators</button></div>
 
     <div v-if="seriesOpen" class="series-drawer">
       <header><div><strong>Workspace composition</strong><span>Add a research preset or choose individual observations.</span></div><button @click="seriesOpen = false" aria-label="Close observations">Done</button></header><div class="drawer-tools"><label class="series-search"><OperatorIcon name="search" /><input v-model="search" type="search" placeholder="Search observations" aria-label="Search registered observations"></label><button @click="resetWorkspace">Restore default</button></div>
@@ -723,7 +799,7 @@ watch(() => props.selectedForecastId, (id) => {
       <div class="series-options">
         <article v-for="series in filteredCatalog" :key="series.id" :data-active="activeSeriesIds.includes(series.id)">
           <button class="series-toggle" :aria-pressed="activeSeriesIds.includes(series.id)" @click="toggleSeries(series.id)"><i :style="{ background: series.color }"></i><span><strong>{{ series.label }}</strong><small>{{ series.provenance }}</small><small>{{ seriesById.get(series.id)?.points.length || 0 }} samples in window</small></span><b>{{ activeSeriesIds.includes(series.id) ? 'Remove' : 'Add' }}</b></button>
-          <div v-if="activeSeriesIds.includes(series.id)" class="pane-choices" role="group" :aria-label="`Place ${series.label}`"><span>Display</span><button :aria-pressed="laneFor(series.id)?.seriesIds.length === 1" @click="placeSeries(series.id,'own')">Own lane</button><button v-for="lane in workspace?.lanes.filter((candidate) => !candidate.seriesIds.includes(series.id))" :key="lane.id" :aria-pressed="laneFor(series.id)?.id === lane.id" @click="placeSeries(series.id,lane.id)">With {{ laneLabel(lane) }}</button></div>
+          <div v-if="activeSeriesIds.includes(series.id)" class="pane-choices" role="group" :aria-label="`Place ${series.label}`"><span>Display</span><button :aria-pressed="laneFor(series.id)?.seriesIds.length === 1" @click="placeSeries(series.id,'own')">Own lane</button><button v-for="lane in workspace?.lanes.filter((candidate) => !candidate.seriesIds.includes(series.id) && compatiblePane(series.id, candidate))" :key="lane.id" :aria-pressed="laneFor(series.id)?.id === lane.id" @click="placeSeries(series.id,lane.id)">With {{ laneLabel(lane) }}</button></div>
         </article>
       </div>
     </div>
@@ -737,7 +813,7 @@ watch(() => props.selectedForecastId, (id) => {
             <div class="series-register-body" :style="registerRows">
               <article v-for="lane in lanes" :key="lane.id" draggable="true" :data-dragging="draggedLaneId === lane.id" @dragstart="draggedLaneId = lane.id" @dragend="draggedLaneId = undefined" @dragover.prevent @drop="reorderLane(draggedLaneId,lane.id)">
                 <button class="lane-grip" :aria-label="`Drag ${laneLabel(lane)} pane`"><svg viewBox="0 0 10 16" aria-hidden="true"><circle cx="3" cy="3" r="1"/><circle cx="7" cy="3" r="1"/><circle cx="3" cy="8" r="1"/><circle cx="7" cy="8" r="1"/><circle cx="3" cy="13" r="1"/><circle cx="7" cy="13" r="1"/></svg></button>
-                <div class="lane-series"><span v-for="id in lane.seriesIds" :key="id"><i :style="{ background: descriptorById.get(id)?.color }"></i><span><strong>{{ descriptorById.get(id)?.label }}</strong><small :title="descriptorById.get(id)?.provenance">{{ descriptorById.get(id)?.provenance }}</small></span><b>{{ seriesDisplay(id) }}<small>{{ seriesById.get(id)?.points.length ? formatTime(seriesValueAt(id)?.point.timestamp, false) : 'No samples' }}</small></b></span></div>
+                <div class="lane-series"><span v-for="id in lane.seriesIds" :key="id"><i :style="{ background: descriptorById.get(id)?.color }"></i><span><strong>{{ id.startsWith('indicator:') ? (lane.seriesIds.length === 1 ? sourceCatalog.find(source => source.id === indicatorSource(id))?.shortLabel + ' · ' : '') + descriptorById.get(id)?.shortLabel : descriptorById.get(id)?.label }}</strong><small :title="descriptorById.get(id)?.provenance">{{ id.startsWith('indicator:') ? sourceCatalog.find(source => source.id === indicatorSource(id))?.shortLabel : descriptorById.get(id)?.provenance }}</small></span><b>{{ seriesDisplay(id) }}<small :data-empty="!seriesById.get(id)?.points.length">{{ seriesById.get(id)?.points.length ? formatTime(seriesValueAt(id)?.point.timestamp, false) : studyStatus(id) }}</small></b></span></div>
                 <div class="lane-actions"><button :disabled="lanes[0]?.id === lane.id" :aria-label="`Move ${laneLabel(lane)} up`" @click="moveLane(lane.id,-1)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 7.5 3.5-3 3.5 3"/></svg></button><button :disabled="lanes.at(-1)?.id === lane.id" :aria-label="`Move ${laneLabel(lane)} down`" @click="moveLane(lane.id,1)"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2.5 4.5 3.5 3 3.5-3"/></svg></button></div>
               </article>
             </div>
@@ -765,7 +841,7 @@ watch(() => props.selectedForecastId, (id) => {
 
           <aside class="evidence-rail">
             <header><div><span>At cursor · UTC</span><strong>{{ formatTime(cursorTime, false) }}</strong></div><OperatorIcon name="forecasts" /></header><p class="inspector-help">Values available at the selected time.</p>
-            <section class="rail-section observation"><h2>Observations</h2><dl><div v-for="id in activeSeriesIds.slice(0,8)" :key="id" :data-late="!availableSeriesValueAt(id)"><dt>{{ descriptorById.get(id)?.shortLabel }}</dt><dd>{{ availableSeriesDisplay(id) }}</dd></div></dl></section>
+            <section class="rail-section observation"><h2>Observations</h2><dl><div v-for="id in activeSeriesIds.slice(0,8)" :key="id" :data-late="!availableSeriesValueAt(id)"><dt :title="descriptorById.get(id)?.label">{{ id.startsWith('indicator:') ? sourceCatalog.find(source => source.id === indicatorSource(id))?.shortLabel + ' · ' : '' }}{{ descriptorById.get(id)?.shortLabel }}</dt><dd>{{ availableSeriesDisplay(id) }}</dd></div></dl></section>
             <section v-if="activeSeriesIds.some(isMeaningfullyLate)" class="rail-section late"><h2>Late arrivals</h2><p v-for="id in activeSeriesIds.filter(isMeaningfullyLate).slice(0,3)" :key="id"><time>{{ formatTime(seriesValueAt(id)?.point.availableAt) }}</time><span>{{ descriptorById.get(id)?.label }}</span></p></section>
             <details v-if="hasDecision" class="rail-section decision"><summary>Execution event · {{ selectedMarker?.label }}</summary><dl><div><dt>Model version</dt><dd>{{ cutFact('modelVersion') }}</dd></div><div><dt>Risk decision</dt><dd :data-tone="cutFactTone('riskDecision')">{{ cutFact('riskDecision') }}</dd></div><div><dt>Order intent</dt><dd>{{ cutFact('orderIntent') }}</dd></div><div><dt>Broker ack</dt><dd :data-tone="cutFactTone('brokerAcknowledgement')">{{ cutFact('brokerAcknowledgement') }}</dd></div><div><dt>Fill result</dt><dd>{{ cutFact('fillResult') }}</dd></div><div><dt>Selected price</dt><dd>{{ selectedPrice === undefined ? 'Not available at cut' : new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(selectedPrice) }}</dd></div></dl></details>
             <p v-if="!hasDecision" class="no-decision">No execution event at this time.</p><button class="investigate" :disabled="investigating || !visiblePointCount" @click="runInvestigation">{{ investigating ? 'Analyzing selection' : 'Analyze selection' }}</button>
@@ -988,4 +1064,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   .has-running-index .lane-series > span > small { display: none; }
 }
 @media(max-width:1100px) { .has-running-index .atlas-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.study-caption{display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px solid #293b4b;background:#0e1b28;border-radius:9px;margin-bottom:12px;font-size:10px;color:#94a9bf}.study-caption>span{color:#c5b3ef;white-space:nowrap}.study-caption i{display:inline-block;width:6px;height:6px;border-radius:50%;background:#bc9be9;margin-right:7px}.study-caption p{margin:0;flex:1;line-height:1.5}.study-caption button{padding:5px 8px;white-space:nowrap;border:1px solid #354a60;background:#132332;border-radius:5px;color:#b6cff0}.has-indicators .lane-series>span{min-height:0;padding-top:3px;padding-bottom:3px}.has-indicators .lane-series>span>span>small{font-size:9px}.has-indicators .lane-series>span>b{font-size:11px}.has-indicators .lane-series>span>b>small{font-size:8px}@media(max-width:700px){.study-caption{flex-wrap:wrap;gap:8px}.study-caption p{flex-basis:70%}.has-indicators .lane-series>span>b{font-size:10px}}
+
+.has-indicators .atlas-overview{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:12px}.has-indicators .atlas-overview>div:first-child{display:none}.has-indicators .atlas-overview>div{padding:10px 14px;gap:4px}.has-indicators .atlas-overview strong{font-size:18px}.has-indicators .atlas-titlebar{min-height:76px;padding-block:12px}.has-indicators .atlas-toolbar{min-height:46px;padding-block:6px}.has-indicators .forecast-strip{min-height:38px;padding-block:5px}.has-indicators .chart-guidance{min-height:30px;padding-block:6px}.has-indicators .lane-series>span>span>small{display:none}.has-indicators .lane-series>span>b>small{display:none}.has-indicators .lane-series>span>b>small[data-empty=true]{display:block}.has-indicators .lane-series>span{row-gap:3px}.has-indicators .series-register article{padding-block:4px}.has-indicators :deep(.running-index){padding-block:10px}.has-indicators :deep(.running-index footer){padding-block:5px}.has-indicators .study-caption{padding-block:6px;margin-bottom:8px}
+@media(min-width:1101px){.has-indicators :deep(.running-index>header){margin-bottom:7px}.has-indicators :deep(.book-select){padding-block:8px}}
+@media(max-width:720px){.has-indicators .atlas-overview{grid-template-columns:1fr 1fr}.has-indicators .atlas-titlebar{min-height:90px}}
 </style>

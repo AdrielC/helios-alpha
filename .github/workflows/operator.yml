@@ -43,7 +43,7 @@ jobs:
         run: npm ci
 
       - name: Test Atlas chart primitives
-        run: npm run atlas:test
+        run: npm run atlas:test && npm run operator:test
 
       - name: Typecheck and build operator
         run: npm run operator:build

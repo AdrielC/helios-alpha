@@ -8,6 +8,7 @@ import {
   LineSeries,
   LineStyle,
   createChart,
+  type AutoscaleInfo,
   type IChartApi,
   type ISeriesApi,
   type MouseEventParams,
@@ -41,8 +42,9 @@ function rgba(hex: string, alpha: number): string {
   return `rgba(${number >> 16}, ${(number >> 8) & 255}, ${number & 255}, ${alpha})`;
 }
 
-function formatPrice(series: AtlasSeriesDefinition): { type: "price"; precision: number; minMove: number } | { type: "volume" } {
+function formatPrice(series: AtlasSeriesDefinition): { type: "price"; precision: number; minMove: number } | { type: "volume" } | { type: "custom"; minMove: number; formatter: (price: number) => string } {
   if (series.kind === "histogram" && series.unit.toLowerCase().includes("volume")) return { type: "volume" };
+  if (series.precision >= 8) return { type: "custom", minMove: 10 ** -series.precision, formatter: price => price === 0 ? "0" : Math.abs(price) < 0.001 ? price.toExponential(1) : new Intl.NumberFormat("en-US", {maximumFractionDigits: 4}).format(price) };
   return { type: "price", precision: series.precision, minMove: 10 ** -series.precision };
 }
 
@@ -61,6 +63,10 @@ function addSeries(chart: IChartApi, definition: AtlasSeriesDefinition, paneInde
     priceLineVisible: false,
     lastValueVisible: true,
     crosshairMarkerVisible: true,
+    ...(definition.referenceLines?.length ? { autoscaleInfoProvider: (base: () => AutoscaleInfo | null) => {
+      const info = base();
+      return info?.priceRange ? {...info, priceRange: {minValue: Math.min(info.priceRange.minValue, ...definition.referenceLines!), maxValue: Math.max(info.priceRange.maxValue, ...definition.referenceLines!)}} : null;
+    }} : {}),
   };
 
   if (definition.kind === "candlestick") {
@@ -187,6 +193,7 @@ export function createAtlasChart(container: HTMLElement, options: AtlasChartOpti
     for (const definition of next.series) {
       const paneIndex = paneIndexById.get(definition.paneId) ?? 0;
       const handle = addSeries(chart, definition, paneIndex);
+      for (const price of definition.referenceLines ?? []) handle.createPriceLine({ price, color: "#768a9e", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "" });
       seriesById.set(definition.id, handle);
       idBySeries.set(handle, definition.id);
     }

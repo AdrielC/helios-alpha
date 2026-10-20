@@ -30,6 +30,7 @@ export interface AtlasSeriesDefinition {
   readonly unit: string;
   readonly precision: number;
   readonly data: readonly AtlasPoint[];
+  readonly referenceLines?: readonly number[];
 }
 
 export interface AtlasChartModel {

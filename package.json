@@ -16,7 +16,8 @@
     "operator:check-performance": "npm --workspace @helios-alpha/operator run check:performance",
     "operator:e2e": "playwright test --config apps/operator/playwright.config.ts",
     "operator:preview": "npm --workspace @helios-alpha/operator run preview",
-    "atlas:test": "npm --workspace @helios-alpha/atlas-charts test"
+    "atlas:test": "npm --workspace @helios-alpha/atlas-charts test",
+    "operator:test": "tsx --test apps/operator/tests/unit/*.test.ts"
   },
   "devDependencies": {
     "@fontsource-variable/archivo": "5.3.0",

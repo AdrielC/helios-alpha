@@ -123,3 +123,60 @@ test("running books drive Atlas selection and source health follows original tim
   await expect(sources).toContainText('Delayed / offline');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test("rolling studies use retained history, persist settings, and keep values stable across zoom", async ({ page }) => {
+  const state = await observedWorkspace(page);
+  const flux = {...descriptors[1], id: "arbitrary-flux", label: "Test flux", shortLabel: "Flux", unit: "W/m2", precision: 9};
+  await page.route("**/test/catalog", route => route.fulfill({json: [flux]}));
+  await page.route("**/test/query", route => {
+    const request = route.request().postDataJSON() as TimeSeriesRequest;
+    state.requests.push(request);
+    const points = Array.from({length: 180}, (_, i) => ({kind: "scalar", timestamp: new Date(fixedNow.getTime() - (180-i)*60_000).toISOString(), availableAt: new Date(fixedNow.getTime() - (180-i)*60_000).toISOString(), value: (1 + Math.sin(i/8) + i/100) * 1e-7})).filter(point => point.timestamp >= request.from);
+    return route.fulfill({json: {schemaVersion: 2, sequence: state.requests.length, from: request.from, to: request.to, markers: [], series: [{descriptor: flux, points}]}});
+  });
+  await page.goto('/#overview');
+  await page.getByRole('button', {name: /Flux analysis/}).click();
+  const register = page.getByLabel('Visible time series');
+  await expect(register).toContainText('EWMA 20');
+  await expect(register).toContainText('Z-score 60');
+  await expect(register).not.toContainText('Warming up');
+  expect(state.requests.at(-1)!.maxPoints).toBe(5000);
+  expect(Date.parse(state.requests.at(-1)!.to) - Date.parse(state.requests.at(-1)!.from)).toBe(86_400_000);
+  expect(state.requests.at(-1)!.seriesIds).toEqual(['arbitrary-flux']);
+  const zRow = register.locator('.lane-series > span').filter({hasText: 'Z-score 60'});
+  const before = await zRow.locator('b').textContent();
+  await page.getByRole('group', {name: 'Loaded history window'}).getByRole('button', {name:'5m',exact:true}).click();
+  await expect(zRow.locator('b')).toHaveText(before);
+  await page.getByRole('button', {name:'Edit indicators',exact:true}).click();
+  await page.getByRole('checkbox',{name:'MACD',exact:true}).check();
+  await page.getByRole('checkbox',{name:'Standard deviation',exact:true}).check();
+  await page.getByLabel('MACD fast period').fill('40');
+  await expect(page.getByRole('alert')).toContainText('shorter');
+  await expect(page.getByRole('button',{name:'Apply indicators'})).toBeDisabled();
+  await page.getByLabel('MACD fast period').fill('12');
+  await page.getByRole('button',{name:'Apply indicators'}).click();
+  await expect(register).toContainText('MACD 12/26');
+  await expect(register).toContainText('Std dev 60');
+  await expect(register).toContainText('Histogram');
+  await page.reload();
+  await expect(register).toContainText('MACD 12/26');
+  await expect(page.getByLabel('Series transform')).toBeDisabled();
+  await page.setViewportSize({width:390,height:844});
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('button',{name:'Edit indicators',exact:true}).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByRole('button',{name:'Clear all',exact:true}).click();
+  await expect(register).not.toContainText('MACD');
+  await expect(page.getByLabel('Series transform')).toBeEnabled();
+});
+
+test("insufficient study history is reported without invented values", async ({page}) => {
+  await observedWorkspace(page);
+  await page.goto('/#overview');
+  await page.getByRole('button', {name: /^Indicators/}).click();
+  await page.getByLabel('Indicator source').selectOption('observed-source');
+  await page.getByRole('button', {name: 'Apply indicators'}).click();
+  const register = page.getByLabel('Visible time series');
+  await expect(register).toContainText('Warming up · 4/20');
+  await expect(register).toContainText('Warming up · 4/60');
+});

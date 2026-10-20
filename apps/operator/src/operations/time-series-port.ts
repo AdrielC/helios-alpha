@@ -1,3 +1,4 @@
+import type { IndicatorSettings } from "./series-indicators";
 import type { OperationsContext } from "./operations-port";
 import executionEvidenceManifest from "../../../../config/forecasts/execution-evidence-v1.json";
 import spaceWeatherManifest from "../../../../config/forecasts/space-weather-impact-v1.json";
@@ -95,6 +96,7 @@ export interface TimelineWorkspace {
   readonly lanes: readonly TimelineLane[];
   readonly windowMinutes: number;
   readonly forecastBundleIds?: readonly string[];
+  readonly indicators?: readonly IndicatorSettings[];
 }
 
 export interface ForecastBundle {
