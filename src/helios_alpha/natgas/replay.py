@@ -35,12 +35,33 @@ class Quote(Strict):
     bid_size: int = Field(ge=0)
     ask_size: int = Field(ge=0)
     regular_session: bool
+    # Historical feeds can publish multiple updates within one millisecond.
+    # Keep their native clocks and file order; legacy live observations stay valid.
+    observed_ns: int | None = Field(default=None, ge=0)
+    available_ns: int | None = Field(default=None, ge=0)
+    source_sequence: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def valid(self):
         if self.bid_cents > self.ask_cents or self.observed_ms > self.available_ms:
             raise ValueError("crossed quote or reversed clocks")
+        native = (self.observed_ns, self.available_ns, self.source_sequence)
+        if any(v is not None for v in native):
+            if any(v is None for v in native):
+                raise ValueError("native quote clocks require source sequence")
+            if (
+                self.observed_ns > self.available_ns
+                or self.observed_ms != self.observed_ns // 1_000_000
+                or self.available_ms != (self.available_ns + 999_999) // 1_000_000
+            ):
+                raise ValueError("inconsistent native quote clocks")
         return self
+
+    def observed_clock(self):
+        return self.observed_ns if self.observed_ns is not None else self.observed_ms * 1_000_000
+
+    def available_clock(self):
+        return self.available_ns if self.available_ns is not None else self.available_ms * 1_000_000
 
 
 class Plan(Strict):
@@ -87,10 +108,22 @@ def replay(contracts: list[Contract], quotes: list[Quote], plans: list[Plan], p:
     universe = {c.id: c for c in contracts}
     streams = {c.id: [] for c in contracts}
     seen = {}
-    for q in sorted(quotes, key=lambda q: (q.available_ms, q.observed_ms, q.contract_id)):
+    for q in sorted(
+        quotes,
+        key=lambda q: (
+            q.available_clock(),
+            q.source_sequence or 0,
+            q.observed_clock(),
+            q.contract_id,
+        ),
+    ):
         if q.contract_id not in universe:
             raise ValueError("quote without contract metadata")
-        key = (q.contract_id, q.observed_ms)
+        key = (
+            (q.contract_id, q.observed_ms)
+            if q.observed_ns is None
+            else (q.contract_id, q.observed_ns, q.available_ns, q.source_sequence)
+        )
         payload = q.model_dump(exclude={"available_ms"})
         if key in seen:
             if seen[key] != payload:
@@ -127,7 +160,7 @@ def replay(contracts: list[Contract], quotes: list[Quote], plans: list[Plan], p:
         entry = None
         for q in streams[c.id]:
             if (
-                q.observed_ms < start
+                q.observed_clock() < start * 1_000_000
                 or q.available_ms > end
                 or not quality(q)
                 or q.ask_size < 1
@@ -159,8 +192,8 @@ def replay(contracts: list[Contract], quotes: list[Quote], plans: list[Plan], p:
         last_mark = entry.bid_cents * c.multiplier
         for q in streams[c.id]:
             if (
-                q.observed_ms <= entry.observed_ms
-                or q.available_ms <= entry.available_ms
+                q.observed_clock() <= entry.observed_clock()
+                or q.available_clock() <= entry.available_clock()
                 or q.available_ms >= c.close_by_ms
                 or not quality(q)
                 or q.bid_size < 1
@@ -177,7 +210,10 @@ def replay(contracts: list[Contract], quotes: list[Quote], plans: list[Plan], p:
                 if gain_bps >= p.take_profit_bps or gain_bps <= -p.stop_loss_bps:
                     trigger = q.available_ms
                     exit_reason = "take_profit" if gain_bps >= p.take_profit_bps else "stop_loss"
-            if trigger is not None and q.observed_ms >= trigger + p.entry_latency_ms:
+            if (
+                trigger is not None
+                and q.observed_clock() >= (trigger + p.entry_latency_ms) * 1_000_000
+            ):
                 exit_quote = q
                 break
         trade = {
@@ -186,6 +222,8 @@ def replay(contracts: list[Contract], quotes: list[Quote], plans: list[Plan], p:
             "contract_id": c.id,
             "entry_ms": entry.available_ms,
             "entry_cost_cents": cost,
+            "entry_quote": entry.model_dump(exclude_none=True),
+            "exit_quote": None,
             "contracts": 1,
             "exit_reason": exit_reason,
             "pnl_cents": None,
@@ -197,6 +235,7 @@ def replay(contracts: list[Contract], quotes: list[Quote], plans: list[Plan], p:
             trade.update(
                 pnl_cents=last_mark - p.fee_per_contract_cents - cost,
                 exit_ms=exit_quote.available_ms,
+                exit_quote=exit_quote.model_dump(exclude_none=True),
                 status="closed",
             )
             locked_until = exit_quote.available_ms

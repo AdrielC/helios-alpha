@@ -152,7 +152,8 @@ class Journal:
                         (c.id, c.available_ms, canonical(data)),
                     )
             for q in parsed_quotes:
-                data = q.model_dump()
+                # Optional native history clocks must not change legacy live quote identities.
+                data = q.model_dump(exclude_none=True)
                 # Repeated reads of the same quote are not additional samples.
                 identity = digest({k: v for k, v in data.items() if k != "available_ms"})
                 self.db.execute(

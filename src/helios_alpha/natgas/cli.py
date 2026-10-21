@@ -131,6 +131,10 @@ def run_replay(dataset, config):
         raise ValueError("dataset provenance is required")
     parsed = ReplayDataset(**dataset)
     contracts, quotes, plans = parsed.contracts, parsed.quotes, parsed.plans
+    if not plans or not quotes:
+        raise ValueError(
+            "replay requires frozen plans and observed quotes; quotes alone are not a backtest"
+        )
     report = replay(contracts, quotes, plans, ReplayPolicy(**config["replay"]))
     profiles = []
     for profile in config["exit_profiles"]:
