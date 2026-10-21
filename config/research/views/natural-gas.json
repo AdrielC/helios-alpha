@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "title": "Natural gas",
+  "subtitle": "UNG · Event research",
+  "mark": "NG",
+  "capabilities": [
+    "Evidence capture",
+    "Option quotes",
+    "Event review",
+    "Replay"
+  ],
+  "lease_ms": 15000,
+  "sections": [
+    {
+      "id": "context",
+      "kind": "metrics",
+      "title": "Research context",
+      "fields": [
+        {
+          "key": "storage",
+          "label": "Lower 48 storage",
+          "path": "storage.storage_bcf",
+          "format": "number",
+          "precision": 0,
+          "unit": "Bcf"
+        },
+        {
+          "key": "change",
+          "label": "Weekly change",
+          "path": "storage.change_bcf",
+          "format": "number",
+          "precision": 0,
+          "unit": "Bcf"
+        },
+        {
+          "key": "evidence",
+          "label": "Archived vintages",
+          "path": "counts.evidence",
+          "format": "number",
+          "precision": 0
+        },
+        {
+          "key": "decisions",
+          "label": "Model receipts",
+          "path": "counts.decisions",
+          "format": "number",
+          "precision": 0
+        }
+      ]
+    },
+    {
+      "id": "premiums",
+      "kind": "table",
+      "title": "Option premiums",
+      "description": "One contract, before fees. Spreads reduce returns; a quoted ask is an observation, not a guaranteed fill. UNG tracks a rolling futures portfolio.",
+      "empty": "Waiting for option quotes from the connected account monitor.",
+      "rows_path": "premiums",
+      "observed_path": "observed_ms",
+      "max_age_path": "max_quote_age_ms",
+      "fields": [
+        {
+          "key": "strike",
+          "label": "Strike",
+          "path": "strike_cents",
+          "format": "currency",
+          "scale": 100
+        },
+        {
+          "key": "kind",
+          "label": "Type",
+          "path": "kind"
+        },
+        {
+          "key": "expiry",
+          "label": "Expiry",
+          "path": "expiry"
+        },
+        {
+          "key": "bid",
+          "label": "Bid",
+          "path": "bid_cents",
+          "format": "currency",
+          "scale": 100
+        },
+        {
+          "key": "ask",
+          "label": "Ask",
+          "path": "ask_cents",
+          "format": "currency",
+          "scale": 100
+        },
+        {
+          "key": "cost",
+          "label": "Buy at ask",
+          "path": "premium_cents",
+          "format": "currency",
+          "scale": 100
+        },
+        {
+          "key": "spread",
+          "label": "Spread cost",
+          "path": "spread_cost_cents",
+          "format": "currency",
+          "scale": 100
+        }
+      ]
+    },
+    {
+      "id": "weather",
+      "kind": "table",
+      "title": "Demand outlook",
+      "description": "Population-weighted NOAA forecast. Heating and cooling remain separate.",
+      "empty": "Waiting for forecast vintages.",
+      "rows_path": "weather",
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Measure",
+          "path": "kind",
+          "labels": {
+            "hdd": "Heating demand",
+            "cdd": "Cooling demand"
+          }
+        },
+        {
+          "key": "total",
+          "label": "7-day total",
+          "path": "total",
+          "format": "number",
+          "precision": 0,
+          "unit": "degree days"
+        },
+        {
+          "key": "period",
+          "label": "Issued",
+          "path": "period"
+        }
+      ]
+    },
+    {
+      "id": "signals",
+      "kind": "table",
+      "title": "Event signals",
+      "empty": "Building the first comparable forecast pair. One weather vintage cannot establish a revision.",
+      "rows_path": "signals",
+      "observed_path": "published_ms",
+      "max_age_ms": 600000,
+      "fields": [
+        {
+          "key": "kind",
+          "label": "Measure",
+          "path": "kind",
+          "labels": {
+            "hdd": "HDD revision",
+            "cdd": "CDD revision"
+          }
+        },
+        {
+          "key": "value",
+          "label": "Change",
+          "path": "value",
+          "format": "number",
+          "precision": 0
+        },
+        {
+          "key": "score",
+          "label": "Standardized",
+          "path": "z_score",
+          "format": "number",
+          "unit": "σ"
+        },
+        {
+          "key": "gate",
+          "label": "Review",
+          "path": "candidate",
+          "labels": {
+            "true": "Candidate",
+            "false": "Below gate or aged"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sources",
+      "kind": "table",
+      "title": "Sources",
+      "rows_path": "sources",
+      "observed_path": "checked_ms",
+      "max_age_ms": 180000,
+      "fields": [
+        {
+          "key": "source",
+          "label": "Source",
+          "path": "source"
+        },
+        {
+          "key": "state",
+          "label": "State",
+          "path": "state"
+        }
+      ]
+    },
+    {
+      "id": "review",
+      "kind": "metrics",
+      "title": "Decision review",
+      "description": "Research only. Model confidence is not a probability of profit.",
+      "fields": [
+        {
+          "key": "enabled",
+          "label": "Review mode",
+          "path": "decision_enabled",
+          "labels": {
+            "true": "Event gated",
+            "false": "Offline evaluation"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hypotheses",
+      "kind": "notes",
+      "title": "Research playbook",
+      "rows_path": "hypotheses",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Hypothesis",
+          "path": "id"
+        },
+        {
+          "key": "signal",
+          "label": "Signal",
+          "path": "signal"
+        },
+        {
+          "key": "requires",
+          "label": "Evidence required",
+          "path": "requires"
+        }
+      ]
+    },
+    {
+      "id": "backtest",
+      "kind": "notes",
+      "title": "Backtest readiness",
+      "description": "Profitability has not been established.",
+      "rows_path": "backtest.blockers",
+      "fields": [
+        {
+          "key": "blocker",
+          "label": "Required evidence",
+          "path": "."
+        }
+      ]
+    },
+    {
+      "id": "exits",
+      "kind": "table",
+      "title": "Exit studies",
+      "description": "Simulation inputs, not forecasts or promised returns.",
+      "rows_path": "exit_profiles",
+      "fields": [
+        {
+          "key": "profile",
+          "label": "Profile",
+          "path": "id"
+        },
+        {
+          "key": "target",
+          "label": "Profit target",
+          "path": "take_profit_bps",
+          "format": "percent",
+          "scale": 100
+        },
+        {
+          "key": "stop",
+          "label": "Loss trigger",
+          "path": "stop_loss_bps",
+          "format": "percent",
+          "scale": 100
+        },
+        {
+          "key": "holding",
+          "label": "Time limit",
+          "path": "holding_ms",
+          "format": "duration"
+        }
+      ]
+    }
+  ]
+}

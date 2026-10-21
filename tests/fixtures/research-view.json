@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "id": "rates-study",
+  "execution_authority": false,
+  "title": "Rate revisions",
+  "subtitle": "Synthetic contract fixture",
+  "mark": "RR",
+  "capabilities": [
+    "Release archive",
+    "Revision study"
+  ],
+  "lease_ms": 15000,
+  "observed_ms": 1800000000000,
+  "sections": [
+    {
+      "id": "summary",
+      "kind": "metrics",
+      "title": "Policy rate",
+      "description": "",
+      "empty": "No observations yet.",
+      "fields": [
+        {
+          "key": "rate",
+          "label": "Target",
+          "format": "percent",
+          "scale": 100.0,
+          "precision": 2,
+          "unit": "",
+          "currency": "USD"
+        }
+      ],
+      "rows": [
+        {
+          "id": "0",
+          "values": {
+            "rate": 425
+          },
+          "observed_ms": null
+        }
+      ],
+      "max_age_ms": null
+    },
+    {
+      "id": "observations",
+      "kind": "table",
+      "title": "Release observations",
+      "description": "",
+      "empty": "No observations yet.",
+      "fields": [
+        {
+          "key": "source",
+          "label": "Source",
+          "format": "text",
+          "scale": 1,
+          "precision": 2,
+          "unit": "",
+          "currency": "USD"
+        },
+        {
+          "key": "rate",
+          "label": "Rate",
+          "format": "percent",
+          "scale": 100.0,
+          "precision": 2,
+          "unit": "",
+          "currency": "USD"
+        }
+      ],
+      "rows": [
+        {
+          "id": "0",
+          "values": {
+            "source": "Test release",
+            "rate": 425
+          },
+          "observed_ms": 1799999999000
+        }
+      ],
+      "max_age_ms": 10000
+    },
+    {
+      "id": "method",
+      "kind": "notes",
+      "title": "Research notes",
+      "description": "",
+      "empty": "No observations yet.",
+      "fields": [
+        {
+          "key": "note",
+          "label": "Method",
+          "format": "text",
+          "scale": 1,
+          "precision": 2,
+          "unit": "",
+          "currency": "USD"
+        }
+      ],
+      "rows": [
+        {
+          "id": "0",
+          "values": {
+            "note": "Synthetic data for renderer verification."
+          },
+          "observed_ms": null
+        }
+      ],
+      "max_age_ms": null
+    }
+  ]
+}

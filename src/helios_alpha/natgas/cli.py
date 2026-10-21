@@ -17,6 +17,7 @@ import httpx
 from helios_alpha.control.broker_sync import write_private
 from helios_alpha.control.golem_store import GolemControlStore
 from helios_alpha.control.store import DEFAULT_ROOT, canonical, private_root
+from helios_alpha.research_views import publish_configured
 
 from . import decisions
 from .lab import Journal, digest, settings
@@ -26,6 +27,18 @@ from .sources import SOURCES, parse_source
 
 def clock():
     return time.time_ns() // 1_000_000
+
+
+def publish_snapshot(root, journal, config):
+    snapshot = journal.snapshot(clock(), config)
+    write_private(root / "natgas-status.json", snapshot)
+    publish_configured(
+        root,
+        "natural-gas",
+        Path(__file__).resolve().parents[3] / "config/research/views/natural-gas.json",
+        snapshot,
+        snapshot["observed_ms"],
+    )
 
 
 async def fetch_source(client, url):
@@ -61,7 +74,7 @@ async def collect(root, *, once=False, prepare=False):
     try:
         config = settings(root)
         if prepare:
-            write_private(root / "natgas-status.json", journal.snapshot(clock(), config))
+            publish_snapshot(root, journal, config)
             return
         async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
             while not stopped.is_set():
@@ -93,13 +106,13 @@ async def collect(root, *, once=False, prepare=False):
                         await decisions.review(
                             journal, store, config, candidate, evidence, executable
                         )
-                write_private(root / "natgas-status.json", journal.snapshot(clock(), config))
+                publish_snapshot(root, journal, config)
                 if once:
                     break
                 due = time.monotonic() + config["poll_seconds"]
                 while not stopped.is_set() and time.monotonic() < due:
                     # Fresh heartbeat is separate from unchanged source observation times.
-                    write_private(root / "natgas-status.json", journal.snapshot(clock(), config))
+                    publish_snapshot(root, journal, config)
                     try:
                         await asyncio.wait_for(
                             stopped.wait(), min(5, max(0.01, due - time.monotonic()))

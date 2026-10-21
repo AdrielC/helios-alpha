@@ -37,3 +37,4 @@ pub mod event_radar;
 
 pub mod research_registry;
 pub mod natgas;
+pub mod research_views;
