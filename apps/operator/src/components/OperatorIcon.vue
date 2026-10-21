@@ -5,6 +5,7 @@ const paths: Record<string, string> = {
   overview: "M3 17l5-5 4 3 8-10M14 5h6v6M3 4v16h18",
   positions: "M12 3 2 8l10 5 10-5-10-5ZM3 12l9 5 9-5M3 16l9 5 9-5",
   orders: "M7 3h10l3 3v15H4V3h3ZM8 8h8M8 12h8M8 16h5",
+  events: "M4 5h16v16H4V5ZM8 3v4M16 3v4M4 10h16M8 14h2M14 14h2M8 17h2",
   forecasts: "M3 12h4l3-8 4 16 3-8h4",
   activity: "M4 5h16M4 12h10M4 19h13M19 10v4M17 12h4",
   sources: "M12 3a4 4 0 0 1 4 4v1h2a4 4 0 0 1 0 8h-2M12 21a4 4 0 0 1-4-4v-1H6a4 4 0 0 1 0-8h2M12 8v8M8 12h8",

@@ -10,7 +10,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
 from helios_alpha.crypto.account_reader import read_account_availability
-from helios_alpha.crypto.event_radar import read_event_radar
+from helios_alpha.crypto.event_radar import read_event_radar, read_research_registry
 from helios_alpha.crypto.evidence import read_news_evidence
 from helios_alpha.crypto.news_study import read_news_study
 from helios_alpha.crypto.snapshots import read_decision_input, read_decision_snapshots
@@ -151,6 +151,16 @@ def build_server(store: GolemControlStore | ControlStore, client: str) -> FastMC
         def event_radar_resource() -> str:
             """Public event evidence and detector settings with fresh permission checks."""
             return json.dumps(read_event_radar(store, client), sort_keys=True)
+
+        @server.tool(annotations=read)
+        def get_research_registry() -> dict:
+            """Read events, versioned market-implied forecasts and their source evidence."""
+            return read_research_registry(store, client)
+
+        @server.resource("helios://research-registry/v1", mime_type="application/json")
+        def research_registry_resource() -> str:
+            """Recorded event definitions and issued forecasts. No execution authority."""
+            return json.dumps(read_research_registry(store, client), sort_keys=True)
 
         @server.tool(annotations=read)
         def get_news_evidence(limit: int = 20, before_sequence: int | None = None) -> dict:

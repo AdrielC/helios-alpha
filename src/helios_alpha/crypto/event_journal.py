@@ -10,10 +10,21 @@ from pathlib import Path
 
 from helios_alpha.control.store import canonical
 
+from . import research_registry
+
 
 def validate_config(config):
+    config = {
+        "forecast_interval_seconds": 300,
+        "forecast_min_interval_seconds": 60,
+        "forecast_move_pp": 1,
+        **config,
+    }
     bounds = {
         "revision": (1, 10**9),
+        "forecast_interval_seconds": (60, 3600),
+        "forecast_min_interval_seconds": (15, 600),
+        "forecast_move_pp": (0.1, 20),
         "poll_seconds": (15, 300),
         "discovery_seconds": (300, 86400),
         "markets_per_provider": (1, 20),
@@ -33,7 +44,7 @@ def validate_config(config):
         if type(value) not in (int, float) or not math.isfinite(value) or not low <= value <= high:
             raise ValueError("invalid event configuration bound")
         if (
-            key not in {"move_pp", "reset_pp", "max_spread_pp", "min_depth_usd"}
+            key not in {"move_pp", "reset_pp", "max_spread_pp", "min_depth_usd", "forecast_move_pp"}
             and type(value) is not int
         ):
             raise ValueError("event period must be an integer")
@@ -42,6 +53,8 @@ def validate_config(config):
         or config["lookback_seconds"] < config["poll_seconds"] * 3
     ):
         raise ValueError("invalid event hysteresis or lookback")
+    if config["forecast_min_interval_seconds"] > config["forecast_interval_seconds"]:
+        raise ValueError("invalid forecast issuance periods")
     for key in ("polymarket_tags", "kalshi_series"):
         if (
             not isinstance(config.get(key), list)
@@ -92,8 +105,11 @@ class EventJournal:
             market_id TEXT, at_ms INTEGER, state TEXT, revision INTEGER);
         """)
 
+        research_registry.initialize(self.db)
+
     def register(self, provider, items, at):
         with self.db:
+            research_registry.register(self.db, provider, items, at)
             self.db.execute("UPDATE registry SET watched=0 WHERE provider=?", (provider,))
             for item in items:
                 self.db.execute(
@@ -133,6 +149,7 @@ class EventJournal:
             if not inserted.rowcount or latest is not None and observed < latest:
                 return None
             seq = inserted.lastrowid
+            research_registry.record(self.db, item, observation, validate_config(config), seq)
             previous = self.db.execute(
                 "SELECT * FROM rules WHERE market_id=?", (item["id"],)
             ).fetchone()
@@ -241,10 +258,15 @@ class EventJournal:
     def trim(self, now, days):
         with self.db:
             cutoff = now - days * 86400_000
+            research_registry.trim(self.db, cutoff)
             self.db.execute("DELETE FROM observations WHERE received_ms<?", (cutoff,))
             self.db.execute("DELETE FROM transitions WHERE at_ms<?", (cutoff,))
             self.db.execute("DELETE FROM triggers WHERE created_ms<? AND delivered=1", (cutoff,))
-            self.db.execute("DELETE FROM registry WHERE watched=0 AND last_seen_ms<?", (cutoff,))
+            self.db.execute(
+                "DELETE FROM registry WHERE watched=0 AND last_seen_ms<? "
+                "AND id NOT IN (SELECT market_id FROM forecast_heads)",
+                (cutoff,),
+            )
 
     def snapshot(self, now, config):
         markets = []

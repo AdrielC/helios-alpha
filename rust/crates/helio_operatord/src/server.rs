@@ -87,6 +87,7 @@ pub fn router(state: AppState, static_dir: Option<PathBuf>) -> Router {
         .route("/operations/broker-observation", get(broker_observation))
         .route("/operations/broker-sync", get(broker_sync_status))
         .route("/events/radar", get(event_radar_status))
+        .route("/research/registry", get(research_registry_status))
         .route("/events/radar/detection", post(event_radar_update))
         .route("/operations/operator-profile", get(operator_profile))
         .route("/operations/broker-sync/{action}", post(broker_sync_request))
@@ -243,6 +244,15 @@ async fn event_radar_status(State(state): State<AppState>, headers: HeaderMap) -
     let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
     let root = state.broker_observation_path.as_deref().and_then(|p| p.parent());
     let mut response = Json(crate::event_radar::status(root, now).await).into_response();
+    response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+    response
+}
+
+async fn research_registry_status(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    if !local_broker_request(&headers, false) { return StatusCode::FORBIDDEN.into_response(); }
+    let now = (OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000).max(0) as u64;
+    let root = state.broker_observation_path.as_deref().and_then(|p| p.parent());
+    let mut response = Json(crate::research_registry::status(root, now).await).into_response();
     response.headers_mut().insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
 }
@@ -914,6 +924,28 @@ mod tests {
                 assert_eq!(body["state"], "not_connected");
                 assert!(body["observation"].is_null());
                 assert_eq!(body["execution_authority"], false);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn research_registry_requires_loopback_origin_and_never_caches() {
+        for (host, site, expected) in [
+            ("127.0.0.1:8080", "same-origin", StatusCode::OK),
+            ("localhost:8080", "none", StatusCode::OK),
+            ("127.0.0.1:8080", "cross-site", StatusCode::FORBIDDEN),
+            ("other.example", "same-origin", StatusCode::FORBIDDEN),
+        ] {
+            let application = router(state(Arc::new(ReadOnlyCommandExecutor)), None);
+            let response = application.oneshot(Request::builder()
+                .uri("/api/v1/research/registry").header("host", host)
+                .header("sec-fetch-site", site).body(Body::empty()).unwrap()).await.unwrap();
+            assert_eq!(response.status(), expected);
+            if expected == StatusCode::OK {
+                assert_eq!(response.headers()[CACHE_CONTROL], "no-store");
+                let body = json_body(response).await;
+                assert_eq!(body["execution_authority"], false);
+                assert_eq!(body["online"], false);
             }
         }
     }

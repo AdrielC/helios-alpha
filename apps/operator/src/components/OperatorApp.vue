@@ -13,12 +13,13 @@ const OperationsWorkspace = defineAsyncComponent(() => import("./OperationsWorks
 const OperatorHeader = defineAsyncComponent(() => import("./OperatorHeader.vue"));
 const PerspectiveExplorer = defineAsyncComponent(() => import("./PerspectiveExplorer.vue"));
 type WorkspaceView = "operations" | "alerts" | "control" | "explorer";
-type OperationsPane = "overview" | "positions" | "orders" | "forecasts" | "activity" | "sources" | "control" | "explorer";
+type OperationsPane = "overview" | "positions" | "orders" | "events" | "forecasts" | "activity" | "sources" | "control" | "explorer";
 type ConnectionState = "connecting" | "streaming" | "reconnecting" | "snapshot" | "paused" | "error";
-const panes: readonly { id: OperationsPane; label: string; short: string }[] = [
+const allPanes: readonly { id: OperationsPane; label: string; short: string }[] = [
   { id: "overview", label: "Market Atlas", short: "MA" },
   { id: "positions", label: "Positions", short: "PS" },
   { id: "orders", label: "Orders", short: "OR" },
+  { id: "events", label: "Events", short: "EV" },
   { id: "forecasts", label: "Forecasts", short: "FC" },
   { id: "activity", label: "Activity", short: "AC" },
   { id: "sources", label: "Sources", short: "SR" },
@@ -41,6 +42,8 @@ const operatorProfile = useOperatorProfile();
 const workspace = ref<HTMLElement>();
 const snapshot = shallowRef<OperationsSnapshot>(bootstrapSnapshot);
 const hasSnapshot = ref(false);
+const panes = computed(() => allPanes.filter(p => p.id !== "events" || snapshot.value.dataClass === "observed"));
+const registryFocus = ref("");
 const { observation: brokerObservation, sync: brokerSync, brokerAction, error: brokerError, loading: brokerLoading, now: brokerNow } = useBrokerHoldings();
 const lastSuccessfulAt = ref<string>();
 const failureReason = ref("");
@@ -101,6 +104,7 @@ const effectiveRailCollapsed = computed(() => railCollapsed.value);
 function applySnapshot(next: OperationsSnapshot): void {
   snapshot.value = next;
   hasSnapshot.value = true;
+  if (next.dataClass !== "observed" && activePane.value === "events") selectPane("overview");
   lastSuccessfulAt.value = next.observedAt;
   failureReason.value = "";
   if (!next.signals.some((item) => item.id === selectedSignalId.value)) selectedSignalId.value = next.signals[0]?.id ?? "";
@@ -146,16 +150,19 @@ function selectWorkspace(next: WorkspaceView): void {
   else { view.value = "alerts"; updateLocation("alerts"); }
 }
 function selectPane(next: OperationsPane, updateHistory = true): void {
+  registryFocus.value = "";
   activePane.value = next;
   view.value = next === "control" ? "control" : next === "explorer" ? "explorer" : "operations";
   if (updateHistory) updateLocation(next);
 }
+function openRegistry(mode: "events" | "forecasts", id: string): void { selectPane(mode); registryFocus.value = id; }
 function openOrder(id: string): void { selectedOrderId.value = id; selectPane("orders"); }
 function syncLocation(): void {
   const hash = window.location.hash.slice(1).toLowerCase();
   if (hash === "signals") selectPane("forecasts", false);
   else if (hash === "explore") selectPane("explorer", false);
-  else if (panes.some((pane) => pane.id === hash)) selectPane(hash as OperationsPane, false);
+  else if (hash === "events" && hasSnapshot.value && snapshot.value.dataClass !== "observed") selectPane("overview");
+  else if (allPanes.some((pane) => pane.id === hash)) selectPane(hash as OperationsPane, false);
   else if (hash === "alerts" || hash === "control") view.value = hash;
   else { view.value = "operations"; activePane.value = "overview"; }
 }
@@ -184,7 +191,7 @@ function alertActionLabel(alert: AlertView): string {
 function paneCount(pane: OperationsPane): number | undefined {
   if (pane === "positions") return snapshot.value.positions.length + (brokerObservation.value?.positions.length ?? 0);
   if (pane === "orders") return snapshot.value.orders.length;
-  if (pane === "forecasts") return snapshot.value.signals.length;
+  if (pane === "forecasts") return snapshot.value.dataClass === "observed" ? undefined : snapshot.value.signals.length;
   if (pane === "activity") return snapshot.value.activity.length;
   if (pane === "sources") return snapshot.value.dataClass === "observed" ? undefined : snapshot.value.sources.length;
   return undefined;
@@ -196,7 +203,7 @@ function relativeTime(timestamp: string): string {
   return `${Math.floor(delta / 3_600_000)}h ago`;
 }
 function focusPane(index: number): void {
-  const pane = panes[(index + panes.length) % panes.length];
+  const pane = panes.value[(index + panes.value.length) % panes.value.length];
   selectPane(pane.id);
   requestAnimationFrame(() => document.getElementById(`operations-tab-${pane.id}`)?.focus());
 }
@@ -206,7 +213,7 @@ function paneKey(event: KeyboardEvent, index: number): void {
   if (event.key === previous) { event.preventDefault(); focusPane(index - 1); }
   else if (event.key === next) { event.preventDefault(); focusPane(index + 1); }
   else if (event.key === "Home") { event.preventDefault(); focusPane(0); }
-  else if (event.key === "End") { event.preventDefault(); focusPane(panes.length - 1); }
+  else if (event.key === "End") { event.preventDefault(); focusPane(panes.value.length - 1); }
 }
 function railKey(event: KeyboardEvent): void {
   if (event.key === "ArrowLeft") railWidth.value = Math.max(156, railWidth.value - 8);
@@ -294,7 +301,7 @@ onBeforeUnmount(() => {
         <main ref="workspace" :id="`operations-panel-${activePane}`" class="operations-workspace" role="tabpanel" :aria-labelledby="`operations-tab-${activePane}`" tabindex="0">
           <Suspense v-if="activePane === 'control'"><CommandPlane :authority="commandAuthority" :port="commandPort" :snapshot="snapshot" :stale="stale" @authority="commandAuthority = $event"/><template #fallback><div class="view-loading">Loading risk control</div></template></Suspense>
           <Suspense v-else-if="activePane === 'explorer'"><PerspectiveExplorer :snapshot="snapshot"/><template #fallback><div class="view-loading">Loading data explorer</div></template></Suspense>
-          <Suspense v-else><OperationsWorkspace v-if="timeSeriesPort && investigationPort" @position-account-changed="positionAccount = $event" :broker-observation="brokerObservation" :broker-sync="brokerSync" @connect-broker="brokerAction('connect')" :broker-error="brokerError" :broker-loading="brokerLoading" :broker-now="brokerNow" @refresh-broker="brokerAction('refresh')" :active-pane="activePane" :authority="commandAuthority" :connection-label="connectionLabel" :investigation-port="investigationPort" :port="commandPort" :selected-forecast-id="selectedForecastId" :selected-order-id="selectedOrderId" :selected-signal-id="selectedSignalId" :snapshot="snapshot" :stale="stale" :time-series-port="timeSeriesPort" @authority="commandAuthority = $event" @explore="selectPane('explorer')" @open-forecast="openForecast" @select-order="openOrder" @select-signal="selectedSignalId = $event"/><div v-else class="view-loading">Loading evidence services</div><template #fallback><div class="view-loading">Loading operations</div></template></Suspense>
+          <Suspense v-else><OperationsWorkspace v-if="timeSeriesPort && investigationPort" @position-account-changed="positionAccount = $event" :broker-observation="brokerObservation" :broker-sync="brokerSync" @connect-broker="brokerAction('connect')" :broker-error="brokerError" :broker-loading="brokerLoading" :broker-now="brokerNow" @refresh-broker="brokerAction('refresh')" :active-pane="activePane" :registry-focus="registryFocus" @open-registry="openRegistry" :authority="commandAuthority" :connection-label="connectionLabel" :investigation-port="investigationPort" :port="commandPort" :selected-forecast-id="selectedForecastId" :selected-order-id="selectedOrderId" :selected-signal-id="selectedSignalId" :snapshot="snapshot" :stale="stale" :time-series-port="timeSeriesPort" @authority="commandAuthority = $event" @explore="selectPane('explorer')" @open-forecast="openForecast" @select-order="openOrder" @select-signal="selectedSignalId = $event"/><div v-else class="view-loading">Loading evidence services</div><template #fallback><div class="view-loading">Loading operations</div></template></Suspense>
         </main>
       </div>
     </template>

@@ -13,6 +13,9 @@
   "min_depth_usd": 100,
   "max_cache_age_seconds": 60,
   "retention_days": 30,
+  "forecast_interval_seconds": 300,
+  "forecast_min_interval_seconds": 60,
+  "forecast_move_pp": 1,
   "polymarket_tags": ["crypto", "economy"],
   "kalshi_series": ["KXCPI", "KXFEDDECISION", "KXBTCD", "KXETHD"],
   "topics": [

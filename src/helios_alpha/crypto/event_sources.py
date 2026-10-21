@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
 import time
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote
+
+import httpx
 
 from .news import stamp_ms, text_only
 
@@ -76,7 +79,11 @@ def registry_item(provider, market, config, now):
         url = "https://polymarket.com/event/" + quote(
             event.get("slug", market.get("slug", "")), safe=""
         )
-        extra = {"token_id": str(tokens[0]), "volume_unit": "USD"}
+        extra = {
+            "token_id": str(tokens[0]),
+            "volume_unit": "USD",
+            "event_title": text_only(event.get("title", event_id), 300),
+        }
     else:
         if market.get("status") != "active" or market.get("market_type") != "binary":
             return None
@@ -88,7 +95,7 @@ def registry_item(provider, market, config, now):
         volume = finite(market.get("volume_24h_fp", 0))
         event_id = market["event_ticker"]
         url = "https://kalshi.com/markets/" + quote(identity.split("-")[0].lower(), safe="")
-        extra = {"volume_unit": "contracts"}
+        extra = {"volume_unit": "contracts", "event_title": event_id}
     topic = matched_topic(title, config)
     if (
         not topic
@@ -155,9 +162,28 @@ async def discover(client, provider, config, now):
                 result[item["id"]] = item
         except (ValueError, KeyError, TypeError):
             continue
-    return sorted(result.values(), key=lambda item: (-item["volume_24h"], item["id"]))[
+    selected = sorted(result.values(), key=lambda item: (-item["volume_24h"], item["id"]))[
         : config["markets_per_provider"]
     ]
+    if provider == "kalshi":
+        sem = asyncio.Semaphore(3)
+
+        async def enrich(event_id):
+            async with sem:
+                try:
+                    body, _, _ = await public_json(
+                        client, provider, "/events/" + quote(event_id, safe="")
+                    )
+                    return event_id, text_only(body["event"]["title"], 300)
+                except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                    return event_id, event_id
+
+        titles = dict(
+            await asyncio.gather(*(enrich(key) for key in {m["event_id"] for m in selected}))
+        )
+        for item in selected:
+            item["event_title"] = titles[item["event_id"]]
+    return selected
 
 
 async def observe(client, item):

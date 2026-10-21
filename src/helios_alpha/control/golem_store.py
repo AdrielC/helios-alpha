@@ -14,11 +14,11 @@ from .models import PolicyUpdate
 from .store import DEFAULT_ROOT, ControlError, canonical, private_root
 
 
-def read_private_json(path: Path) -> dict:
+def read_private_json(path: Path, *, max_bytes: int = 1024 * 1024) -> dict:
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ControlError("configuration must be a private, user-owned regular file")
-    if info.st_size > 1024 * 1024:
+    if info.st_size > max_bytes:
         raise ControlError("configuration exceeds size bound")
     result = json.loads(path.read_bytes())
     if not isinstance(result, dict):

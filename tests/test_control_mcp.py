@@ -74,6 +74,13 @@ def test_mcp_caps_and_durable_pause(tmp_path):
             assert radar == {"schema_version": 1, "online": False, "execution_authority": False}
             resource = await session.read_resource("helios://events/v1")
             assert json.loads(resource.contents[0].text) == radar
+            assert "get_research_registry" in tools
+            registry = await session.call_tool("get_research_registry", {})
+            assert not registry.isError
+            registry = registry.structuredContent or json.loads(registry.content[0].text)
+            assert registry == {"schema_version": 1, "online": False, "execution_authority": False}
+            resource = await session.read_resource("helios://research-registry/v1")
+            assert json.loads(resource.contents[0].text) == registry
             assert "get_news_study" in tools
             study = await session.call_tool("get_news_study", {})
             assert not study.isError

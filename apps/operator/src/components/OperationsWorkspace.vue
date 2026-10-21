@@ -10,10 +10,11 @@ import BrokerHoldings from "./BrokerHoldings.vue";
 import WorkspaceDataSource from "./WorkspaceDataSource.vue";
 import OperatorIcon from "./OperatorIcon.vue";
 
-type OperationsPane = "overview" | "positions" | "orders" | "forecasts" | "activity" | "sources";
+type OperationsPane = "overview" | "positions" | "orders" | "events" | "forecasts" | "activity" | "sources";
 const props = defineProps<{
   snapshot: OperationsSnapshot;
   activePane: OperationsPane;
+  registryFocus?: string;
   connectionLabel: string;
   stale: boolean;
   authority: CommandAuthority;
@@ -33,12 +34,17 @@ const emit = defineEmits<{
   authority: [authority: CommandAuthority];
   explore: [];
   openForecast: [id: string];
+  openRegistry: [mode: "events" | "forecasts", id: string];
   selectSignal: [id: string];
   selectOrder: [id: string];
   positionAccountChanged: [account: string];
   refreshBroker: [];
   connectBroker: [];
 }>();
+
+const ResearchRegistry = defineAsyncComponent(() => import("./ResearchRegistry.vue"));
+const showDefinitions = ref(false);
+watch(() => props.activePane, () => { showDefinitions.value = false; });
 
 const NewOrderTicket = defineAsyncComponent(() => import("./NewOrderTicket.vue"));
 const SourceMonitor = defineAsyncComponent(() => import("./SourceMonitor.vue"));
@@ -166,8 +172,10 @@ watch(() => props.snapshot.context.accountId, () => { void loadResearchContext()
       <section class="fills-section"><header class="section-header"><h2>Executions</h2><span>{{ snapshot.fills.length }}</span></header><div class="table-scroll" tabindex="0"><table><thead><tr><th>Execution</th><th>Instrument</th><th>Side</th><th class="number">Quantity</th><th class="number">Price</th><th>Venue</th><th>Strategy</th><th>Liquidity</th><th>Time</th></tr></thead><tbody><tr v-for="fill in snapshot.fills" :key="fill.executionId"><th>{{ shortId(fill.executionId) }}</th><td>{{ fill.instrument }}</td><td :class="fill.side === 'buy' ? 'positive' : 'negative'">{{ fill.side }}</td><td class="number">{{ quantity(fill.quantityMicros) }}</td><td class="number">{{ money(fill.priceMicros) }}</td><td>{{ fill.venue }}</td><td>{{ strategyName(fill.strategy) }}</td><td>{{ fill.liquidity }}</td><td>{{ fill.executedAt }}</td></tr></tbody></table></div></section>
     </section>
 
+    <ResearchRegistry v-else-if="snapshot.dataClass === 'observed' && (activePane === 'events' || (activePane === 'forecasts' && !showDefinitions))" :key="activePane" :mode="activePane === 'events' ? 'events' : 'forecasts'" :focus-id="registryFocus" @open-registry="(mode,id) => emit('openRegistry', mode, id)" @definitions="showDefinitions=true"/>
+
     <section v-else-if="activePane === 'forecasts'" class="pane-section" aria-labelledby="forecasts-heading">
-      <header class="pane-heading"><div><h1 id="forecasts-heading">Forecasts</h1><span>{{ forecastBundles.length }} bundles</span></div><time :datetime="snapshot.observedAt">Research evidence</time></header>
+      <header class="pane-heading"><div><h1 id="forecasts-heading">{{ showDefinitions ? "Research definitions" : "Forecasts" }}</h1><span>{{ forecastBundles.length }} bundles</span></div><button v-if="showDefinitions" @click="showDefinitions=false">← Forecast registry</button><time v-else :datetime="snapshot.observedAt">Research evidence</time></header>
       <WorkspaceDataSource :snapshot="snapshot" :connection="connectionLabel" :description="`${forecastBundles.length} research definitions · ${snapshot.signals.length} generated decision candidates. Strategy status is shown separately below.`" /><div class="crypto-monitor"><StrategyMonitor :sync="brokerSync" :now="brokerNow" /></div><p class="workspace-scope">Research bundles below belong to the {{ snapshot.mode }} workspace. They do not manage your Robinhood holdings.</p><div class="forecast-layout"><nav class="forecast-register" aria-label="Forecast bundles"><button v-for="bundle in forecastBundles" :key="bundle.id" :class="{ selected: selectedBundle?.id === bundle.id }" @click="chooseBundle(bundle.id)"><span :data-state="bundle.state"></span><div><strong>{{ bundle.label }}</strong><small>{{ bundle.horizon }} · v{{ bundle.bundleVersion }} · {{ bundle.seriesIds.length }} inputs</small></div><b>{{ bundle.state }}</b></button></nav><article v-if="selectedBundle" class="forecast-inspector"><header><div><span>Forecast bundle · {{ selectedBundle.horizon }}</span><h2>{{ selectedBundle.label }}</h2><p>{{ selectedBundle.thesis }}</p></div><button @click="emit('openForecast', selectedBundle.id)">Open in Market Atlas</button></header><section class="forecast-inputs"><div><h3>Observation contract</h3><p>Inputs are ordered, source-bound, and freshness-gated.</p></div><ul><li v-for="input in selectedBundle.inputContract" :key="input.seriesId" :title="input.role"><span :style="{ background: seriesCatalog.find((item) => item.id === input.seriesId)?.color }"></span><div><strong>{{ descriptorName(input.seriesId) }}</strong><small>{{ input.role }}</small></div><b>{{ input.required ? 'Required' : 'Optional' }} · {{ freshness(input.maxAgeSeconds) }}</b></li></ul></section><section class="forecast-candidates"><header class="section-header"><h3>Decision candidates</h3><span>{{ selectedBundleSignals.length }}</span></header><button v-for="signal in selectedBundleSignals" :key="signal.id" :class="{ selected: selectedSignal?.id === signal.id }" @click="emit('selectSignal', signal.id)"><i :data-state="signal.state"></i><span><strong>{{ signal.hypothesis }}</strong><small>{{ signal.instrument }} · {{ signal.horizon }} · {{ signal.trigger }}</small></span><b>{{ percent(signal.posteriorBps) }}</b></button><p v-if="selectedBundleSignals.length === 0" class="empty-state">No decision candidates for this bundle</p></section><dl v-if="selectedSignal" class="forecast-decision"><div><dt>Decision cut</dt><dd>{{ selectedSignal.decisionCut }}</dd></div><div><dt>Action</dt><dd>{{ selectedSignal.action }}</dd></div><div><dt>Availability</dt><dd>{{ selectedSignal.availableAt }}</dd></div><div><dt>Gate</dt><dd :class="selectedSignal.blocker ? 'negative' : 'positive'">{{ selectedSignal.blocker ?? 'Eligible' }}</dd></div></dl></article></div>
     </section>
 

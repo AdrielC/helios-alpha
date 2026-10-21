@@ -183,6 +183,7 @@ onBeforeUnmount(() => {
           signals
         </p>
       </div>
+      <nav class="registry-links" aria-label="Research registries"><a href="#events">Event registry ↗</a><a href="#forecasts">Forecast registry ↗</a></nav>
       <div class="detector">
         <span :data-online="online">{{
           online ? "Collector online" : "Collector offline"
@@ -514,6 +515,7 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.registry-links{display:flex;gap:14px;margin-left:auto;font-size:11px}.registry-links a{white-space:nowrap;color:#bedba8;text-decoration:none}@media(max-width:900px){.registry-links{margin-left:0}}
 .event-radar {
   color: #dce4ee;
   padding-bottom: 24px;

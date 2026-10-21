@@ -19,6 +19,7 @@ from helios_alpha.control.store import DEFAULT_ROOT, ControlError, canonical, pr
 from helios_alpha.shadow.operator_projection import write_operator_projection
 from helios_alpha.signals.publisher import ensure_stream
 
+from . import research_registry
 from .event_journal import EventJournal, validate_config
 from .event_sources import discover, observe
 
@@ -57,16 +58,25 @@ def recent_news(root):
         ]
 
 
-def read_event_radar(store, client):
+def _read_projection(store, client, name):
     if "status:read" not in store.capabilities(client):
         raise ControlError("event inspection permission required")
-    path = store.root / "event-radar-status.json"
+    path = store.root / name
     if not path.exists():
         return {"schema_version": 1, "online": False, "execution_authority": False}
-    data = read_private_json(path)
+    limit = 4 * 1024 * 1024 if name == "research-registry-status.json" else 1024 * 1024
+    data = read_private_json(path, max_bytes=limit)
     if data.get("schema_version") != 1 or data.get("execution_authority") is not False:
         raise ControlError("invalid event observation")
     return {**data, "online": 0 <= clock() - data["observed_ms"] <= 15000}
+
+
+def read_event_radar(store, client):
+    return _read_projection(store, client, "event-radar-status.json")
+
+
+def read_research_registry(store, client):
+    return _read_projection(store, client, "research-registry-status.json")
 
 
 async def run(root, *, prepare=False, once=False):
@@ -79,7 +89,10 @@ async def run(root, *, prepare=False, once=False):
         write_operator_projection(
             config_path, validate_config(json.loads(DEFAULT_CONFIG.read_text()))
         )
-    config = validate_config(read_private_json(config_path))
+    saved_config = read_private_json(config_path)
+    config = validate_config(saved_config)
+    if config != saved_config:
+        write_operator_projection(config_path, config)
     journal = EventJournal(root / "event-radar.sqlite3")
     stopped = asyncio.Event()
     health = {
@@ -104,6 +117,10 @@ async def run(root, *, prepare=False, once=False):
             last_command=command,
         )
         write_operator_projection(root / "event-radar-status.json", result)
+        write_operator_projection(
+            root / "research-registry-status.json",
+            research_registry.snapshot(journal.db, clock(), config),
+        )
         return result
 
     async def wait(seconds):
