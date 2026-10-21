@@ -48,9 +48,10 @@ gateway_pid=""
 broker_sync_pid=""
 market_pid=""
 events_pid=""
+natgas_pid=""
 cleanup() {
   trap - EXIT INT TERM
-  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid"; do
+  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid" "$natgas_pid"; do
     if [[ -n "$child" ]]; then
       kill "$child" 2>/dev/null || true
     fi
@@ -59,13 +60,13 @@ cleanup() {
   # Bound shutdown, then reap only the children started by this launcher.
   for _ in {1..50}; do
     alive=0
-    for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid"; do
+    for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid" "$natgas_pid"; do
       if [[ -n "$child" ]] && kill -0 "$child" 2>/dev/null; then alive=1; fi
     done
     [[ "$alive" == "0" ]] && break
     sleep 0.1
   done
-  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid"; do
+  for child in "$gateway_pid" "$shadow_pid" "$broker_sync_pid" "$market_pid" "$events_pid" "$natgas_pid"; do
     if [[ -n "$child" ]]; then
       kill -KILL "$child" 2>/dev/null || true
       wait "$child" 2>/dev/null || true
@@ -78,6 +79,11 @@ trap 'exit 143' TERM
 
 "$repo_root/.venv/bin/helios-shadow" "${shadow_args[@]}" --interval-seconds 60 &
 shadow_pid=$!
+
+# Natural-gas evidence capture has no execution adapter or live-policy mutation.
+"$repo_root/.venv/bin/python" -m helios_alpha.natgas.cli collect --prepare
+"$repo_root/.venv/bin/python" -m helios_alpha.natgas.cli collect &
+natgas_pid=$!
 
 # The monitor has its own persisted OAuth grant and only calls broker read tools.
 # Credentials and the explicit import-role configuration stay outside the repo.

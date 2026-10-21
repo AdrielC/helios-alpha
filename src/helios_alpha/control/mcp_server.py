@@ -157,6 +157,16 @@ def build_server(store: GolemControlStore | ControlStore, client: str) -> FastMC
             """Read events, versioned market-implied forecasts and their source evidence."""
             return read_research_registry(store, client)
 
+        @server.tool(annotations=read)
+        def get_natural_gas_research() -> dict:
+            """Read archived gas events, UNG premium timestamps and research readiness."""
+            from helios_alpha.crypto.event_radar import _read_projection
+            return _read_projection(store, client, "natgas-status.json")
+
+        @server.resource("helios://natural-gas/v1", mime_type="application/json")
+        def natural_gas_resource() -> str:
+            return json.dumps(get_natural_gas_research(), sort_keys=True)
+
         @server.resource("helios://research-registry/v1", mime_type="application/json")
         def research_registry_resource() -> str:
             """Recorded event definitions and issued forecasts. No execution authority."""

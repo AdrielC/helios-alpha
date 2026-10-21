@@ -36,3 +36,4 @@ pub mod broker_sync;
 pub mod event_radar;
 
 pub mod research_registry;
+pub mod natgas;

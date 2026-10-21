@@ -43,6 +43,7 @@ const emit = defineEmits<{
 }>();
 
 const ResearchRegistry = defineAsyncComponent(() => import("./ResearchRegistry.vue"));
+const NaturalGasDesk = defineAsyncComponent(() => import("./NaturalGasDesk.vue"));
 const showDefinitions = ref(false);
 watch(() => props.activePane, () => { showDefinitions.value = false; });
 
@@ -147,6 +148,7 @@ watch(() => props.snapshot.context.accountId, () => { void loadResearchContext()
 <template>
   <div class="operations-pane">
     <template v-if="activePane === 'overview'">
+      <NaturalGasDesk v-if="snapshot.dataClass === 'observed'" />
       <SynchronizedEvidenceTimeline :strategy="brokerSync.strategy" :investigation-port="investigationPort" :port="timeSeriesPort" :selected-forecast-id="selectedForecastId" :selected-order-id="selectedOrderId" :snapshot="snapshot" @select-order="emit('selectOrder', $event)"/>
     </template>
 

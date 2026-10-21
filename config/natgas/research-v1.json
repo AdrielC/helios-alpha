@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "revision": 1,
+  "mode": "research",
+  "symbol": "UNG",
+  "poll_seconds": 60,
+  "quote_poll_seconds": 60,
+  "target_dte": 21,
+  "min_dte": 7,
+  "max_dte": 45,
+  "weather_overlap_days": 4,
+  "weather_revision_threshold": 8,
+  "storage_surprise_threshold_bcf": 8,
+  "max_event_age_seconds": 600,
+  "decision_enabled": false,
+  "decision_timeout_ms": 8000,
+  "decision_min_evidence_probability": 0.9,
+  "decision_min_choice_probability": 0.8,
+  "decision_min_confidence": 0.8,
+  "exit_profiles": [
+    {"id":"event-scalp", "holding_ms":3600000, "take_profit_bps":3000, "stop_loss_bps":2500},
+    {"id":"momentum-runner", "holding_ms":14400000, "take_profit_bps":20000, "stop_loss_bps":3500},
+    {"id":"multi-session-convexity", "holding_ms":172800000, "take_profit_bps":40000, "stop_loss_bps":5000}
+  ],
+  "replay": {
+    "capital_cents": 60000,
+    "max_premium_cents": 6000,
+    "fee_per_contract_cents": 5,
+    "slippage_per_share_cents": 1,
+    "entry_latency_ms": 1000,
+    "max_quote_age_ms": 10000,
+    "entry_window_ms": 60000,
+    "max_spread_bps": 2000,
+    "holding_ms": 3600000,
+    "take_profit_bps": 3000,
+    "stop_loss_bps": 2500,
+    "expiry_buffer_ms": 3600000
+  },
+  "hypotheses": [
+    {"id":"storage-surprise", "signal":"Published injection minus a pre-release frozen forecast; lower is tighter.", "requires":"Timestamped independent consensus or our own frozen forecast and scale; five-year averages are context only."},
+    {"id":"weather-revision", "signal":"Change in population-weighted HDD and CDD over identical future dates.", "requires":"At least four common future dates across two archived forecast vintages; heating and cooling stay separate."},
+    {"id":"lng-disruption", "signal":"Confirmed LNG outage or restart changes feedgas demand.", "requires":"Operator notice with publication and first-observed timestamps; direction checked against supply outages."},
+    {"id":"supply-freezeoff", "signal":"Regional freeze-offs, pipeline maintenance and production recovery.", "requires":"Timestamped pipeline/producer notices and corroboration; weather headlines alone are insufficient."},
+    {"id":"curve-and-volatility", "signal":"Curve shape, UNG roll exposure and implied move versus event response distribution.", "requires":"Point-in-time futures curve, options bid/ask and matched historical events; not yet connected."}
+  ]
+}

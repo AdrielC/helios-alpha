@@ -331,14 +331,32 @@ class SyncWorker:
                     async with ClientSession(receive, send) as session:
                         await session.initialize()
                         raw = await collect(session, expected)
-            await asyncio.to_thread(import_broker_observation, self.store, self.client, raw)
-            self.failures = 0
-            self.publish(
-                state="connected",
-                last_success_ms=now_ms(),
-                next_poll_ms=now_ms() + self.interval * 1000,
-                account_permissions=account_permissions(raw),
-            )
+                        await asyncio.to_thread(
+                            import_broker_observation, self.store, self.client, raw
+                        )
+                        self.failures = 0
+                        self.publish(
+                            state="connected",
+                            last_success_ms=now_ms(),
+                            next_poll_ms=now_ms() + self.interval * 1000,
+                            account_permissions=account_permissions(raw),
+                        )
+                        # Optional research reads share this grant, never its account payload.
+                        # A failed option feed must not invalidate a successful account read.
+                        if (self.root / "natgas-config.json").exists():
+                            from helios_alpha.natgas.broker import capture
+
+                            try:
+                                async with asyncio.timeout(15):
+                                    await capture(session, self.root, now_ms)
+                            except Exception:
+                                from helios_alpha.natgas.lab import Journal
+
+                                journal = Journal(self.root)
+                                try:
+                                    journal.health("robinhood-options", "unavailable", now_ms())
+                                finally:
+                                    journal.close()
         except asyncio.CancelledError:
             raise
         except Exception:
